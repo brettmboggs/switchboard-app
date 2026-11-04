@@ -7,7 +7,14 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
+// The mark (ring, lamp, three dots), inline so its colours follow the page: dots --brand, lamp the board's state (css/brand.css). Same drawing as scripts/icons.mjs, heavy cut.
+const MARK_SVG = '<svg class="mark-sym" viewBox="2 6 45 36" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10H11.5C15.75 10 15.75 24 20 24"/><path d="M6 38H11.5C15.75 38 15.75 24 20 24"/><path d="M6 24H20"/><path d="M36 24H44"/></g><circle cx="28" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="4.2"/><circle cx="6" cy="10" r="3.4" class="mk-dot"/><circle cx="6" cy="24" r="3.4" class="mk-dot"/><circle cx="6" cy="38" r="3.4" class="mk-dot"/><circle cx="28" cy="24" r="3.6" class="mk-lamp"/></svg>';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Links and colours from outside (mail, GitHub, Graph, a feed) reach the page
+// only in a shape the page chose: a link is http(s) or mailto, a colour is
+// #rrggbb. Anything else becomes an empty link or the grey of an unsorted project.
+const safeHref = (u) => /^(https?:|mailto:)/i.test(String(u || '')) ? esc(u) : '#';
+const safeColor = (c) => /^#[0-9a-f]{6}$/i.test(c) ? c : '#B9BEC6';
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
 let S = null;                                   // last board state
@@ -17,10 +24,29 @@ let nowFilter = store.get('nowFilter', 'all'); // all | needs | others
 let inboxTab = store.get('inboxTab', 'business');
 let inboxSource = 'all';
 let selected = null;                            // { type, key }
-let draft = {};                                 // unsent replies, by thread key
+let draft = store.get('drafts', {});            // unsent replies and messages, by thread or session key; kept in the browser so a reload never loses them
 let mergeArmed = null;
 let bootSha = null;
 let currentTerm = store.get('term', null);   // Switchboard session shown on the Sessions page
+
+// Drafts are saved as they are typed, so nothing written is lost when the page
+// reloads (an update) or the tab closes. The message bar's text is read from
+// the box itself, since it is only copied into draft when switching sessions.
+let lastTyped = 0, draftTimer = null;
+function saveDrafts() {
+  const ta = document.getElementById('q-text');
+  if (ta && typeof composeFor !== 'undefined' && composeFor) draft['term:' + composeFor] = ta.value;
+  store.set('drafts', Object.fromEntries(Object.entries(draft).filter(([, v]) => typeof v === 'string' && v.trim())));
+}
+document.addEventListener('input', () => { lastTyped = Date.now(); clearTimeout(draftTimer); draftTimer = setTimeout(saveDrafts, 400); }, true);
+addEventListener('pagehide', saveDrafts);
+// Typing, dictating, or a text box in use: an update's reload waits for a quiet minute.
+function busyTyping() {
+  if (typeof rec !== 'undefined' && rec) return true;
+  if (Date.now() - lastTyped < 60e3) return true;
+  const a = document.activeElement;
+  return !!(a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(a.type)) || a.isContentEditable) && (a.value ?? a.textContent ?? '').trim());
+}
 
 async function api(path, body) {
   const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Switchboard': '1' }, body: JSON.stringify(body) };
@@ -29,6 +55,50 @@ async function api(path, body) {
   if (!res.ok) throw new Error(json.error || res.statusText);
   return json;
 }
+
+// ---------- dialogs
+// Every dialog is a .scrim with role="dialog". openDialog remembers what had
+// focus, makes the page behind it inert, puts focus inside (an [autofocus],
+// else the first field, else the heading) and keeps Tab inside; closeDialog
+// undoes all of it and gives focus back. Escape closes only the topmost one
+// (nav.js). A dialog opened over another leaves the lower one inert too.
+const dialogStack = [];
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+const focusables = (root) => [...root.querySelectorAll(FOCUSABLE)].filter((el) => !el.closest('[hidden]') && el.getClientRects().length);
+const topDialog = () => dialogStack.length ? dialogStack[dialogStack.length - 1] : null;
+function openDialog(id) {
+  const d = $(id); if (!d) return;
+  if (!d.classList.contains('open')) d._opener = document.activeElement;
+  if (!dialogStack.includes(id)) dialogStack.push(id);
+  d.classList.add('open');
+  for (const el of document.querySelectorAll('.top, .frame')) el.inert = true;
+  for (const el of document.querySelectorAll('.scrim.open')) el.inert = el !== d;
+  focusInto(d);
+}
+function focusInto(d) {
+  const first = d.querySelector('[autofocus]') || focusables(d).find((el) => el.matches('input, textarea, select')) || d.querySelector('h1, h2, h3') || focusables(d)[0] || d;
+  if (!first.matches(FOCUSABLE) && !first.hasAttribute('tabindex')) first.tabIndex = -1;
+  first.focus({ preventScroll: true });
+}
+function closeDialog(id) {
+  const d = $(id); if (!d || !d.classList.contains('open')) return;
+  d.classList.remove('open');
+  const i = dialogStack.indexOf(id); if (i >= 0) dialogStack.splice(i, 1);
+  const top = topDialog() && $(topDialog());
+  if (top) top.inert = false;
+  else for (const el of document.querySelectorAll('.top, .frame')) el.inert = false;
+  const back = d._opener; d._opener = null;
+  if (back?.isConnected && !back.closest('[inert]') && typeof back.focus === 'function') back.focus({ preventScroll: true });
+  else if (top) focusInto(top);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab' || !dialogStack.length) return;
+  const d = $(topDialog()); if (!d) return;
+  const list = focusables(d); if (!list.length) { e.preventDefault(); return; }
+  const first = list[0], last = list[list.length - 1], a = document.activeElement;
+  if (e.shiftKey && (a === first || !d.contains(a))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (a === last || !d.contains(a))) { e.preventDefault(); first.focus(); }
+});
 
 // ---------- time and money
 function ago(t) {
@@ -54,11 +124,11 @@ const $$ = (n) => '$' + (Math.round((n || 0) * 100) / 100).toLocaleString('en-US
 
 // ---------- projects
 const spaceOf = (id) => S.spaces.find((s) => s.id === id) || { id, name: id === 'personal' ? 'Personal' : (id || 'Unsorted'), color: '#B9BEC6' };
-const tag = (space) => `<span class="tag" style="background:${esc(spaceOf(space).color)}" title="${esc(spaceOf(space).name)}"></span>`;
+const tag = (space) => `<span class="tag" style="background:${safeColor(spaceOf(space).color)}" title="${esc(spaceOf(space).name)}"></span>`;
 const inProject = (x) => project === 'all' || x.space === project;
 
 // ---------- the model: everything in flight, as cards with one state each
-//   needs     blocked on Brett
+//   needs     blocked on the user
 //   working   moving without him
 //   others    waiting on someone else
 //   done      finished recently
@@ -93,7 +163,7 @@ function flight() {
     cards.push({
       type: 'session', key: s.id, space: s.space, st,
       label: s.state === 'finished' ? 'Your turn' : s.state === 'waiting' ? 'Needs you' : STATE_LABEL[st],
-      where: `Claude · ${s.repo || 'unknown folder'}`,
+      where: (tt => `Claude · ${s.repo || 'unknown folder'}${tt && termLabel(tt) !== tt.name ? ' · ' + termLabel(tt) : ''}`)(s.termId && (S.terms || []).find((x) => x.id === s.termId)),
       what: s.state === 'waiting' ? (s.detail || 'Needs you') : s.state === 'finished' ? (s.lastMessage || s.prompt || 'Finished') : (s.prompt || 'Open, nothing asked yet'),
       at: s.updatedAt
     });
@@ -101,7 +171,7 @@ function flight() {
   for (const t of (S.remoteTerms || [])) {
     const st = t.state === 'waiting' || t.state === 'finished' ? 'needs' : t.state === 'running' ? 'working' : 'idle';
     cards.push({ type: 'rterm', key: `r:${t.device}:${t.id}`, space: t.space, st, label: t.state === 'finished' ? 'Your turn' : t.state === 'waiting' ? 'Needs you' : STATE_LABEL[st],
-      where: `${t.agentName} · ${t.name} · on ${t.deviceName}`, what: t.state === 'waiting' ? (t.detail || 'Needs you') : (t.prompt || 'Open'), at: t.updatedAt });
+      where: `${t.agentName} · ${termLabel(t)} · on ${t.deviceName}`, what: t.state === 'waiting' ? (t.detail || 'Needs you') : (t.prompt || 'Open'), at: t.updatedAt });
   }
   for (const g of runGroups()) {
     const st = g.state === 'failed' ? 'needs' : g.state === 'running' ? 'working' : 'done';
@@ -140,7 +210,7 @@ function subTabs() {
   const repos = (S.actions || []).filter(inProject);
   const buildLight = repos.some((a) => a.runs.some((r) => CI_ACTIVE(r.state))) ? 'running' : repos.some((a) => a.runs[0]?.state === 'failure' && Date.now() - a.runs[0].updatedAt < 2 * 86400e3) ? 'failure' : '';
   const light = { builds: buildLight, checks: checksLight() }, count = { builds: ciActiveCount() };
-  return `<nav class="chips sub-tabs" aria-label="${esc(PAGES.find((p) => p[0] === top)[1])}">${tabs.map(([id, name]) => `<a class="chip" href="#${id}" ${page === id ? 'aria-current="page"' : ''}>${esc(name)}${light[id] ? ciDot(light[id]) : ''}${count[id] ? ` <span class="c">${count[id]}</span>` : ''}</a>`).join('')}</nav>`;
+  return `<nav class="chips sub-tabs" aria-label="${esc(PAGES.find((p) => p[0] === top)[1])}">${tabs.map(([id, name]) => `<a class="chip" href="#${id}" ${page === id ? 'aria-current="page"' : ''}>${esc(name)}${count[id] ? ` <span class="c">${count[id]} running</span>` : light[id] === 'failure' ? ` <span class="c bad">failed</span>` : ''}</a>`).join('')}</nav>`;
 }
 
 function renderShell() {
@@ -153,7 +223,7 @@ function renderShell() {
   for (const g of groups) {
     if (groups.length > 1) html += `<h3>${esc(g)}</h3>`;
     for (const s of S.spaces.filter((x) => (x.group || 'Mine') === g)) {
-      html += `<button class="space" type="button" data-space="${esc(s.id)}" aria-pressed="${project === s.id}"><span class="dot" style="background:${esc(s.color)}"></span>${esc(s.name)}<span class="n">${per(s.id) || ''}</span></button>`;
+      html += `<button class="space" type="button" data-space="${esc(s.id)}" aria-pressed="${project === s.id}"><span class="dot" style="background:${safeColor(s.color)}"></span>${esc(s.name)}<span class="n">${per(s.id) || ''}</span></button>`;
     }
   }
   $('projects').innerHTML = html;
@@ -174,12 +244,14 @@ function renderShell() {
   const v = S.version || {};
   $('update-btn').hidden = !v.behind;
   if (v.behind) $('update-btn').title = 'New: ' + (v.subjects || []).join(' · ');
-  if (v.build && bootSha && v.build !== bootSha) location.reload();   // the server has a new page: load it
+  // The server has a new page: load it, but never in the middle of a thought.
+  if (v.build && bootSha && v.build !== bootSha && !busyTyping()) { saveDrafts(); location.reload(); }
   if (v.build && !bootSha) bootSha = v.build;
   const n = needsCount();
   $('needs-n').textContent = n;
   $('needs').classList.toggle('zero', n === 0);
   document.title = n ? `(${n}) Switchboard` : 'Switchboard';
+  document.documentElement.dataset.board = n ? 'needs' : 'clear';   // the lamp in the mark (css/brand.css)
 }
 
 // ---------- shared row

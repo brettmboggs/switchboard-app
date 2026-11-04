@@ -1,6 +1,6 @@
 # The Switchboard app (desktop/): builds the installers for Windows, macOS and
 # Linux and attaches them to a DRAFT GitHub Release. Nothing is published until
-# Brett opens the draft and clicks Publish; only then do installed apps see it
+# the user opens the draft and clicks Publish; only then do installed apps see it
 # as an update (the updater reads releases/latest, which skips drafts).
 #
 #   Push a tag vX.Y.Z (the app's version becomes X.Y.Z), or run it by hand from
@@ -131,7 +131,7 @@ jobs:
             node -e "const f='desktop/src-tauri/tauri.conf.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.bundle.createUpdaterArtifacts=false;fs.writeFileSync(f,JSON.stringify(c,null,2))"
           fi
 
-      # ---- Mac signing and notarization: Brett's later step (see the top of this file).
+      # ---- Mac signing and notarization: the user's later step (see the top of this file).
       - name: Mac signing and notarization (off until vars.MAC_SIGNING is 'true')
         if: runner.os == 'macOS' && vars.MAC_SIGNING == 'true'
         env:

@@ -40,12 +40,26 @@ function toWav16k(chunks, rate) {
   return btoa(bin);
 }
 
-function typeInto(target, text) {
-  if (!text) return;
-  const before = target.value;
-  target.value = (before && !/\s$/.test(before) ? before + ' ' : before) + text;
-  if (target.id === 'q-text') { draft['term:' + currentTerm] = target.value; growText(target); }
-  if (target.id === 'r-text' && selected) draft[selected.key] = target.value;
+// Where the words go. A text box: its value, after what was there. The
+// notebook's page editor (a contenteditable; editor.js hangs `dictation` on
+// it): at the caret, through the editor's own insert path, so one undo takes
+// the words out and the sanitiser applies when the page is saved. set() shows
+// the words so far (replacing the last call's); end() finishes.
+function dictSink(target) {
+  if (target.dictation) {
+    if (!target.dictation.start()) return null;
+    return { set: (text) => target.dictation.show(text), end: () => target.dictation.end() };
+  }
+  const base = target.value && !/\s$/.test(target.value) ? target.value + ' ' : target.value;
+  return {
+    set(text) {
+      target.value = base + text;
+      if (target.id === 'q-text') { draft['term:' + currentTerm] = target.value; growText(target); }
+      if (target.id === 'r-text' && selected) draft[selected.key] = target.value;
+      target.scrollTop = target.scrollHeight;
+    },
+    end() {}
+  };
 }
 
 // Without Whisper (not set up, or a work laptop that blocks it), the browser's
@@ -54,20 +68,18 @@ function typeInto(target, text) {
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 const browserSpeech = !!Speech && !navigator.brave;
 function startBrowserSpeech(btn, target) {
+  const sink = dictSink(target); if (!sink) return false;
   const r = new Speech();
   r.continuous = true; r.interimResults = true; r.lang = navigator.language || 'en-US';
-  const base = target.value ? target.value.replace(/\s*$/, ' ') : '';
   let finals = '';
   r.onresult = (e) => {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finals += t; else interim += t; }
-    target.value = (base + finals + interim).replace(/\s+([,.?!])/g, '$1');
-    if (target.id === 'q-text') { draft['term:' + currentTerm] = target.value; growText(target); }
-    if (target.id === 'r-text' && selected) draft[selected.key] = target.value;
+    sink.set((finals + interim).replace(/\s+([,.?!])/g, '$1'));
   };
   r.onerror = (e) => { if (e.error === 'not-allowed') toast('Allow the microphone for Switchboard to talk to type.'); else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('This browser could not do talk to type. Set it up in Settings, General.'); };
-  r.onend = () => { btn.classList.remove('on'); if (rec?.r === r) rec = null; };
-  try { r.start(); } catch { return false; }
+  r.onend = () => { btn.classList.remove('on'); if (rec?.r === r) rec = null; sink.end(); };
+  try { r.start(); } catch { sink.end(); return false; }
   rec = { btn, r, target, stop() { try { r.stop(); } catch {} } };
   btn.classList.add('on'); target.focus();
   return true;
@@ -84,7 +96,7 @@ async function startDictation(btn) {
   if (!v.ready) {
     if (v.running) { toast(`Talk to type is still setting up: ${v.step || 'starting'}${v.progress ? ' ' + v.progress + '%' : ''}.`); return; }
     toast('Setting up talk to type: a one-time download, about 500 MB. The mic works as soon as it finishes.');
-    api('/api/voice/setup', {}).then(load).catch((err) => toast(err.message));
+    api('/api/voice/setup', {}).then(load).catch((err) => toast(err.message, { kind: 'error' }));
     return;
   }
   let stream;
@@ -95,19 +107,15 @@ async function startDictation(btn) {
   await ctx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
   const src = ctx.createMediaStreamSource(stream), tap = new AudioWorkletNode(ctx, 'sb-tap');
   src.connect(tap);
+  const sink = dictSink(target);
+  if (!sink) { stream.getTracks().forEach((t) => t.stop()); ctx.close(); return; }
   // Each piece of speech (cut at a pause of about 0.7 s, or 20 s of talking)
   // has its own place in the box. While you talk, the piece so far is
   // transcribed again every moment, so words show as you say them; at the
   // pause the finished piece replaces that draft.
-  const base = target.value && !/\s$/.test(target.value) ? target.value + ' ' : target.value;
   const pieces = [];
   let cur = null, chunks = [], speech = 0, quiet = 0, floor = 0.004, inflight = 0, finals = new Set();
-  const show = () => {
-    target.value = base + pieces.map((p) => p.text).filter(Boolean).join(' ');
-    if (target.id === 'q-text') { draft['term:' + currentTerm] = target.value; growText(target); }
-    if (target.id === 'r-text' && selected) draft[selected.key] = target.value;
-    target.scrollTop = target.scrollHeight;
-  };
+  const show = () => sink.set(pieces.map((p) => p.text).filter(Boolean).join(' '));
   const ask = (wav) => { inflight++; btn.classList.add('busy'); return api('/api/transcribe', { wav }).finally(() => { if (--inflight === 0) btn.classList.remove('busy'); }); };
   const flush = (force) => {
     const enough = speech >= (force ? 2 : 3);   // in tenths of a second
@@ -116,7 +124,7 @@ async function startDictation(btn) {
     if (!piece) return;
     if (!enough) { piece.text = ''; show(); return; }
     piece.final = true;
-    const job = ask(toWav16k(audio, ctx.sampleRate)).then((r) => { piece.text = r.text; show(); }).catch((err) => toast(err.message)).finally(() => finals.delete(job));
+    const job = ask(toWav16k(audio, ctx.sampleRate)).then((r) => { piece.text = r.text; show(); }).catch((err) => toast(err.message, { kind: 'error' })).finally(() => finals.delete(job));
     finals.add(job);
   };
   const draftNow = () => {
@@ -150,7 +158,8 @@ async function startDictation(btn) {
       stream.getTracks().forEach((t) => t.stop());
       ctx.close();
       btn.classList.remove('on');
-      dictated = Promise.allSettled([...finals]);
+      // The last piece is still being transcribed: the words land, then the editor's marker comes off.
+      dictated = Promise.allSettled([...finals]).then(() => sink.end());
     }
   };
   btn.classList.add('on'); target.focus();
@@ -180,13 +189,25 @@ async function queueAct(kind, btn) {
       const imgs = images['term:' + t.key] || [];
       const text = [$('q-text').value.trim(), ...imgs.map((x) => x.path)].filter(Boolean).join('\n');
       if (!text) { toast('Write something first.'); return; }
-      await api(termPath(t, 'queue'), { text, now: kind === 'now', held: kind === 'hold' });
+      // The agent is asking permission in the Chat view: a message is the
+      // answer "No, do this instead", so say No first and send it straight in.
+      let instead = false;
+      if (kind !== 'hold' && chatOn(t.key) && cv?.menu && menuNoIndex() >= 0) {
+        await api(termPath(t, 'menu'), { sig: cv.menu.sig, index: menuNoIndex() });
+        cv.menu = null; renderChatLive();
+        await new Promise((r) => setTimeout(r, 300));
+        instead = true;
+      }
+      await api(termPath(t, 'queue'), { text, now: kind === 'now' || instead, held: kind === 'hold' });
       delete draft['term:' + t.key]; $('q-text').value = ''; growText($('q-text'));
       delete images['term:' + t.key]; renderImages();
-      toast(kind === 'now' ? 'Sent.' : kind === 'hold' ? 'Held in the queue.' : 'Queued. It goes in when the agent is free.');
+      // In a chat the message itself shows up; only say something when it waits.
+      const free = t.state === 'finished' || t.state === 'idle';
+      if (kind === 'hold') toast('Held in the queue.');
+      else if (!chatOn(t.key) || (!free && !instead && kind !== 'now')) toast(kind === 'now' || instead ? 'Sent.' : free ? 'Sent.' : 'Queued. It goes in when the agent is free.');
     }
     await load();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message, { kind: 'error' }); }
   finally { if (btn && btn.isConnected) btn.disabled = false; }
 }
 
@@ -199,14 +220,14 @@ document.addEventListener('click', (e) => {
     if (same && tv.ws && tv.ws.readyState !== 1) closeTerminal();
     render(); return;
   }
-  if (e.target.closest('#new-term')) { openNewTerm(); return; }
+  if (e.target.closest('[data-new-term]')) { openNewTerm(); return; }
   const qa = e.target.closest('[data-qact]');
   if (qa) { queueAct(qa.dataset.qact, qa); return; }
   const qi = e.target.closest('[data-qa]');
   if (qi) {
     const t = termByKey(currentTerm);
     const req = t?.remote ? api(termPath(t, qi.dataset.qa), { qid: Number(qi.dataset.q) }) : api(`/api/queue/${qi.dataset.q}/${qi.dataset.qa}`, {});
-    req.then(load).catch((err) => toast(err.message)); return;
+    req.then(load).catch((err) => toast(err.message, { kind: 'error' })); return;
   }
   const ul = e.target.closest('[data-unlink]');
   if (ul) { api('/api/links', { chatKey: ul.dataset.unlink, unlink: true }).then(load); return; }

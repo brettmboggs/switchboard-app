@@ -1,0 +1,20 @@
+# Dependabot: a pull request a week for anything newer, so the pins in
+# package.json (all exact) move on purpose and with CI's say-so. Same file in
+# both repos (scripts/publish.mjs copies it).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

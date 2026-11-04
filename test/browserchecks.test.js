@@ -19,8 +19,8 @@ test('the pinned Playwright MCP is the same in setup and in the checks', () => {
 });
 
 test('the form: pages and tests', () => {
-  const page = bc.cleanCheck({ kind: 'page', url: 'https://example.com', expect: 'Sign in', every: 60, space: 'datum' });
-  assert.deepEqual(page.check, { kind: 'page', every_min: 60, space: 'datum', url: 'https://example.com/', expect: 'Sign in', folder: null, command: null, name: 'example.com' });
+  const page = bc.cleanCheck({ kind: 'page', url: 'https://example.com', expect: 'Sign in', every: 60, space: 'work' });
+  assert.deepEqual(page.check, { kind: 'page', every_min: 60, space: 'work', url: 'https://example.com/', expect: 'Sign in', folder: null, command: null, name: 'example.com' });
   assert.match(bc.cleanCheck({ kind: 'page', url: 'example.com' }).error, /full address/);
   assert.match(bc.cleanCheck({ kind: 'page', url: 'file:///etc/passwd' }).error, /http/);
   assert.match(bc.cleanCheck({ kind: 'page', url: 'https://x.com', expect: 'say "hi"' }).error, /quotes/);
@@ -107,7 +107,7 @@ const pass = existsSync('PASS');
 writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify(pass ? { stats: { expected: 5, unexpected: 0, skipped: 0, flaky: 0, duration: 900 }, suites: [] } : ${JSON.stringify(report)}));
 console.log(pass ? 'all good' : '1 failed');
 process.exit(pass ? 0 : 1);`);
-  const saved = bc.saveCheck({ kind: 'tests', folder, command: `"${process.execPath}" fake.mjs`, name: 'Datum smoke', space: 'datum' });
+  const saved = bc.saveCheck({ kind: 'tests', folder, command: `"${process.execPath}" fake.mjs`, name: 'Work smoke', space: 'work' });
   assert.ok(saved.ok, saved.error);
   assert.deepEqual(saved.folder, { exists: true, config: null, installed: false });
 
@@ -118,7 +118,7 @@ process.exit(pass ? 0 : 1);`);
   assert.equal(c.runs[0].summary, '1 failed, 4 passed, 1 skipped');
   assert.equal(c.runs[0].failures[0].title, 'Home › shows the sign-in button');
   assert.deepEqual(c.runs[0].failures[0].shots, [0]);
-  assert.equal(c.space, 'datum');
+  assert.equal(c.space, 'work');
   assert.equal(bc.shotFile(c.runs[0].id, 0), join(folder, 'shots', 'fail.png'));
   assert.equal(bc.shotFile(c.runs[0].id, 1), null);
   assert.match(bc.runDetail(c.runs[0].id).output, /1 failed/);

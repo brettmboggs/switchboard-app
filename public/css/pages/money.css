@@ -1,0 +1,7 @@
+/* Money: the four tiles and the amounts in the lists. Figures are tabular. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; font-variant-numeric: tabular-nums; }
+.tile .big { font-size: var(--fs-2xl); line-height: var(--lh-tight); }
+.big.in { color: var(--ok); }
+.amt { font-family: var(--font-mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.amt.in { color: var(--ok); }
+.facts dd { font-variant-numeric: tabular-nums; }

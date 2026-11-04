@@ -4,12 +4,12 @@
 // ---------- settings
 // Sections down the left; every change saves as it is made.
 let SET = null, pane = 'accounts';
-const PANES = { accounts: 'Accounts', projects: 'Projects', alerts: 'Notifications', mail: 'Mail', look: 'General' };
+const PANES = { accounts: 'Accounts', projects: 'Projects', alerts: 'Notifications', mail: 'Mail', look: 'General', system: 'System' };
 const SWATCHES = ['#FF4F00', '#2F5D8A', '#1F7A4D', '#8A6D1F', '#7A3E9D', '#B42318', '#0E7C86', '#8A8F98'];
 
 async function openSettings(to) {
   SET = await api('/api/settings');
-  $('settings-scrim').classList.add('open');
+  openDialog('settings-scrim');
   showPane(typeof to === 'string' ? to : pane);
   renderSettings();
 }
@@ -48,7 +48,7 @@ function loadProviders() {
 }
 function providerButtons(link) {
   return (providerList || []).filter((p) => !link || !(S.account.info?.identities || []).some((i) => i.provider === p))
-    .map((p) => `<button class="btn ${link ? '' : 'wide'}" type="button" data-oauth="${p}" ${link ? 'data-link="1"' : ''}>${link ? 'Add ' : 'Continue with '}${PROVIDER_NAMES[p] || p}</button>`).join('');
+    .map((p) => `<button class="btn ${link ? '' : 'btn--wide'}" type="button" data-oauth="${p}" ${link ? 'data-link="1"' : ''}>${link ? 'Add ' : 'Continue with '}${PROVIDER_NAMES[p] || p}</button>`).join('');
 }
 
 function renderAccount() {
@@ -59,11 +59,11 @@ function renderAccount() {
     // Signed in on this computer, but it does not have the account key yet.
     const p = a.pairing, i = a.info || {};
     $('acct').innerHTML = `<div class="acct-main"><b>Finish signing in</b><span class="acct-line">${esc(a.email || '')}: this computer needs your key to open your data. Pick one.</span></div>
-      <div class="form-row"><button class="icon-btn" type="button" data-account="signout">Sign out</button></div>
+      <div class="form-row"><button class="btn btn--quiet" type="button" data-account="signout">Sign out</button></div>
       <div class="unlock acct-wide">
         <div class="unlock-way"><b>Approve from another computer</b>
-          ${p?.status === 'waiting' ? `<p>On a computer where you use Switchboard, approve the request. It shows a code: it should be <span class="pair-code">${esc(p.code)}</span></p><button class="icon-btn" type="button" data-account="pair-cancel">Cancel</button>`
-            : `${p?.status === 'denied' ? '<p class="bad-text">The other computer said no.</p>' : p?.status === 'expired' ? '<p class="bad-text">The request expired.</p>' : p?.status === 'failed' ? '<p class="bad-text">That did not unlock the account. Try again.</p>' : '<p>Your other computer asks you to approve, and checks a code with you.</p>'}<button class="btn go" type="button" data-account="pair">Ask my other computer</button>`}
+          ${p?.status === 'waiting' ? `<p>On a computer where you use Switchboard, approve the request. It shows a code: it should be <span class="pair-code">${esc(p.code)}</span></p><button class="btn btn--quiet" type="button" data-account="pair-cancel">Cancel</button>`
+            : `${p?.status === 'denied' ? '<p class="bad-text">The other computer said no.</p>' : p?.status === 'expired' ? '<p class="bad-text">The request expired.</p>' : p?.status === 'failed' ? '<p class="bad-text">That did not unlock the account. Try again.</p>' : '<p>Your other computer asks you to approve, and checks a code with you.</p>'}<button class="btn btn--primary" type="button" data-account="pair">Ask my other computer</button>`}
         </div>
         ${i.hasRecovery !== false ? `<form class="unlock-way" id="recover-form"><b>Use your recovery key</b><input id="recover-key" class="mono" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off" spellcheck="false"><div class="form-row"><button class="btn" type="submit">Unlock</button><span id="recover-msg" class="small"></span></div></form>` : ''}
         ${i.hasPassword ? `<form class="unlock-way" id="unlock-form"><b>Use your Switchboard password</b><input id="unlock-pass" type="password" autocomplete="current-password"><div class="form-row"><button class="btn" type="submit">Unlock</button><span id="unlock-msg" class="small"></span></div></form>` : ''}
@@ -72,7 +72,7 @@ function renderAccount() {
   }
   if (a.signedIn && S.relay?.removed) {
     $('acct').innerHTML = `<div class="acct-main"><b>Switchboard account</b><span class="acct-line bad-text">This computer was removed from your account on another computer.</span></div>
-      <div class="form-row"><button class="btn go" type="button" data-account="signout">Sign in again</button></div>`;
+      <div class="form-row"><button class="btn btn--primary" type="button" data-account="signout">Sign in again</button></div>`;
     return;
   }
   if (a.signedIn) {
@@ -80,10 +80,10 @@ function renderAccount() {
     const via = ids.map((x) => PROVIDER_NAMES[x.provider] || x.provider);
     if (a.info?.hasPassword) via.push('password');
     $('acct').innerHTML = `<div class="acct-main"><b>Switchboard account</b><span class="acct-line ${a.ok === false ? 'bad-text' : ''}">${a.ok === false ? esc(a.error) : esc(a.email) + (via.length ? ' · signs in with ' + esc(via.join(', ')) : '')}</span></div>
-      <div class="form-row"><button class="icon-btn" type="button" data-account="sync">Sync now</button><button class="icon-btn" type="button" data-account="signout">Sign out</button></div>
+      <div class="form-row"><button class="btn btn--quiet" type="button" data-account="sync">Sync now</button><button class="btn btn--quiet" type="button" data-account="signout">Sign out</button></div>
       <div class="acct-wide acct-extra">
-        ${a.info && !a.info.hasRecovery ? `<div class="nudge"><span>Make a recovery key: it opens your data if you ever lose access to your computers.</span><button class="btn go" type="button" data-account="recovery-key">Make one</button></div>` : ''}
-        <div class="form-row">${providerButtons(true)}${a.info?.hasRecovery ? '<button class="icon-btn" type="button" data-account="recovery-key">New recovery key</button>' : ''}</div>
+        ${a.info && !a.info.hasRecovery ? `<div class="nudge"><span>Make a recovery key: it opens your data if you ever lose access to your computers.</span><button class="btn btn--primary" type="button" data-account="recovery-key">Make one</button></div>` : ''}
+        <div class="form-row">${providerButtons(true)}${a.info?.hasRecovery ? '<button class="btn btn--quiet" type="button" data-account="recovery-key">New recovery key</button>' : ''}</div>
         <div class="devices"><span class="field-label">Your computers</span><div id="device-list" class="device-list">${deviceRows()}</div></div>
         <label class="toggle compact"><span>Other computers can see and use sessions on this computer</span><input type="checkbox" id="allow-remote" ${S.relay?.allowRemote !== false ? 'checked' : ''}></label>
       </div>`;
@@ -95,13 +95,13 @@ function renderAccount() {
   $('acct').innerHTML = `<div class="acct-main"><b>Switchboard account</b><span class="acct-line">Your projects, accounts and notes on every computer you use. Encrypted on your computer: nobody else can read them.</span></div>
     <div class="signin acct-wide">
       ${providerButtons(false)}
-      ${anyProvider ? '<button class="linkish" type="button" id="acct-email-toggle">Use email and password instead</button>' : ''}
+      ${anyProvider ? '<button class="btn btn--ghost" type="button" id="acct-email-toggle">Use email and password instead</button>' : ''}
     </div>
     <form id="acct-form" class="acct-form" ${anyProvider ? 'hidden' : ''}>
       <label for="acct-email">Email</label><input id="acct-email" type="email" autocomplete="username" required>
       <label for="acct-pass">Password</label><input id="acct-pass" type="password" autocomplete="current-password" minlength="10" required>
       <span></span><p class="hint">Your password also locks your data, so nobody can reset it. Keep it somewhere safe.</p>
-      <span></span><div class="form-row"><button class="btn go" type="submit" data-mode="signin">Sign in</button><button class="btn" type="submit" data-mode="signup">Create account</button><span id="acct-msg" class="small"></span></div>
+      <span></span><div class="form-row"><button class="btn btn--primary" type="submit" data-mode="signin">Sign in</button><button class="btn" type="submit" data-mode="signup">Create account</button><span id="acct-msg" class="small"></span></div>
     </form>`;
 }
 
@@ -119,7 +119,7 @@ function deviceRows() {
   return deviceList.map((d) => {
     const live = d.me || online.has(d.name);
     return `<div class="device"><span><span><b>${esc(d.name.replace(/\.local$/, ''))}</b>${d.me ? ' <span class="muted">(this computer)</span>' : ''}</span><span class="acct-line">${live ? 'Online now' : 'Last active ' + since(d.lastUsed || d.since)}</span></span>
-      ${d.me ? '' : `<button class="icon-btn" type="button" data-device-remove="${esc(d.id)}">Remove</button>`}</div>`;
+      ${d.me ? '' : `<button class="btn btn--quiet" type="button" data-device-remove="${esc(d.id)}">Remove</button>`}</div>`;
   }).join('');
 }
 
@@ -132,13 +132,13 @@ function renderAccountPrompts() {
   for (const q of a.asks || []) {
     html += `<div class="prompt-card" role="alertdialog" aria-label="Sign-in request"><b>Let ${esc(q.name)} into your account?</b>
       <p>Only approve if that computer shows this code:</p><div class="pair-code big">${esc(q.code)}</div>
-      <div class="form-row"><button class="btn go" type="button" data-pair-answer="${esc(q.id)}" data-approve="1">Approve</button><button class="btn" type="button" data-pair-answer="${esc(q.id)}">Not me</button></div></div>`;
+      <div class="form-row"><button class="btn btn--primary" type="button" data-pair-answer="${esc(q.id)}" data-approve="1">Approve</button><button class="btn" type="button" data-pair-answer="${esc(q.id)}">Not me</button></div></div>`;
   }
   if (a.recoveryKey) {
     html += `<div class="prompt-scrim"><div class="prompt-card wide" role="dialog" aria-label="Your recovery key"><b>Your recovery key</b>
       <p>If you lose access to all your computers, this opens your data. Nobody can reset it, Switchboard included. Save it somewhere safe: a password manager, or print it.</p>
       <div class="recovery">${esc(a.recoveryKey)}</div>
-      <div class="form-row"><button class="btn" type="button" id="rk-copy">Copy</button><button class="btn" type="button" id="rk-save">Download</button><span class="grow"></span><button class="btn go" type="button" data-account="recovery-seen">I saved it</button></div></div></div>`;
+      <div class="form-row"><button class="btn" type="button" id="rk-copy">Copy</button><button class="btn" type="button" id="rk-save">Download</button><span class="grow"></span><button class="btn btn--primary" type="button" data-account="recovery-seen">I saved it</button></div></div></div>`;
   }
   host.innerHTML = html;
 }
@@ -147,7 +147,7 @@ function renderGmail() {
   const st = S?.status.gmail || [];
   $('gmail-cards').innerHTML = SET.gmail.map((g) => {
     const live = st.find((x) => x.email === g.email) || {};
-    return card({ name: esc(g.name || 'Gmail'), line: live.ok === false ? esc(live.error) : esc(g.email), bad: live.ok === false, actions: `<button class="icon-btn" type="button" data-remove-gmail="${esc(g.email)}">Remove</button>` });
+    return card({ name: esc(g.name || 'Gmail'), line: live.ok === false ? esc(live.error) : esc(g.email), bad: live.ok === false, actions: `<button class="btn btn--quiet" type="button" data-remove-gmail="${esc(g.email)}">Remove</button>` });
   }).join('');
   $('gmail-add').querySelector('b').textContent = SET.gmail.length ? 'Add another email account' : 'Email';
 }
@@ -160,7 +160,7 @@ function renderCalendars() {
     const st = live.find((x) => x.id === c.id) || {};
     return `<div class="cal-row"><span><b>${esc(c.name)}</b>${st.ok === false ? `<span class="bad-text small"> ${esc(st.error)}</span>` : ''}</span>
       <select data-cal-space="${esc(c.id)}" aria-label="Project for ${esc(c.name)}">${SET.spaces.map((x) => `<option value="${esc(x.id)}" ${x.id === c.space ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-      <button class="icon-btn" type="button" data-cal-remove="${esc(c.id)}">Remove</button></div>`;
+      <button class="btn btn--quiet" type="button" data-cal-remove="${esc(c.id)}">Remove</button></div>`;
   }).join('');
   $('cal-open').textContent = (SET.calendars || []).length ? 'Add another' : 'Add';
 }
@@ -171,11 +171,11 @@ function renderMsStatus() {
   $('ms-space').innerHTML = SET.spaces.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
   if (SET.microsoft) { $('ms-tenant').value = SET.microsoft.tenant || ''; $('ms-client').value = SET.microsoft.clientId || ''; $('ms-space').value = SET.microsoft.space || 'personal'; }
   let line = 'Teams and Outlook', bad = false, actions = '', status = '';
-  if (ms?.signIn) status = `<p class="signin">Go to <a href="${esc(ms.signIn.url)}" target="_blank" rel="noopener">${esc(ms.signIn.url)}</a> and enter <b class="mono code">${esc(ms.signIn.code)}</b></p>`;
+  if (ms?.signIn) status = `<p class="signin">Go to <a href="${safeHref(ms.signIn.url)}" target="_blank" rel="noopener">${esc(ms.signIn.url)}</a> and enter <b class="mono code">${esc(ms.signIn.code)}</b></p>`;
   else if (ms?.connected) {
     line = ms.ok === false ? esc(ms.error) : ms.canWrite === false ? 'Read only: connect again to reply and archive' : esc(ms.email || 'Connected');
     bad = ms.ok === false || ms.canWrite === false;
-    actions = `${ms.canWrite === false ? '<button class="btn" type="button" data-ms-open>Connect again</button>' : ''}<button class="icon-btn" type="button" id="ms-disconnect">Disconnect</button>`;
+    actions = `${ms.canWrite === false ? '<button class="btn" type="button" data-ms-open>Connect again</button>' : ''}<button class="btn btn--quiet" type="button" id="ms-disconnect">Disconnect</button>`;
   } else {
     if (ms?.error) { line = esc(ms.error); bad = true; }
     actions = '<button class="btn" type="button" data-ms-open>Connect</button>';
@@ -214,9 +214,9 @@ function renderProjects() {
     const mine = SET.rules.map((r, j) => [r, j]).filter(([r]) => r[1] === p.id);
     return `<div class="proj" data-i="${i}">
       <div class="proj-top">
-        <details class="swatch"><summary style="background:${esc(p.color)}" aria-label="Color"></summary><div class="swatches">${SWATCHES.map((c) => `<button type="button" style="background:${c}" data-color="${c}" aria-label="${c}"></button>`).join('')}<input type="color" value="${esc(p.color)}" data-color-pick aria-label="Any color"></div></details>
+        <details class="swatch"><summary style="background:${safeColor(p.color)}" aria-label="Color"></summary><div class="swatches">${SWATCHES.map((c) => `<button type="button" style="background:${c}" data-color="${c}" aria-label="${c}"></button>`).join('')}<input type="color" value="${esc(p.color)}" data-color-pick aria-label="Any color"></div></details>
         <input class="proj-name" value="${esc(p.name)}" data-field="name" aria-label="Project name">
-        <button class="icon-btn" type="button" data-proj-del ${SET.spaces.length < 2 ? 'disabled' : ''}>Remove</button>
+        <button class="btn btn--quiet" type="button" data-proj-del ${SET.spaces.length < 2 ? 'disabled' : ''}>Remove</button>
       </div>
       <div class="proj-fields">
         <label>Group<input list="proj-groups" value="${esc(p.group || 'Mine')}" data-field="group"></label>
@@ -264,7 +264,7 @@ function renderWeatherSet() {
   if (w && !host.querySelector('#wx-q')) {
     host.innerHTML = `<div class="form-row"><span class="acct-line">${esc(w.place)}${w.ok === false ? ` <span class="bad-text">${esc(w.error)}</span>` : w.now ? ` · ${w.now.temp}° ${esc(w.now.text)}` : ''}</span></div>
       <div class="form-row"><div class="seg" id="wx-units"><button type="button" value="f" aria-pressed="${w.now?.unit !== 'C'}">°F</button><button type="button" value="c" aria-pressed="${w.now?.unit === 'C'}">°C</button></div>
-      <button class="icon-btn" type="button" id="wx-change">Change place</button><button class="icon-btn" type="button" id="wx-clear">Remove</button></div>`;
+      <button class="btn btn--quiet" type="button" id="wx-change">Change place</button><button class="btn btn--quiet" type="button" id="wx-clear">Remove</button></div>`;
     return;
   }
   if (!host.querySelector('#wx-q')) host.innerHTML = `<div class="wx-combo"><input id="wx-q" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wx-results" placeholder="ZIP code or town" autocomplete="off" spellcheck="false"><div id="wx-results" class="wx-results" role="listbox"></div></div>`;
@@ -279,7 +279,7 @@ function renderWxResults() {
   $('wx-q').setAttribute('aria-activedescendant', wxResults.length ? `wx-opt-${wxActive}` : '');
 }
 function pickWeather(r) {
-  api('/api/weather', { place: r }).then(load).then(() => { wxResults = []; $('weather-set').innerHTML = ''; renderWeatherSet(); toast(`Weather for ${r.name}.`); }).catch((err) => toast(err.message));
+  api('/api/weather', { place: r }).then(load).then(() => { wxResults = []; $('weather-set').innerHTML = ''; renderWeatherSet(); toast(`Weather for ${r.name}.`); }).catch((err) => toast(err.message, { kind: 'error' }));
 }
 document.addEventListener('input', (e) => {
   if (e.target.id !== 'wx-q') return;
@@ -309,11 +309,11 @@ function renderVoice() {
     : 'Whisper on this computer: nothing leaves it, and words catch up at pauses.';
   if (live && browserSpeech) { row.innerHTML = `<span class="acct-line">${how}</span>`; return; }
   row.innerHTML = v.ready ? `<span class="acct-line">${how}</span>`
-    : v.running ? `<span class="acct-line">${esc(v.step || 'Starting')}${v.progress ? ' · ' + v.progress + '%' : ''}</span>`
+    : v.running ? `<span class="acct-line">${esc(v.step || 'Starting')}${v.progress ? ' · ' + Number(v.progress) + '%' : ''}</span>`
     : `<button class="btn" type="button" id="voice-setup">Set up</button><span class="acct-line ${v.error ? 'bad-text' : ''}">${v.error ? esc(v.error) : 'One-time download, about 500 MB. Speech stays on this computer.'}</span>`;
 }
 function renderLook() {
-  renderVoice(); renderWeatherSet();
+  renderVoice(); renderWeatherSet(); renderAbout();
   document.querySelectorAll('.seg[data-pref]').forEach((g) => {
     const v = String(SET.prefs[g.dataset.pref]);
     g.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.value === v));
@@ -325,6 +325,35 @@ function renderLook() {
     if (noGpu) i.closest('label').title = 'This browser has no WebGL2, so terminals use the normal renderer.';
   });
 }
+// -- About: which Switchboard this is, and where its updates come from.
+// version comes from server.js (package.json's version, the git SHA, the update
+// channel from lib/update.js); a copy that is not a git checkout has no channel.
+let aboutNote = '';
+function renderAbout() {
+  const el = $('about'), v = S?.version || {};
+  if (!el) return;
+  const os = { linux: 'Linux', darwin: 'macOS', win32: 'Windows' }[S?.platform] || S?.platform || '';
+  const line = ['Switchboard ' + (v.pkg || ''), v.sha, os].filter((x) => x && x !== 'Switchboard ').join(' · ');
+  const note = aboutNote || (v.error ? v.error : v.behind ? `${v.behind} update${v.behind > 1 ? 's' : ''} ready: ${(v.subjects || [])[0] || ''}` : '');
+  el.innerHTML = `<div class="form-row"><span class="mono">${esc(line)}</span>${v.sha ? `<button class="btn" type="button" id="about-check" ${v.busy ? 'disabled' : ''}>Check for updates</button>` : ''}<span class="acct-line ${v.error ? 'bad-text' : ''}">${esc(note)}</span></div>`
+    + (v.channel ? `<div class="form-row"><span class="acct-line">Updates</span><div class="seg" id="about-channel"><button type="button" value="stable" aria-pressed="${v.channel === 'stable'}">Stable</button><button type="button" value="latest" aria-pressed="${v.channel === 'latest'}">Latest</button></div><span class="acct-line">${v.channel === 'stable' ? 'Releases only.' : 'Every change as it lands.'}</span></div>` : '');
+}
+document.addEventListener('click', async (e) => {
+  if (e.target.closest('#about-check')) {
+    aboutNote = 'Checking…'; renderAbout();
+    try { const r = await api('/api/update/check', {}); aboutNote = r.error ? '' : r.behind ? '' : 'Up to date.'; await load(); }
+    catch (err) { aboutNote = err.message; }
+    renderAbout(); aboutNote = '';
+    return;
+  }
+  const ch = e.target.closest('#about-channel button');
+  if (ch && ch.getAttribute('aria-pressed') !== 'true') {
+    aboutNote = 'Switching…'; renderAbout();
+    try { const r = await api('/api/update/channel', { channel: ch.value }); aboutNote = r.note || (r.channel === 'stable' ? 'Updates now come from releases.' : 'Updates now come from every change.'); await load(); }
+    catch (err) { aboutNote = err.message; }
+    renderAbout(); aboutNote = '';
+  }
+});
 document.addEventListener('change', (e) => {
   const k = e.target.dataset?.prefBool;
   if (!k || !SET) return;
@@ -355,7 +384,9 @@ document.addEventListener('click', (e) => {
   const seg = e.target.closest('.seg[data-pref] button');
   if (seg) {
     const k = seg.parentElement.dataset.pref, v = k === 'termSize' ? Number(seg.value) : seg.value;
-    SET.prefs[k] = v; if (S) S.prefs = { ...S.prefs, [k]: v }; renderLook(); applyPrefs(SET.prefs); saveSet({ prefs: { [k]: v } }); return;
+    SET.prefs[k] = v; if (S) S.prefs = { ...S.prefs, [k]: v }; renderLook(); applyPrefs(SET.prefs); saveSet({ prefs: { [k]: v } });
+    if (k === 'sessionView') { useSessionView(v); if (page === 'sessions') render(); }   // every session follows the new choice
+    return;
   }
   if (e.target.closest('#wx-change')) { $('weather-set').innerHTML = ''; wxResults = []; wxAsked = ''; const keep = S.weather; S.weather = null; renderWeatherSet(); S.weather = keep; $('wx-q').focus(); return; }
   if (e.target.closest('#wx-clear')) { api('/api/weather', { clear: true }).then(load).then(() => { $('weather-set').innerHTML = ''; renderWeatherSet(); }); return; }
@@ -363,11 +394,11 @@ document.addEventListener('click', (e) => {
   if (wu) { api('/api/weather', { units: wu.value }).then(load).then(() => { $('weather-set').innerHTML = ''; renderWeatherSet(); }); return; }
   const wp = e.target.closest('[data-wx-pick]');
   if (wp) { pickWeather(wxResults[+wp.dataset.wxPick]); return; }
-  if (e.target.closest('#open-welcome')) { $('settings-scrim').classList.remove('open'); openWelcome(0); return; }
-  if (e.target.closest('#voice-setup')) { api('/api/voice/setup', {}).then(load).catch((err) => toast(err.message)); return; }
+  if (e.target.closest('#open-welcome')) { closeDialog('settings-scrim'); openWelcome(0); return; }
+  if (e.target.closest('#voice-setup')) { api('/api/voice/setup', {}).then(load).catch((err) => toast(err.message, { kind: 'error' })); return; }
   if (e.target.closest('#cal-open')) { $('cal-form').hidden = false; $('cal-url').focus(); return; }
   const cr = e.target.closest('[data-cal-remove]');
-  if (cr) { api('/api/calendars', { remove: cr.dataset.calRemove }).then(() => openSettings()).catch((err) => toast(err.message)); return; }
+  if (cr) { api('/api/calendars', { remove: cr.dataset.calRemove }).then(() => openSettings()).catch((err) => toast(err.message, { kind: 'error' })); return; }
   if (e.target.closest('#gmail-open')) { $('gmail-form').hidden = false; $('gmail-open').hidden = true; $('g-email').focus(); return; }
   if (e.target.closest('[data-ms-open]')) { $('ms-connect').hidden = false; return; }
   const tc = e.target.closest('[data-term-cmd]');
@@ -379,7 +410,7 @@ document.addEventListener('click', (e) => {
     if (col) { p.color = col.dataset.color; proj.querySelector('.swatch').open = false; renderProjects(); saveProjects(); return; }
     if (e.target.closest('[data-proj-del]')) {
       const b = e.target.closest('[data-proj-del]');
-      if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Remove ' + p.name + '?'; b.classList.add('danger'); return; }
+      if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Remove ' + p.name + '?'; b.classList.add('btn--danger'); return; }
       SET.rules = SET.rules.filter((r) => r[1] !== p.id); SET.spaces.splice(i, 1);
       renderProjects(); saveSet({ spaces: SET.spaces, rules: SET.rules }); return;
     }
@@ -397,8 +428,8 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('change', (e) => {
   if (!e.target.closest('#settings-scrim')) return;
-  if (e.target.id === 'allow-remote') { api('/api/account/remote', { allow: e.target.checked }).then(() => { toast(e.target.checked ? 'Your other computers can use sessions here.' : 'Sessions here are private to this computer now.'); return load(); }).catch((err) => toast(err.message)); return; }
-  if (e.target.matches('[data-cal-space]')) { api('/api/calendars', { id: e.target.dataset.calSpace, space: e.target.value }).then(load).catch((err) => toast(err.message)); return; }
+  if (e.target.id === 'allow-remote') { api('/api/account/remote', { allow: e.target.checked }).then(() => { toast(e.target.checked ? 'Your other computers can use sessions here.' : 'Sessions here are private to this computer now.'); return load(); }).catch((err) => toast(err.message, { kind: 'error' })); return; }
+  if (e.target.matches('[data-cal-space]')) { api('/api/calendars', { id: e.target.dataset.calSpace, space: e.target.value }).then(load).catch((err) => toast(err.message, { kind: 'error' })); return; }
   if (e.target.matches('[data-notify], #quiet-on, #quiet-from, #quiet-to')) { saveAlerts(); return; }
   if (e.target.matches('[data-sig]')) {
     SET.signatures[e.target.dataset.sig.toLowerCase()] = e.target.value;
@@ -428,9 +459,9 @@ document.addEventListener('keydown', (e) => {
 async function runInTerminal(cmd) {
   try {
     const r = await api('/api/terms', { agent: 'custom', command: cmd, setup: true });
-    $('settings-scrim').classList.remove('open');
+    closeDialog('settings-scrim');
     openTerm(r.id); await load();
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, { kind: 'error' }); }
 }
 
 document.addEventListener('submit', async (e) => {
@@ -453,20 +484,21 @@ document.addEventListener('click', (e) => {
   if (o) {
     // Open the sign-in page right away (a page opened later counts as a pop-up).
     const win = window.open('about:blank', '_blank');
-    api('/api/account/oauth', { provider: o.dataset.oauth, link: !!o.dataset.link }).then((r) => { if (win) win.location = r.url; else location.href = r.url; })
-      .catch((err) => { win?.close(); toast(err.message); });
+    // Only a web address is opened: the sign-in link comes from the sync service.
+    api('/api/account/oauth', { provider: o.dataset.oauth, link: !!o.dataset.link }).then((r) => { if (!/^https?:/i.test(String(r.url || ''))) throw new Error('The sign-in link was not a web address.'); if (win) win.location = r.url; else location.href = r.url; })
+      .catch((err) => { win?.close(); toast(err.message, { kind: 'error' }); });
     return;
   }
   if (e.target.closest('#acct-email-toggle')) { $('acct-form').hidden = false; e.target.closest('#acct-email-toggle').hidden = true; $('acct-email').focus(); return; }
   const dr = e.target.closest('[data-device-remove]');
   if (dr) {
-    if (!dr.dataset.sure) { dr.dataset.sure = '1'; dr.textContent = 'Remove it?'; dr.classList.add('danger'); return; }
+    if (!dr.dataset.sure) { dr.dataset.sure = '1'; dr.textContent = 'Remove it?'; dr.classList.add('btn--danger'); return; }
     dr.disabled = true;
-    api('/api/account/device-remove', { id: dr.dataset.deviceRemove }).then(() => { toast('Removed. That computer is signed out.'); loadDevices(true); }).catch((err) => { dr.disabled = false; toast(err.message); });
+    api('/api/account/device-remove', { id: dr.dataset.deviceRemove }).then(() => { toast('Removed. That computer is signed out.'); loadDevices(true); }).catch((err) => { dr.disabled = false; toast(err.message, { kind: 'error' }); });
     return;
   }
   const pa = e.target.closest('[data-pair-answer]');
-  if (pa) { pa.disabled = true; api('/api/account/pair-answer', { id: pa.dataset.pairAnswer, approve: !!pa.dataset.approve }).then(() => { toast(pa.dataset.approve ? 'Approved. That computer is signing in.' : 'Turned down.'); return load(); }).catch((err) => toast(err.message)); return; }
+  if (pa) { pa.disabled = true; api('/api/account/pair-answer', { id: pa.dataset.pairAnswer, approve: !!pa.dataset.approve }).then(() => { toast(pa.dataset.approve ? 'Approved. That computer is signing in.' : 'Turned down.'); return load(); }).catch((err) => toast(err.message, { kind: 'error' })); return; }
   if (e.target.closest('#rk-copy')) { navigator.clipboard.writeText(S.account.recoveryKey).then(() => toast('Copied.')); return; }
   if (e.target.closest('#rk-save')) {
     const a = document.createElement('a');
@@ -492,7 +524,7 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   const act = b.dataset.account;
   const said = { signout: 'Signed out. This computer keeps its current setup.', sync: 'Synced.' }[act];
-  api('/api/account/' + act, {}).then(() => { $('acct').innerHTML = ''; return load(); }).then(() => { renderAccount(); if (said) toast(said); }).catch((err) => toast(err.message));
+  api('/api/account/' + act, {}).then(() => { $('acct').innerHTML = ''; return load(); }).then(() => { renderAccount(); if (said) toast(said); }).catch((err) => toast(err.message, { kind: 'error' }));
 });
 
 $('ms-quick').addEventListener('click', async () => {
@@ -521,7 +553,7 @@ $('g-email').addEventListener('input', () => {
     if ($('g-email').value.trim() !== email || !found) return;
     const f = found;
     $('g-found').innerHTML = f.error ? esc(f.error) : f.unsupported ? `<span class="bad-text">${esc(f.unsupported)}</span>`
-      : `<b>${esc(f.name)}.</b> ${esc(f.helpText || '')}${f.help ? ` <a href="${esc(f.help)}" target="_blank" rel="noopener">Open</a>` : ''}`;
+      : `<b>${esc(f.name)}.</b> ${esc(f.helpText || '')}${f.help ? ` <a href="${safeHref(f.help)}" target="_blank" rel="noopener">Open</a>` : ''}`;
     $('g-connect').disabled = !!(f.unsupported || f.error);
     $('g-servers').hidden = !(f.kind === 'imap');
     $('g-servers').open = !!f.custom;

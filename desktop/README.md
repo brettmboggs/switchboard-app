@@ -37,7 +37,9 @@ login shell for the real one (tmux, git, gh, claude). That is
 The bundle carries a Node binary as a Tauri sidecar (`switchboard-node`, so the
 .deb never collides with `/usr/bin/node`) and the app's files as resources
 (`server.js`, `lib/`, `public/`, `bin/`, `scripts/` and production
-`node_modules`). `desktop/scripts/stage.mjs` prepares both before each build.
+`node_modules`), with `LICENSE` and `THIRD-PARTY-NOTICES.txt` (the licences of
+everything bundled, written by `npm run notices`) beside them.
+`desktop/scripts/stage.mjs` prepares all of it before each build.
 
 Why not Node's single-executable apps (SEA): a SEA is one script blob. node-pty
 is a native addon (a `.node` file, plus `spawn-helper` on macOS and
@@ -91,10 +93,10 @@ draft is what ships it: installed apps only see published releases. A download
 page can link to `https://github.com/<owner>/<repo>/releases/latest/download/<name>`
 with the names above, which never change between versions.
 
-**Where releases live.** The workflow publishes to this repo's own Releases
-([brettmboggs/switchboard-app](https://github.com/brettmboggs/switchboard-app/releases)),
-which is public, so the updater endpoint in `tauri.conf.json` and download links
-work for anyone without signing in.
+**Where releases live.** Releases are published from the public repository
+`brettmboggs/switchboard-app`, which is what the updater endpoint in
+`tauri.conf.json` and the download links point at. Development may happen
+elsewhere; only that repository's Releases page is read by installed apps.
 
 **Signing.** Windows builds are unsigned: SmartScreen says "Windows protected
 your PC" until people click More info, Run anyway. Mac builds are ad-hoc signed

@@ -6,61 +6,13 @@
 // A line ending in "=" shows its answer (calc.js); a log page shows its
 // totals and an Add box.
 //
-// A page is stored as HTML, and only these tags ever survive (sanitize):
-// p h1 h2 h3 b i u s ul ol li blockquote hr br, span with a size class, and
-// ul class="checklist" / "log" with li data-checked / data-at. Everything else
-// (scripts, styles, links, handlers) is dropped. Pages from the first notebook
-// (plain "- [ ] " lines) are turned into HTML when opened.
+// A page is stored as HTML; sanitizeHtml (sanitize.js, loaded before this)
+// keeps only the tags the editor makes, on load, on paste and on save. Pages
+// from the first notebook (plain "- [ ] " lines) are turned into HTML when opened.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 
 const ED_SIZES = { s: 'fs-s', l: 'fs-l', xl: 'fs-xl' };
-const ED_TAGS = { P: 'p', DIV: 'p', H1: 'h1', H2: 'h2', H3: 'h3', H4: 'h3', H5: 'h3', H6: 'h3', B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', INS: 'u', S: 's', STRIKE: 's', DEL: 's', UL: 'ul', OL: 'ol', LI: 'li', BLOCKQUOTE: 'blockquote', HR: 'hr', BR: 'br', SPAN: 'span', FONT: 'span' };
-const ED_DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'TEMPLATE', 'SVG', 'MATH', 'HEAD', 'TITLE', 'META', 'LINK', 'NOSCRIPT', 'FORM', 'INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'IMG', 'VIDEO', 'AUDIO', 'CANVAS']);
-const FONT_SIZE = { 1: 's', 2: 's', 4: 'l', 5: 'l', 6: 'xl', 7: 'xl' };
-
-// Only what the editor itself makes gets through.
-function sanitizeHtml(html) {
-  const src = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html').body;
-  const out = document.createElement('div');
-  (function copy(from, to) {
-    for (const n of [...from.childNodes]) {
-      if (n.nodeType === 3) { to.appendChild(document.createTextNode(n.nodeValue)); continue; }
-      if (n.nodeType !== 1 || ED_DROP.has(n.tagName)) continue;
-      const tag = ED_TAGS[n.tagName];
-      if (!tag) { copy(n, to); continue; }   // unknown wrapper: keep what is inside
-      // Styles pasted from elsewhere: bold, italic, underline, strike and size read from them, nothing else kept.
-      const st = n.style || {}, inner = [];
-      let size = null;
-      if (tag === 'span') {
-        const cls = [...n.classList].find((c) => /^fs-(s|l|xl)$/.test(c));
-        size = cls ? cls.slice(3) : n.tagName === 'FONT' ? FONT_SIZE[n.getAttribute('size')] || null : null;
-        if (!size && st.fontSize) { const px = parseFloat(st.fontSize); size = px && px < 13 ? 's' : px >= 26 ? 'xl' : px >= 19 ? 'l' : null; }
-      }
-      if (/^(bold|[6-9]00)$/.test(st.fontWeight || '') && tag !== 'b' && !/^h/.test(tag)) inner.push('b');
-      if (st.fontStyle === 'italic' && tag !== 'i') inner.push('i');
-      if (/underline/.test(st.textDecoration || st.textDecorationLine || '') && tag !== 'u') inner.push('u');
-      if (/line-through/.test(st.textDecoration || st.textDecorationLine || '') && tag !== 's') inner.push('s');
-      let el;
-      if (tag === 'span') {
-        if (!size) { let host = to; for (const t of inner) { const x = document.createElement(t); host.appendChild(x); host = x; } copy(n, host); continue; }
-        el = document.createElement('span'); el.className = 'fs-' + size;
-      } else el = document.createElement(tag);
-      if (tag === 'ul') { const k = n.classList.contains('checklist') ? 'checklist' : n.classList.contains('log') ? 'log' : ''; if (k) el.className = k; }
-      if (tag === 'li') {
-        if (n.parentElement?.classList.contains('checklist') || n.hasAttribute('data-checked')) el.dataset.checked = n.dataset.checked === 'true' ? 'true' : 'false';
-        if (/^\d{10,14}$/.test(n.dataset.at || '')) el.dataset.at = n.dataset.at;
-      }
-      to.appendChild(el);
-      let host = el;
-      for (const t of inner) { const x = document.createElement(t); host.appendChild(x); host = x; }
-      copy(n, host);
-    }
-  })(src, out);
-  // A list item inside a checklist is always a checkbox.
-  out.querySelectorAll('ul.checklist > li:not([data-checked])').forEach((li) => { li.dataset.checked = 'false'; });
-  return out.innerHTML;
-}
 
 // The first notebook's plain lines, as HTML.
 function linesToHtml(body) {
@@ -110,8 +62,9 @@ function makeEditor(host, body, { onSave } = {}) {
       <label class="sr" for="ed-style">Text style</label><select id="ed-style" class="ed-sel" title="Text style"><option value="p">Normal text</option><option value="h1">Heading</option><option value="h2">Subheading</option><option value="h3">Small heading</option></select>
       <label class="sr" for="ed-size">Size</label><select id="ed-size" class="ed-sel" title="Size"><option value="s">Small</option><option value="n" selected>Normal size</option><option value="l">Large</option><option value="xl">Huge</option></select>
       ${ED_BUTTONS.map(([cmd, label, icon]) => cmd === '|' ? '<span class="tb-sep"></span>' : `<button type="button" class="tb" data-ed="${cmd}" title="${label}" aria-label="${label}">${icon}</button>`).join('')}
+      <button type="button" class="tb mic" data-mic="ed-doc" title="Talk to type: the words go in where the caret is" aria-label="Talk to type">${ICON('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')}</button>
     </div><div class="ed-logsum" hidden></div>
-    <div class="ed-doc" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Page"></div>`;
+    <div class="ed-doc" id="ed-doc" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Page"></div>`;
   const doc = host.querySelector('.ed-doc'), bar = host.querySelector('.ed-bar'), logsum = host.querySelector('.ed-logsum');
   let saveTimer = null, calcTimer = null;
 
@@ -364,7 +317,7 @@ function makeEditor(host, body, { onSave } = {}) {
   }
   document.addEventListener('selectionchange', () => { if (doc.isConnected && getSelection().rangeCount && doc.contains(getSelection().anchorNode)) { lastRange = getSelection().getRangeAt(0).cloneRange(); updateBar(); } });
 
-  bar.addEventListener('mousedown', (e) => { if (e.target.closest('[data-ed]')) e.preventDefault(); });   // keep the selection in the page
+  bar.addEventListener('mousedown', (e) => { if (e.target.closest('[data-ed], [data-mic]')) e.preventDefault(); });   // keep the selection in the page
   bar.addEventListener('click', (e) => {
     const b = e.target.closest('[data-ed]'); if (!b) return;
     const c = b.dataset.ed;
@@ -437,17 +390,59 @@ function makeEditor(host, body, { onSave } = {}) {
     li.dataset.checked = li.dataset.checked === 'true' ? 'false' : 'true';
     changed();
   });
+  // ---- putting text in at the caret: paste and dictation both come through here,
+  // so the sanitiser applies and one undo step takes it back out.
+  function insertHtml(clean) { refocus(); remember(); document.execCommand('insertHTML', false, clean); keepRange(); changed(); }
+  const textHtml = (t) => /(^|\n)\s*([-*] |\d+[.)] |- \[[ x]\] |#{1,3} )/i.test(t) ? linesToHtml(t) : esc(t).replace(/\n/g, '<br>');
   // Pasting: formatting kept (bold, lists…), everything else dropped.
   doc.addEventListener('paste', (e) => {
-    e.preventDefault(); remember();
+    e.preventDefault();
     const cd = e.clipboardData;
     const h = cd?.getData('text/html');
-    const t = cd?.getData('text/plain') || '';
-    const clean = h ? sanitizeHtml(h) : /(^|\n)\s*([-*] |\d+[.)] |- \[[ x]\] |#{1,3} )/i.test(t) ? linesToHtml(t) : esc(t).replace(/\n/g, '<br>');
-    document.execCommand('insertHTML', false, clean);
-    changed();
+    insertHtml(h ? sanitizeHtml(h) : textHtml(cd?.getData('text/plain') || ''));
   });
   doc.addEventListener('drop', (e) => { if (e.dataTransfer?.files?.length) e.preventDefault(); });
+
+  // ---- talk to type (voice.js finds this on the page element as target.dictation)
+  // The words so far sit in a marked span at the caret, replaced as the
+  // recogniser firms them up; at the end the span is unwrapped so only text
+  // stays. The marker never reaches a saved page: sanitizeHtml unwraps any
+  // span that is not a size, and html() runs through it.
+  let dict = null;   // { span, lead }: the marker, and whether a space goes before the words
+  function dictStart() {
+    refocus(); caretIntoLine();
+    const s = getSelection(); if (!s.rangeCount || !doc.contains(s.getRangeAt(0).startContainer)) return false;
+    remember();
+    const r = s.getRangeAt(0);
+    if (!r.collapsed) r.deleteContents();
+    const before = document.createRange(); before.selectNodeContents(blockOf(r.startContainer.nodeType === 3 ? r.startContainer.parentElement : r.startContainer) || doc); before.setEnd(r.startContainer, r.startOffset);
+    const lead = /\S$/.test(before.toString()) ? ' ' : '';
+    const span = document.createElement('span'); span.dataset.dictating = '';
+    r.insertNode(span);
+    dict = { span, lead };
+    r.setStartAfter(span); r.collapse(true); s.removeAllRanges(); s.addRange(r); keepRange();
+    return true;
+  }
+  function dictShow(text) {
+    if (!dict?.span.isConnected) return;
+    dict.span.textContent = text ? dict.lead + text : '';
+    const r = document.createRange(); r.setStartAfter(dict.span); r.collapse(true);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r); keepRange();
+    dict.span.scrollIntoView?.({ block: 'nearest' });
+    changed();
+  }
+  function dictEnd() {
+    const d = dict; dict = null;
+    if (!d?.span.isConnected) return;
+    const blk = blockOf(d.span), text = document.createTextNode(d.span.textContent);
+    d.span.replaceWith(text);
+    // A line that was empty kept its placeholder break; with words on it now, that break would be a blank line.
+    if (blk && text.nodeValue && blk.lastChild?.nodeName === 'BR' && blk.lastChild !== blk.firstChild) blk.lastChild.remove();
+    const r = document.createRange(); r.setStart(text, text.length); r.collapse(true);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    text.parentNode?.normalize(); keepRange(); changed();
+  }
+  doc.dictation = { start: dictStart, show: dictShow, end: dictEnd };
 
   // ---- answers after "=" lines, and log totals; shown, never saved
   function ownText(el) {
@@ -490,7 +485,7 @@ function makeEditor(host, body, { onSave } = {}) {
     const box = (label, v) => `<div class="ls-box"><span class="ls-k">${label}</span><span class="ls-v">${f(v)}</span></div>`;
     const keep = logsum.querySelector('#ls-n') ? { n: logsum.querySelector('#ls-n').value, note: logsum.querySelector('#ls-note').value, focus: document.activeElement?.id } : null;
     logsum.innerHTML = `<div class="ls-boxes">${box('Today', t.today)}${box('This week', t.week)}${box('This month', t.month)}${box('All time', t.all)}<div class="ls-box"><span class="ls-k">Entries</span><span class="ls-v">${t.n}</span></div></div>
-      <form class="ls-add" id="ls-add"><label class="sr" for="ls-n">Amount</label><input id="ls-n" inputmode="decimal" placeholder="Amount" autocomplete="off"><label class="sr" for="ls-note">Note</label><input id="ls-note" placeholder="Note (optional)" autocomplete="off"><button class="btn go" type="submit">Add</button></form>`;
+      <form class="ls-add" id="ls-add"><label class="sr" for="ls-n">Amount</label><input id="ls-n" inputmode="decimal" placeholder="Amount" autocomplete="off"><label class="sr" for="ls-note">Note</label><input id="ls-note" placeholder="Note (optional)" autocomplete="off"><button class="btn btn--primary" type="submit">Add</button></form>`;
     if (keep) { logsum.querySelector('#ls-n').value = keep.n; logsum.querySelector('#ls-note').value = keep.note; if (keep.focus) logsum.querySelector('#' + keep.focus)?.focus(); }
   }
   logsum.addEventListener('submit', (e) => {
@@ -522,6 +517,7 @@ function makeEditor(host, body, { onSave } = {}) {
     },
     load: (b) => setBody(b),
     flush: () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; onSave?.(html()); } },
+    insertText: (t) => insertHtml(textHtml(String(t || ''))),
     html
   };
 }

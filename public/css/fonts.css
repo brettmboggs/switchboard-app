@@ -1,0 +1,41 @@
+/* The three faces, shipped with Switchboard (public/fonts, see LICENSES.md
+   there): nothing is fetched from Google or anyone else. Latin subsets,
+   variable weight 400 to 700. Fraunces also carries its optical size (opsz)
+   and the SOFT and WONK axes; the display rule in base.css sets them. */
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/fraunces-normal.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  font-optical-sizing: auto;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/fraunces-italic.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+  font-optical-sizing: auto;
+}
+@font-face {
+  font-family: "Public Sans";
+  src: url("/fonts/publicsans-normal.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Public Sans";
+  src: url("/fonts/publicsans-italic.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrainsmono-normal.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}

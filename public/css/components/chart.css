@@ -1,0 +1,47 @@
+/* Charts and meters: live numbers drawn as pictures. Used by the System monitor.
+     .chart       an area chart of the last two minutes (an SVG that stretches, with a
+                  hover line and a read-out). --series colours the line and the fill;
+                  .s-info, .s-ok, .s-ink pick one of the tokens.
+     .meter       a bar with a fill: <i> is the fill, width set by the page; .meter--lo / --mid / --hi
+                  colour it by how strained it is (info, warn, bad)
+     .segbar      one bar cut into labelled parts (memory: in use, cached, free)
+     .dial        a ring for a fan: --pct sets how much of the ring is filled
+   Never orange: orange is for what needs the person (the verdict line says that). */
+.chart { position: relative; height: 112px; --series: var(--info); color: var(--fg-muted); touch-action: none; }
+.chart.s-ok { --series: var(--ok); }
+.chart.s-ink { --series: var(--fg); }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart .grid line { stroke: var(--border-faint); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 4; }
+.chart .area { opacity: 1; }
+.chart stop { stop-color: var(--series); }
+.chart .line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.chart .line--b { stroke: var(--fg); stroke-width: 1.5; opacity: .7; }
+.chart .scale { position: absolute; left: 0; font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1; color: var(--fg-muted); pointer-events: none; background: color-mix(in srgb, var(--bg-surface) 70%, transparent); padding: 0 var(--sp-1); border-radius: var(--r-xs); }
+.chart .scale--top { top: 0; }
+.chart .scale--bottom { bottom: 0; }
+.chart .cursor { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--fg-muted); pointer-events: none; display: none; }
+.chart .dot { position: absolute; width: var(--sp-2); height: var(--sp-2); margin: calc(var(--sp-1) * -1) 0 0 calc(var(--sp-1) * -1); border-radius: var(--r-pill); background: var(--series); box-shadow: 0 0 0 2px var(--bg-surface); pointer-events: none; display: none; }
+.chart .tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--fg); color: var(--bg-surface); font-family: var(--font-mono); font-size: var(--fs-xs); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; display: none; z-index: 2; }
+.chart.hover .cursor, .chart.hover .dot, .chart.hover .tip { display: block; }
+
+.meter { height: var(--sp-2); background: var(--border-faint); border-radius: var(--r-pill); overflow: hidden; --fill: var(--info); }
+.meter > i { display: block; height: 100%; width: 0; background: var(--fill); border-radius: var(--r-pill); transition: width .5s ease; }
+.meter--lo { --fill: var(--info); }
+.meter--mid { --fill: var(--warn); }
+.meter--hi { --fill: var(--bad); }
+.meter--ok { --fill: var(--ok); }
+
+.segbar { display: flex; height: var(--sp-3); border-radius: var(--r-pill); overflow: hidden; background: var(--border-faint); gap: 2px; }
+.segbar > i { display: block; height: 100%; min-width: 0; transition: width .5s ease; background: var(--info); }
+.segbar > i.seg-2 { background: var(--info-tint); }
+.segbar > i.seg-3 { background: transparent; }
+.seglegend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin-top: var(--sp-2); font-size: var(--fs-sm); color: var(--fg-muted); }
+.seglegend span::before { content: ""; display: inline-block; width: var(--sp-2); height: var(--sp-2); border-radius: var(--r-pill); background: var(--info); margin-right: var(--sp-2); }
+.seglegend span.seg-2::before { background: var(--info-tint); box-shadow: inset 0 0 0 1px var(--info); }
+.seglegend span.seg-3::before { background: var(--border-faint); }
+
+.dial { --pct: 0; --size: calc(var(--sp-8) + var(--sp-4)); width: var(--size); height: var(--size); border-radius: var(--r-pill); display: grid; place-items: center; flex: none;
+  background: conic-gradient(var(--info) calc(var(--pct) * 1%), var(--border-faint) 0); position: relative; }
+.dial::after { content: ""; position: absolute; inset: var(--sp-2); border-radius: var(--r-pill); background: var(--bg-surface); }
+.dial b { position: relative; z-index: 1; font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .meter > i, .segbar > i { transition: none; } }

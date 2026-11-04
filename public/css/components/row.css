@@ -1,0 +1,29 @@
+/* Rows: one line in a list. One base (full width, left aligned, a hair-line
+   above every row but the first, hover and selected tints), shared by every
+   kind of row through the selector list; each kind sets only its columns.
+     .list              the container (a grid, no gap)
+     .item              a board row: tag, title + second line, right column
+     .item .t / .s / .r the title, the second line, the right column
+     .item.bold         unread: an orange dot before the title
+     .item.sel          the one open in the detail panel
+   Rows that float (no hair-line, rounded): .ship, .nb-item, .cmd-hit, .line. */
+.list { display: grid; }
+.row, .item, .ci-row, .send-term, .ship, .nb-item, .cmd-hit, .bring-add, .bring-msg, .slash-opt {
+  display: grid; align-items: start; width: 100%; padding: 9px 4px; border: 0; border-top: 1px solid var(--border-faint);
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.list > :first-child, .row:first-child, .send-term:first-child { border-top: 0; }
+.row:hover, .item:hover, .ci-row:hover, .send-term:hover, .ship:hover, .nb-item:hover, .cmd-hit:hover, .cmd-hit.sel { background: var(--bg-hover); }
+.row.sel, .item.sel, .ci-row.sel, .ship.sel, .nb-item.on, .send-term[aria-checked="true"] { background: var(--bg-selected); }
+.ship, .nb-item, .cmd-hit, .bring-add, .bring-msg, .slash-opt { border-top: 0; border-radius: var(--r-md); }
+
+.item { grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; }
+.item.active-win .t::after { content: " · in front"; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); font-weight: 400; }
+.item .tag, .send-term .tag { width: 9px; height: 9px; border-radius: var(--r-xs); margin-top: 6px; }
+.item .t, .send-term .t { font-weight: 600; overflow-wrap: anywhere; }
+.item .s { color: var(--fg-muted); font-size: var(--fs-base); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.item .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.item.bold .t::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 2px; }
+.late { color: var(--accent-text); }
+/* The small square of a project's colour, wherever a row or heading carries one. */
+.tag { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: var(--r-xs); }

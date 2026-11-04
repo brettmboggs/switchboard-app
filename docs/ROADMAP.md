@@ -23,6 +23,20 @@ Effort: S (an evening), M (a few days), L (a week or more).
 
 ## Next up
 
+### 0. Ready for other people (from docs/REVIEW.md, Nov 3)
+The full check of Nov 3 (security, design, release process, maintainability)
+is in docs/REVIEW.md with its findings and an ordered plan; the reasons
+behind the shape of the code are in docs/DECISIONS.md. In short, before the
+first public release: de-personalised strings, LICENSE, SECURITY.md and
+PRIVACY.md, CI in both repos, scripts/publish.mjs with a personal-data gate,
+a stable branch for git installs, a CHANGELOG and the v0.1.0 tag; then the
+security to-dos, the server and sanitiser tests, and the design system
+(tokens, split CSS, self-hosted fonts, a new face and a real logo). Brett's
+own items are in it too: model and effort pickers and a slash menu for
+sessions, voice to text in Notes with send-to-session, and the fixed
+"Show me" buttons.
+
+
 ### 1. Sign in, rebuilt (M-L)
 Today: email and password; the password is also the key that encrypts synced
 data (nobody can read or reset it).
@@ -98,7 +112,7 @@ Ordered by how many people they help per hour of work.
 | Connection | What it brings | How | Effort |
 |---|---|---|---|
 | Any email (IMAP) | iCloud, Yahoo, AOL, Fastmail, Zoho, Proton (Bridge), most others by Thunderbird's directory | Done Nov 3. Outlook.com and Hotmail need Microsoft sign-in (next to do here) | S |
-| Calendars | Today's events on Now; a heads-up 10 min before | Done Nov 3 by private calendar link (Google, Outlook, iCloud, any .ics). Next: iCloud/Fastmail/Yahoo through the email account's app password (CalDAV); Datum M365 calendar waits on Blake's okay | M |
+| Calendars | Today's events on Now; a heads-up 10 min before | Done Nov 3 by private calendar link (Google, Outlook, iCloud, any .ics). Next: iCloud/Fastmail/Yahoo through the email account's app password (CalDAV); a co-owned work tenant's calendar waits on its owner's okay | M |
 | Slack | Messages and mentions in Inbox, reply | Slack app, free | M |
 | Discord | DMs and mentions | Discord bot or OAuth, free | M |
 | Google Drive / Docs | Files shared with you, comments that mention you | Google API, free | M |
@@ -110,6 +124,7 @@ Ordered by how many people they help per hour of work.
 | WhatsApp | Business accounts only (personal has no API) | WhatsApp Cloud API | M, limited |
 | Home Assistant | Sensors, alerts (freezer, gate, water) | Local REST API, free | M |
 | Weather | Today, frost and storm alerts | Done Nov 3: Open-Meteo forecast, NWS warnings in the US | S |
+| System monitor | How busy this computer is (processor, memory, graphics, network, storage, temperatures, fans, apps) in Settings | Done Nov 4: live page, Linux verified; Mac and Windows unverified. Next: Windows fan and CPU temperature only through a tool the person runs (LibreHardwareMonitor) | M |
 | Webhooks in | Anything else (IFTTT, Zapier, Home Assistant, a phone shortcut, a script) posts a note, to-do, reminder or "needs you" | Done Nov 3: a private link per webhook, on this computer and (signed in) from anywhere through the sync service, which seals each message to the webhook's own key | S |
 | RSS | News, blogs, forums | Plain feeds | S |
 | Browser tabs | Open tabs grouped by project, close a project's tabs at once | A small browser extension | M |
@@ -190,18 +205,80 @@ Open, in order:
 
 - Apple sign-in and anything else that costs money (until paid services are
   allowed).
-- Datum's Microsoft 365 data beyond Teams and Outlook (needs Blake's okay).
+- A co-owned work tenant's Microsoft 365 data beyond Teams and Outlook (needs the co-owner's okay; see docs/HANDOFF.md).
 - Automatic sending of anything. Every send stays an explicit click.
 
 ## Done recently
 
+- Sessions: model and effort (Nov 4). New session has Model (Default, Sonnet,
+  Opus, Haiku, a 1M-context box) and Effort (Default to Max) for Claude and a
+  model box for Codex, remembered per folder, passed as `--model` / `--effort`
+  and kept on the session. Typing `/` in the message bar lists Claude's
+  commands and the folder's skills (`.claude/skills`, `.claude/commands`,
+  `~/.claude/skills`; lib/slash.js) with one line each; `/model` opens
+  Claude's picker, which the agent-menu reader now shows as buttons (checked
+  against the real one). The session's bar reads "Opus 5.5 · high · 39% ·
+  $0.42" live from Claude Code's status line (bin/statusline.sh, set by setup
+  only for someone with no status line of their own) and from the SessionStart
+  and PostModelSwitch hooks. `/effort` is a slider, so it stays in the terminal.
+- Release plumbing (Nov 4): Settings, General, About shows the version, build
+  and computer with Check for updates and an Updates: Stable | Latest switch
+  (lib/update.js moves the checkout's upstream between origin/stable and
+  origin/main); `npm run setup` picks stable when the remote has it; README
+  clones `-b stable`. `scripts/publish.mjs` gained `--version`, `--tag`
+  (tag plus the public `stable` branch), `--dry-gate-only` and `--help`.
+  `scripts/notices.mjs` writes THIRD-PARTY-NOTICES.txt, which the desktop
+  bundle carries. ESLint (flat config, no plugins, page scripts' shared names
+  generated) runs in CI with a weekly schedule; Dependabot weekly.
+- Notes, voice and sessions (Nov 4): a mic on the page editor's bar that
+  dictates at the caret through the editor's own insert path (one undo, the
+  sanitiser on save), and one on Quick notes; Send to session on a page and
+  on each quick note (picker of open sessions, a ready-made or free-text line
+  above the text, lands in the message bar, Enter sends); `today …` in Ctrl K
+  for a timed line on the day's page per project; the sanitiser in its own
+  file (public/js/sanitize.js) with a headless-Chrome test, which caught
+  `<svg><script>` slipping its text through (foreign elements keep lowercase
+  tag names).
+
+- Sessions named by their work: Claude Code's terminal title (the topic it
+  sets, status glyph dropped) is a session's name everywhere until Brett
+  renames it; clearing the name goes back to it. tmux pane titles, or the
+  title codes in a direct session's output (Mac and Windows: unverified). (Nov 3)
+- Sessions as lines: the tab strip is gone. The panel's one job is picking a
+  session: one row each, grouped by repo without the repo name repeated,
+  state in a column of words, a second line only for a queue or a failed
+  build, a fixed order, orange only for needs you; it follows the project
+  filter and shares the console's top and bottom edges. The session's own
+  things sit with it: branch, build, linked chats on its bar; Stop and More
+  (rename, linked chats, End session asks twice) always in reach. Bring in a
+  message opens from the message bar. Page tabs and queued messages are words,
+  not pills. (Nov 3)
 - Sessions grows tabs: Sessions · Builds (the old Actions page, its light on
   the Sessions link; #actions still works) · Browser checks (one line per
   check, one "Add a check" with a short form, details on click). PAGES in
   core.js takes a parent, so later kinds of session (plain chat with your
   account, a desktop worker) slot in as more tabs. Agents get
   switchboard_checks and switchboard_add_check. (Nov 3)
-- Chat view on Sessions (opt in, Settings, General): Claude Code's own
+- Terminal view fits (Nov 3, late): tmux's status bar is off for Switchboard's
+  sessions (it took the bottom row, pushing Claude's last line off), the
+  terminal's inner space moved onto xterm itself (its fit ignored the box's
+  padding and drew a row too many), and Sessions sit 28 px clear of the
+  window's bottom, with a closed bottom edge when there is no message bar.
+- Never lose a draft (Nov 3, late): an update's reload waits while Brett types
+  or dictates (a quiet minute, no filled text box in use), and drafts are kept
+  in the browser, so a reload or a closed tab brings them back.
+- Sessions open as a chat (Nov 3, late), or the terminal: Settings, Look,
+  "Sessions open in", offered once in the first chat. One place to
+  type (the message bar in Chat; in Terminal the bar steps aside). Claude's
+  permission prompts and questions are read off its tmux screen
+  (lib/agentmenu.js) and shown as buttons; an answer is arrow keys and Enter,
+  sent only if the same question (same sig) is still up. A message while it
+  asks answers No and goes straight in. The working line says what it is
+  doing (its newest tool call without a result). Not yet: Codex in Chat (its
+  rollouts in ~/.codex/sessions hold messages; tool calls not yet checked),
+  reading the screen without tmux (Windows), streaming text as it is written
+  (the transcript only gets whole messages).
+- Chat view on Sessions (first version, Nov 3): Claude Code's own
   transcript read by byte offset (tail, then only what is new; never the whole
   file) and drawn as a conversation with safe markdown, tool calls on one line
   that open to input and result, a "Needs you" card with Answer in terminal.

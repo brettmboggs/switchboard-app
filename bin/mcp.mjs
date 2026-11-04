@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Switchboard as an MCP server: the tools any coding agent (Claude Code, Codex,
-// Gemini CLI, Cursor…) can use to see what needs Brett, put things on the
+// Gemini CLI, Cursor…) can use to see what needs the user, put things on the
 // board, see sessions and GitHub Actions runs, set up and read browser checks,
 // and queue a message into another session. `npm run setup` registers it with
 // each agent that is installed.
@@ -8,7 +8,7 @@
 // MCP over stdio: one JSON-RPC message per line on stdin and stdout; anything
 // else goes to stderr. It talks only to Switchboard on this computer
 // (127.0.0.1), with the same header the page uses. Mail, chats and money are
-// left out on purpose: an agent never reads Brett's inbox through this.
+// left out on purpose: an agent never reads the user's inbox through this.
 // No dependencies, so it starts in a few milliseconds.
 import { execFileSync } from 'node:child_process';
 
@@ -37,7 +37,7 @@ function cwdRepo() {
 }
 
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
-const STATE = { running: 'working', waiting: 'needs Brett', finished: 'finished, Brett\'s turn', idle: 'ready', starting: 'starting' };
+const STATE = { running: 'working', waiting: 'needs the user', finished: 'finished, the user\'s turn', idle: 'ready', starting: 'starting' };
 const allSessions = (s) => [
   ...(s.terms || []).map((t) => ({ key: t.id, name: t.name, where: 'this computer', repo: t.ci?.fullName || null, branch: t.ci?.branch || null, state: t.state, agent: t.agentName, queued: t.queued?.length || 0, cwd: t.cwd })),
   ...(s.remoteTerms || []).map((t) => ({ key: `r:${t.device}:${t.id}`, name: t.name, where: t.deviceName, repo: null, branch: null, state: t.state, agent: t.agentName, queued: t.queued?.length || 0, cwd: t.cwd, device: t.device, id: t.id }))
@@ -46,27 +46,27 @@ const allSessions = (s) => [
 const TOOLS = [
   {
     name: 'switchboard_overview',
-    title: 'What needs Brett',
-    description: 'What needs Brett right now on his Switchboard: agent sessions waiting on him, failed or running GitHub Actions builds, pull requests to review, and reminders or to-dos that are due. Read-only.',
+    title: 'What needs the user',
+    description: 'What needs the user right now on their Switchboard: agent sessions waiting on them, failed or running GitHub Actions builds, pull requests to review, and reminders or to-dos that are due. Read-only.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
     async run() {
       const s = await sb('/api/state');
       const now = Date.now(), out = [];
       const ses = allSessions(s).filter((t) => t.state === 'waiting' || t.state === 'finished');
-      if (ses.length) out.push('Sessions waiting on Brett:', ...ses.map((t) => `- ${t.name} (${t.agent}, ${t.where}): ${STATE[t.state]}`));
+      if (ses.length) out.push('Sessions waiting on the user:', ...ses.map((t) => `- ${t.name} (${t.agent}, ${t.where}): ${STATE[t.state]}`));
       const runs = (s.actions || []).flatMap((a) => a.runs.slice(0, 6).filter((r) => r.state === 'running' || r.state === 'queued' || (r.state === 'failure' && now - r.updatedAt < 86400e3)).map((r) => ({ ...r, repo: a.fullName })));
       if (runs.length) out.push('GitHub Actions:', ...runs.map((r) => `- ${r.repo} · ${r.workflow} on ${r.branch}: ${r.state} (${ago(r.updatedAt)}) · ${r.title}`));
-      if (s.reviews?.length) out.push('Pull requests waiting on Brett\'s review:', ...s.reviews.map((p) => `- ${p.repo} #${p.number}: ${p.title} (by ${p.author})`));
+      if (s.reviews?.length) out.push('Pull requests waiting on the user\'s review:', ...s.reviews.map((p) => `- ${p.repo} #${p.number}: ${p.title} (by ${p.author})`));
       const due = (s.items || []).filter((i) => (i.kind === 'todo' || i.kind === 'reminder') && i.due_at && i.due_at <= now);
       if (due.length) out.push('Due now:', ...due.map((i) => `- ${i.kind}: ${i.text}`));
-      return out.length ? out.join('\n') : 'Nothing needs Brett right now.';
+      return out.length ? out.join('\n') : 'Nothing needs the user right now.';
     }
   },
   {
     name: 'switchboard_add',
-    title: 'Put something on Brett\'s board',
-    description: 'Put an item on Brett\'s Switchboard. kind "needs" (default) shows at once as a Needs-you card with a desktop alert: use it when you are blocked on Brett or something important happened, not for routine progress. "todo" and "reminder" can have a due time ("fri 9am", "in 2h", or an ISO date); "note" is just kept. project is a Switchboard project name (see switchboard_projects); left out, it goes to Personal.',
+    title: 'Put something on the user\'s board',
+    description: 'Put an item on the user\'s Switchboard. kind "needs" (default) shows at once as a Needs-you card with a desktop alert: use it when you are blocked on the user or something important happened, not for routine progress. "todo" and "reminder" can have a due time ("fri 9am", "in 2h", or an ISO date); "note" is just kept. project is a Switchboard project name (see switchboard_projects); left out, it goes to Personal.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -84,8 +84,8 @@ const TOOLS = [
   },
   {
     name: 'switchboard_projects',
-    title: 'Brett\'s projects',
-    description: 'The projects on Brett\'s Switchboard (for the project field of switchboard_add). Read-only.',
+    title: 'The user\'s projects',
+    description: 'The projects on the user\'s Switchboard (for the project field of switchboard_add). Read-only.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
     async run() { const s = await sb('/api/state'); return s.spaces.map((x) => `- ${x.name}${x.group ? ` (${x.group})` : ''}`).join('\n'); }
@@ -93,7 +93,7 @@ const TOOLS = [
   {
     name: 'switchboard_sessions',
     title: 'Agent sessions',
-    description: 'Every agent session Switchboard runs, on this computer and Brett\'s other computers: name, agent, state, repo and branch, queued messages. Read-only.',
+    description: 'Every agent session Switchboard runs, on this computer and the user\'s other computers: name, agent, state, repo and branch, queued messages. Read-only.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
     async run() {
@@ -104,7 +104,7 @@ const TOOLS = [
   {
     name: 'switchboard_send_to_session',
     title: 'Queue a message into another session',
-    description: 'Queue a message into another agent session (by its name or [key] from switchboard_sessions). It is typed in when that session is free, labelled as coming from you. Use it to hand work to a session in another repo; Brett sees it in that session\'s queue.',
+    description: 'Queue a message into another agent session (by its name or [key] from switchboard_sessions). It is typed in when that session is free, labelled as coming from you. Use it to hand work to a session in another repo; the user sees it in that session\'s queue.',
     inputSchema: {
       type: 'object',
       properties: { session: { type: 'string', description: 'Session name or key.' }, text: { type: 'string' } },
@@ -138,7 +138,7 @@ const TOOLS = [
   {
     name: 'switchboard_checks',
     title: 'Browser checks and their results',
-    description: 'Brett\'s browser checks (Sessions, Browser checks): pages that must load and show some text, and projects\' Playwright tests, run headless on a click or a schedule. For each: what it checks, how often, its newest run (passed, failed, running) with the summary and, for a failure, which tests failed and why. Read-only.',
+    description: 'The user\'s browser checks (Sessions, Browser checks): pages that must load and show some text, and projects\' Playwright tests, run headless on a click or a schedule. For each: what it checks, how often, its newest run (passed, failed, running) with the summary and, for a failure, which tests failed and why. Read-only.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
     async run() {
@@ -157,7 +157,7 @@ const TOOLS = [
   {
     name: 'switchboard_add_check',
     title: 'Add a browser check',
-    description: 'Set up a browser check for Brett: kind "page" opens url in a headless browser and fails if it will not load or never shows the expect text; kind "tests" runs a project\'s own Playwright tests (folder is its full path; command defaults to "npx playwright test"). every is minutes between runs: 0 (only on a click, the default), 60, 360 or 1440. project is a Switchboard project name. It runs once right away unless run_now is false; a failure becomes a Needs-you card for Brett. Read results with switchboard_checks.',
+    description: 'Set up a browser check for the user: kind "page" opens url in a headless browser and fails if it will not load or never shows the expect text; kind "tests" runs a project\'s own Playwright tests (folder is its full path; command defaults to "npx playwright test" and may only be the project\'s test runner: npx playwright test, npm test or npm run <script>). every is minutes between runs: 0 (only on a click, the default), 60, 360 or 1440. project is a Switchboard project name. It runs once right away unless run_now is false; a failure becomes a Needs-you card for the user. Read results with switchboard_checks.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -171,6 +171,12 @@ const TOOLS = [
       required: ['kind'], additionalProperties: false
     },
     async run(a) {
+      // A "tests" check runs its command in a shell on this computer. From an agent
+      // only the project's own test runner may be set up; anything else is for the
+      // person to add themselves in Sessions, Browser checks.
+      if (a.kind === 'tests' && a.command && !/^(npx playwright test|npm test|npm run [\w:.-]+|pnpm (test|run [\w:.-]+)|yarn (test|run [\w:.-]+))( [\w./:=-]+)*$/.test(String(a.command).trim())) {
+        throw new Error('From here a tests check can only run the project\'s test runner (npx playwright test, npm test, npm run <script>, with plain arguments). Ask the person to add any other command in Sessions, Browser checks.');
+      }
       let space;
       if (a.project) {
         const want = String(a.project).toLowerCase();
@@ -178,9 +184,10 @@ const TOOLS = [
         if (!hit) throw new Error(`No project called "${a.project}". See switchboard_projects.`);
         space = hit.id;
       }
-      const r = await sb('/api/checks', { kind: a.kind, url: a.url, expect: a.expect, folder: a.folder, command: a.command, name: a.name, space, every: a.every || 0 });
+      // agent: true tells the server this came from an agent, so it applies the same rule.
+      const r = await sb('/api/checks', { kind: a.kind, url: a.url, expect: a.expect, folder: a.folder, command: a.command, name: a.name, space, every: a.every || 0, agent: true });
       if (a.run_now !== false) await sb('/api/checks/run', { id: r.id });
-      return `Added browser check [${r.id}]${a.run_now !== false ? ' and started a run' : ''}. Brett sees it in Sessions, Browser checks; read the result with switchboard_checks.`;
+      return `Added browser check [${r.id}]${a.run_now !== false ? ' and started a run' : ''}. The user sees it in Sessions, Browser checks; read the result with switchboard_checks.`;
     }
   }
 ];
@@ -195,7 +202,7 @@ async function handle(m) {
       client = params.clientInfo?.name || client;
       const v = VERSIONS.includes(params.protocolVersion) ? params.protocolVersion : VERSIONS[0];
       return write({ id, result: { protocolVersion: v, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'switchboard', title: 'Switchboard', version: '1.0.0' },
-        instructions: 'Brett\'s Switchboard: what needs him, his board, his agent sessions, live GitHub Actions and browser checks. Use switchboard_add with kind "needs" only when you truly need Brett.' } });
+        instructions: 'The user\'s Switchboard: what needs them, their board, their agent sessions, live GitHub Actions and browser checks. Use switchboard_add with kind "needs" only when you truly need the user.' } });
     }
     if (method === 'ping') return write({ id, result: {} });
     if (method === 'tools/list') return write({ id, result: { tools: TOOLS.map(({ run, ...t }) => t) } });

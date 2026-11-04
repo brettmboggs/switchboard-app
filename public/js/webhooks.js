@@ -15,7 +15,7 @@ function hookLine(h) {
   if (t) {
     const bad = [t.local, t.public].find((x) => x && !x.ok);
     if (bad) return { text: 'Test failed: ' + bad.error, bad: true };
-    return { text: 'Test worked' + (t.public ? `: from anywhere in ${(t.public.ms / 1000).toFixed(1)} s, and from this computer` : ' from this computer') };
+    return { text: 'Test worked' + (t.public ? `: from anywhere in ${(Number(t.public.ms) / 1000).toFixed(1)} s, and from this computer` : ' from this computer') };
   }
   if (h.pending) return { text: 'Setting up the link that works from anywhere…' };
   return { text: h.public ? 'Works from anywhere, and from this computer' : 'This computer only. Sign in to your Switchboard account for a link that works from anywhere.' };
@@ -33,8 +33,8 @@ function renderWebhooks() {
         <select data-hook-field="space" data-hook="${esc(h.id)}" aria-label="Project for ${esc(h.name)}">${spaceOptions(h.space)}</select>
         <select data-hook-field="kind" data-hook="${esc(h.id)}" aria-label="What ${esc(h.name)} puts on the board">${kindOptions(h.kind)}</select>
         <button class="btn" type="button" data-hook-links="${esc(h.id)}">Link</button>
-        <button class="icon-btn" type="button" data-hook-test="${esc(h.id)}" ${hookTests[h.id]?.busy ? 'disabled' : ''}>Test</button>
-        <button class="icon-btn" type="button" data-hook-remove="${esc(h.id)}">Remove</button>
+        <button class="btn btn--quiet" type="button" data-hook-test="${esc(h.id)}" ${hookTests[h.id]?.busy ? 'disabled' : ''}>Test</button>
+        <button class="btn btn--quiet" type="button" data-hook-remove="${esc(h.id)}">Remove</button>
       </div></div>`;
   }).join('');
   $('hook-open').textContent = list.length ? 'Add another' : 'Add';
@@ -62,7 +62,7 @@ function renderHookShow() {
       <p><b>A script:</b> <code class="mono">curl -d 'Gate left open' ${esc(example)}</code></p>
     </details>
     <p class="hint">Anyone who has this link can put things on your board, so keep it private. A new link replaces it; the old one stops working at once.</p>
-    <div class="form-row"><button class="icon-btn" type="button" data-hook-new="${esc(h.id)}">New link</button><span class="grow"></span><button class="btn" type="button" data-hook-close>Close</button></div></div>`;
+    <div class="form-row"><button class="btn btn--quiet" type="button" data-hook-new="${esc(h.id)}">New link</button><span class="grow"></span><button class="btn" type="button" data-hook-close>Close</button></div></div>`;
 }
 
 async function showHookLinks(id, links) {
@@ -82,14 +82,14 @@ document.addEventListener('click', async (e) => {
     if (lk) { await showHookLinks(lk.dataset.hookLinks); return; }
     const nw = e.target.closest('[data-hook-new]');
     if (nw) {
-      if (!nw.dataset.sure) { nw.dataset.sure = '1'; nw.textContent = 'Replace the link? The old one stops working'; nw.classList.add('danger'); return; }
+      if (!nw.dataset.sure) { nw.dataset.sure = '1'; nw.textContent = 'Replace the link? The old one stops working'; nw.classList.add('btn--danger'); return; }
       const r = await api('/api/webhooks', { newLink: true, id: nw.dataset.hookNew });
       SET = await api('/api/settings'); await showHookLinks(nw.dataset.hookNew, r.links); renderWebhooks();
       toast('New link made. Put it wherever the old one was.'); return;
     }
     const rm = e.target.closest('[data-hook-remove]');
     if (rm) {
-      if (!rm.dataset.sure) { rm.dataset.sure = '1'; rm.textContent = 'Remove it?'; rm.classList.add('danger'); return; }
+      if (!rm.dataset.sure) { rm.dataset.sure = '1'; rm.textContent = 'Remove it?'; rm.classList.add('btn--danger'); return; }
       await api('/api/webhooks', { remove: true, id: rm.dataset.hookRemove });
       if (hookShown?.id === rm.dataset.hookRemove) hookShown = null;
       SET = await api('/api/settings'); renderWebhooks(); return;
@@ -102,7 +102,7 @@ document.addEventListener('click', async (e) => {
       catch (err) { hookTests[id] = { local: { ok: false, error: err.message } }; }
       SET = await api('/api/settings'); renderWebhooks(); return;
     }
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, { kind: 'error' }); }
 });
 
 document.addEventListener('change', (e) => {
@@ -110,7 +110,7 @@ document.addEventListener('change', (e) => {
   if (!f) return;
   const h = (SET.webhooks || []).find((x) => x.id === f.dataset.hook);
   if (h) h[f.dataset.hookField] = f.value;
-  api('/api/webhooks', { id: f.dataset.hook, [f.dataset.hookField]: f.value }).then(() => { $('saved').textContent = 'Saved'; $('saved').className = 'saved show'; setTimeout(() => { $('saved').className = 'saved'; }, 1400); renderHookShow(); }).catch((err) => toast(err.message));
+  api('/api/webhooks', { id: f.dataset.hook, [f.dataset.hookField]: f.value }).then(() => { $('saved').textContent = 'Saved'; $('saved').className = 'saved show'; setTimeout(() => { $('saved').className = 'saved'; }, 1400); renderHookShow(); }).catch((err) => toast(err.message, { kind: 'error' }));
 });
 
 $('hook-form').addEventListener('submit', async (e) => {

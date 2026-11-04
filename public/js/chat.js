@@ -1,10 +1,14 @@
-// The Chat view on Sessions: a Claude session's own transcript as a clean
-// conversation (Brett, the agent, its tool calls folded to one line each),
-// with "Chat | Terminal" on the session's bar. Opt-in: Settings, General.
+// The Chat view on Sessions: how a Claude session opens. Its own transcript
+// as a clean conversation (the user, the agent, its tool calls folded to one line
+// each), the message bar as the one place to type, and the agent's questions
+// (permissions, choices) as buttons, read off its screen (lib/agentmenu.js).
+// "Chat | Terminal" on the session's bar is kept per session; Settings, Look,
+// "Sessions open in" picks what they start as (Chat unless changed), and the
+// first chat asks once whether to keep it.
 // The server reads the transcript by byte offset and sends only what is new
 // (lib/routes/sessionview.js); this file appends only what is new, keeps about
 // 150 messages on screen with "Show earlier", and follows the bottom until
-// Brett scrolls up. Agent text is drawn with DOM nodes, never as HTML.
+// the user scrolls up. Agent text is drawn with DOM nodes, never as HTML.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 
@@ -23,17 +27,27 @@ function chatBlocked(t) {
 }
 function chatOn(key) {
   const t = termByKey(key);
-  return !!(t && S?.prefs?.chatView && !chatBlocked(t) && (chatModes[key] || 'chat') === 'chat');
+  return !!(t && !chatBlocked(t) && (chatModes[key] || defaultView()) === 'chat');
 }
+const defaultView = () => (S?.prefs?.sessionView === 'term' ? 'term' : 'chat');
+// A new default from Settings or the first-time note: every session follows it.
+function useSessionView(v) {
+  for (const k of Object.keys(chatModes)) delete chatModes[k];
+  store.set('chatModes', chatModes);
+  store.set('viewAsked', true);
+  if (S) S.prefs = { ...S.prefs, sessionView: v };
+}
+// A session that can be a chat but is showing its terminal: the terminal is
+// then the one place to type, so the message bar steps aside.
+const termOnly = (key) => { const t = termByKey(key); return !!(t && !chatBlocked(t) && !chatOn(key)); };
 // "Chat | Terminal" on the session's bar.
 function chatToggle(t) {
-  if (!S?.prefs?.chatView) return '';
   const why = chatBlocked(t), on = chatOn(t.key);
   return `<div class="tb-seg" role="group" aria-label="View"><button type="button" class="tb-segb" data-cview="chat" aria-pressed="${on}" ${why ? `aria-disabled="true" title="${esc(why)}"` : 'title="Read the session as a conversation"'}>Chat</button><button type="button" class="tb-segb" data-cview="term" aria-pressed="${!on}" title="The agent's own terminal">Terminal</button></div>`;
 }
 function setChatMode(key, mode) {
   chatModes[key] = mode; store.set('chatModes', chatModes);
-  renderTermBar(); syncTerminal();
+  render();
   if (mode === 'chat') $('q-text')?.focus();
 }
 document.addEventListener('click', (e) => {
@@ -43,6 +57,17 @@ document.addEventListener('click', (e) => {
     setChatMode(currentTerm, b.dataset.cview); return;
   }
   if (e.target.closest('[data-chat-answer]')) { setChatMode(currentTerm, 'term'); return; }
+  const pv = e.target.closest('[data-view-pick]');
+  if (pv) {
+    const v = pv.dataset.viewPick;
+    useSessionView(v);
+    api('/api/settings', { prefs: { sessionView: v } }).catch(() => {});
+    $('chat-first')?.remove();
+    if (v === 'term') toast('Sessions open in the terminal now. Change it any time in Settings, Look.');
+    render(); return;
+  }
+  const pick = e.target.closest('[data-menu-pick]');
+  if (pick) { answerMenu(Number(pick.dataset.menuPick)); return; }
   if (e.target.closest('[data-chat-earlier]')) { chatEarlier(); return; }
   if (e.target.closest('#chat-jump')) { chatToBottom(true); return; }
   const cp = e.target.closest('[data-chat-copy]');
@@ -59,10 +84,11 @@ function chatHost() {
   host = document.createElement('div');
   host.id = 'chat-host'; host.className = 'chat-host'; host.hidden = true;
   host.innerHTML = `<div class="chat-scroll" id="chat-scroll"><div class="chat-col">
-      <button class="chat-earlier" type="button" data-chat-earlier hidden>Show earlier</button>
-      <div class="chat-list" id="chat-list" role="log" aria-live="polite" aria-label="Conversation"></div>
-      <div class="chat-live" id="chat-live"></div></div></div>
-    <button class="chat-jump" id="chat-jump" type="button" hidden>Jump to latest <span aria-hidden="true">↓</span></button>`;
+      ${store.get('viewAsked', false) ? '' : `<div class="chat-first" id="chat-first" role="note"><p><b>Sessions open as a chat now.</b> Prefer Claude's own terminal? Pick one; you can change it any time in Settings, Look, or with Chat | Terminal on a session.</p><div class="cf-btns"><button type="button" class="btn btn--primary btn--sm" data-view-pick="chat">Keep chat</button><button type="button" class="btn btn--sm" data-view-pick="term">Use the terminal</button></div></div>`}
+      <button class="btn btn--sm chat-earlier" type="button" data-chat-earlier hidden>Show earlier</button>
+      <div class="chat-list" id="chat-list" aria-label="Conversation"></div>
+      <div class="chat-live" id="chat-live" aria-live="polite"></div></div></div>
+    <button class="btn btn--sm chat-jump" id="chat-jump" type="button" hidden>Jump to latest <span aria-hidden="true">↓</span></button>`;
   $('term-host').after(host);
   const sc = host.querySelector('#chat-scroll');
   sc.addEventListener('scroll', () => {
@@ -71,7 +97,7 @@ function chatHost() {
     if (near) { cv.stick = true; cv.auto = false; $('chat-jump').hidden = true; }
     else if (!cv.auto) cv.stick = false;
   }, { passive: true });
-  // Brett reaching for the wheel or the keys always wins over following the bottom.
+  // the user reaching for the wheel or the keys always wins over following the bottom.
   sc.addEventListener('wheel', (e) => { if (cv && e.deltaY < 0) { cv.auto = false; cv.stick = false; } }, { passive: true });
   return host;
 }
@@ -90,7 +116,10 @@ function openChat(key) {
     if (Date.now() - cv.lastFetch > 2000) fetchChat();   // in case a file event was missed
     return;
   }
-  cv = { key, id: t.id, file: null, start: 0, end: 0, items: [], first: 0, tools: new Map(), ids: new Set(), stick: true, auto: false, busy: false, again: false, lastFetch: 0, why: null };
+  clearInterval(cv?.menuTimer);
+  cv = { key, id: t.id, file: null, start: 0, end: 0, items: [], first: 0, tools: new Map(), ids: new Set(), stick: true, auto: false, busy: false, again: false, lastFetch: 0, why: null, menu: null, menuTimer: null };
+  cv.menuTimer = setInterval(watchMenu, 1500);
+  watchMenu();
   $('chat-list').textContent = '';
   $('chat-jump').hidden = true;
   host.querySelector('[data-chat-earlier]').hidden = true;
@@ -106,6 +135,7 @@ function closeChat() {
   const host = $('chat-host');
   if (host) host.hidden = true;
   if (!cv) return;
+  clearInterval(cv.menuTimer);
   cv = null;
   $('chat-list').textContent = '';
   $('chat-live').textContent = '';
@@ -210,7 +240,7 @@ async function chatEarlier() {
     c.start = r.start;
     keepPos(() => list.prepend(chatNodes(older)));
     chatEarlierButton();
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, { kind: 'error' }); }
 }
 
 function chatToBottom(smooth) {
@@ -226,18 +256,83 @@ function chatToBottom(smooth) {
   requestAnimationFrame(go);
 }
 
-// The bottom of the conversation: a card when the agent needs a decision in
-// its own screen, a quiet "Working" while it works, or why there is nothing yet.
+// ---------- the agent's questions, as buttons
+// While the agent works, waits or starts, look at its screen every 1.5 s for a
+// question (cheap: one tmux capture). The server types the answer only if the
+// same question is still on screen.
+async function watchMenu() {
+  const c = cv, t = termByKey(c?.key);
+  if (!c || !t || c.menuBusy) return;
+  if (!['running', 'waiting', 'starting'].includes(t.state) && !c.menu) return;
+  c.menuBusy = true;
+  try {
+    const r = await api(`/api/terms/${encodeURIComponent(c.id)}/menu`);
+    if (cv !== c) return;
+    if ((r.menu?.sig || null) !== (c.menu?.sig || null)) { c.menu = r.menu; renderChatLive(); renderTermCompose(); }
+  } catch { /* the next look tries again */ }
+  finally { c.menuBusy = false; }
+}
+async function answerMenu(index) {
+  const c = cv;
+  if (!c?.menu) return;
+  const sig = c.menu.sig;
+  document.querySelectorAll('[data-menu-pick]').forEach((b) => { b.disabled = true; });
+  try {
+    const r = await api(`/api/terms/${encodeURIComponent(c.id)}/menu`, { sig, index });
+    if (cv !== c) return;
+    c.menu = r.menu || null;
+    renderChatLive(); renderTermCompose();
+    load();
+  } catch (err) {
+    toast(err.message, { kind: 'error' });
+    if (cv === c) { c.menu = null; renderChatLive(); watchMenu(); }
+  }
+}
+// Writing a message while the agent asks permission means "no, do this
+// instead": answer No first, then the message goes straight in.
+function menuNoIndex() {
+  const opts = cv?.menu?.options || [];
+  const i = opts.findIndex((o) => /^No\b/i.test(o.label));
+  return i;
+}
+
+// What the agent is doing now, from its newest tool call that has no result yet.
+const TOOL_VERB = { Bash: 'Running', Shell: 'Running', Read: 'Reading', Write: 'Writing', Edit: 'Editing', MultiEdit: 'Editing', NotebookEdit: 'Editing', Grep: 'Searching', Glob: 'Looking for files', WebFetch: 'Reading a web page', WebSearch: 'Searching the web', Task: 'Working with a helper', Agent: 'Working with a helper', TodoWrite: 'Planning' };
+function chatDoing() {
+  const items = cv?.items || [];
+  for (let i = items.length - 1; i >= 0 && i >= items.length - 30; i--) {
+    const m = items[i];
+    if (m.k === 'tool') return m.res ? null : { verb: TOOL_VERB[m.name] || `Using ${m.name}`, sum: m.sum || '' };
+    if (m.k === 'text' || m.k === 'user') return null;
+  }
+  return null;
+}
+
+// The bottom of the conversation: the agent's question with its choices as
+// buttons, a "needs you" card when the question could not be read, what it is
+// doing while it works, or why there is nothing yet.
 function renderChatLive() {
   const el = $('chat-live'), t = termByKey(cv?.key);
   if (!el || !t) return;
   let html = '';
-  if (t.state === 'waiting') {
-    html = `<div class="chat-wait"><div class="cw-head"><span class="cw-dot"></span>Needs you</div><p class="cw-q">${esc(t.detail || `${t.agentName} is asking for a decision.`)}</p><p class="cw-how">Permissions and questions are answered in the agent's own screen.</p><button class="cw-go" type="button" data-chat-answer>Answer in terminal</button></div>`;
+  const q = cv.menu;
+  if (q) {
+    const no = menuNoIndex();
+    html = `<div class="chat-ask" role="group" aria-label="${esc(t.agentName)} is asking">
+      <div class="ca-head">${esc(t.agentName)} is asking${q.title ? ` · <span>${esc(q.title)}</span>` : ''}</div>
+      ${q.lines.map((l) => l.code ? `<pre class="ca-code">${esc(l.t)}</pre>` : `<p class="ca-line">${esc(l.t)}</p>`).join('')}
+      ${q.question ? `<p class="ca-q">${esc(q.question)}</p>` : ''}
+      <div class="ca-opts">${q.options.map((o, i) => `<button type="button" class="ca-opt${i === 0 ? ' first' : ''}" data-menu-pick="${i}"><span class="ca-n">${o.n ?? i + 1}</span><span>${esc(o.label)}${o.hint ? `<small class="ca-hint">${esc(o.hint)}</small>` : ''}</span></button>`).join('')}</div>
+      ${(q.notes || []).length ? `<p class="ca-notes">${q.notes.map(esc).join(' · ')}</p>` : ''}
+      ${no >= 0 ? `<p class="ca-how">Or write below what to do instead, and it answers No for you.</p>` : ''}
+    </div>`;
+  } else if (t.state === 'waiting') {
+    html = `<div class="chat-wait"><div class="cw-head">Needs you</div><p class="cw-q">${esc(t.detail || `${t.agentName} is asking for a decision.`)}</p><p class="cw-how">This question could not be read here. Answer it in the terminal, then come back.</p><button class="btn btn--primary btn--sm" type="button" data-chat-answer>Open the terminal</button></div>`;
   } else if (cv.why) {
     html = `<p class="chat-empty">${esc({ starting: 'Waiting for Claude to start. The conversation shows here as soon as it does.', nofile: 'Nothing said yet. Write below and the conversation shows here.', unreadable: 'Could not read this session\'s transcript. The terminal still has everything.' }[cv.why] || 'Nothing to show yet.')}</p>`;
   } else if (t.state === 'running') {
-    html = `<div class="chat-working" aria-label="Working"><i></i><i></i><i></i></div>`;
+    const d = chatDoing();
+    html = `<div class="chat-working"><span class="cwk-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cwk-verb">${esc(d?.verb || 'Thinking')}</span>${d?.sum ? `<span class="cwk-sum">${esc(d.sum)}</span>` : ''}</div>`;
   }
   if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; if (html && cv.stick) chatToBottom(true); }
 }

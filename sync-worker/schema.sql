@@ -23,3 +23,19 @@ CREATE TABLE IF NOT EXISTS docs (
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (account_id, name)
 );
+-- Phone push. A phone registers its Expo push token; computers ask the service
+-- to ping it. The service never sees what happened, only the kind of event, and
+-- it sends fixed text, so nothing private reaches Expo, Apple or Google.
+CREATE TABLE IF NOT EXISTS push_tokens (
+  token TEXT PRIMARY KEY,      -- ExponentPushToken[...] of one phone
+  account_id TEXT NOT NULL,
+  device TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS push_tokens_account ON push_tokens (account_id);
+CREATE TABLE IF NOT EXISTS push_sent (   -- last send per account and kind, to keep two computers from double-pinging
+  account_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (account_id, kind)
+);

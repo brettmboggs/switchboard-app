@@ -16,7 +16,7 @@ function renderInbox() {
   let html = `<div class="page-head inbox-head"><h1>Inbox</h1><div class="chips">
       <button class="chip ${biz.length ? 'hot' : ''}" type="button" data-tab="business" aria-pressed="${inboxTab === 'business'}">Business <span class="c">${biz.length}</span></button>
       <button class="chip" type="button" data-tab="personal" aria-pressed="${inboxTab === 'personal'}">Personal <span class="c">${per.length}</span></button>
-    </div><span class="grow"></span><button class="btn go" type="button" data-act="compose">New email</button></div>
+    </div><span class="grow"></span><button class="btn btn--primary" type="button" data-act="compose">New email</button></div>
     <div class="chips">${[['all', 'All'], ['email', 'Email'], ['texts', 'Texts and calls'], ['teams', 'Teams'], ['outlook', 'Outlook']].filter(([k]) => k === 'all' || srcCount(k) || (inboxTab === 'business' && S.recent.filter(inProject).some(SOURCE[k]))).map(([k, n]) => `<button class="chip" type="button" data-source="${k}" aria-pressed="${inboxSource === k}">${n} <span class="c">${srcCount(k)}</span></button>`).join('')}</div>
     <section class="card"><div class="list">`;
   const sub = (t) => t.kind === 'mail' || t.kind === 'outlook' ? `${t.subject}${t.snippet ? ' · ' + t.snippet : ''}` : (t.snippet || t.subject);
@@ -24,7 +24,7 @@ function renderInbox() {
   const recent = inboxTab === 'business' ? S.recent.filter(inProject).filter(SOURCE[inboxSource]).filter((r) => !list.some((t) => t.key === r.key)) : [];
   html += list.map((t) => row({ type: 'thread', key: t.key, space: t.space, title: t.who, via: VIA[t.kind] || 'Email', sub: sub(t), right: `<span class="mono ${inboxTab === 'business' && Date.now() - t.date > 2 * 86400e3 ? 'late' : 'muted'}">${ago(t.date)}</span>`, bold: t.unread })).join('')
     || (!S.status.gmail.length && !S.status.microsoft?.connected
-      ? `<div class="empty-cta"><p class="empty">Connect your email or Teams, and conversations waiting on you show here: from people, not ads.</p><div class="form-row"><button class="btn go" type="button" data-setup-link="gmail">Connect email</button><button class="btn" type="button" data-setup-link="microsoft">Connect Teams and Outlook</button></div></div>`
+      ? `<div class="empty-cta"><p class="empty">Connect your email or Teams, and conversations waiting on you show here: from people, not ads.</p><div class="form-row"><button class="btn btn--primary" type="button" data-setup-link="gmail">Connect email</button><button class="btn" type="button" data-setup-link="microsoft">Connect Teams and Outlook</button></div></div>`
       : empty(inboxTab === 'business' ? 'No business conversation is waiting on a reply.' : 'Nothing from people you have written to.'));
   html += `</div></section>`;
   if (recent.length) html += `<section class="card"><h2>Replied, last 7 days <span class="count">${recent.length}</span></h2><div class="list">${recent.map(threadRow).join('')}</div></section>`;

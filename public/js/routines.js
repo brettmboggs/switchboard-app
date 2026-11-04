@@ -35,7 +35,7 @@ function findRoutine(key) { return (S.routines || []).find((r) => String(r.id) =
 function routineDetail(x, kick) {
   return kick('Routine') + `<h2>${esc(x.text)}</h2>
     <dl class="facts"><dt>When</dt><dd>${esc(x.every)}</dd><dt>${dueNow(x) ? 'Due' : 'Next'}</dt><dd>${esc(when(x.due_at))}${dueNow(x) ? ` · ${esc(since(x.due_at))}` : ''}</dd>${x.amount ? `<dt>Done</dt><dd>${x.amount} time${x.amount === 1 ? '' : 's'}</dd>` : ''}</dl>
-    <div class="actions"><button class="btn go" type="button" data-rt="done">Done</button><button class="btn" type="button" data-rt="skip">Skip this one</button>${dueNow(x) ? '<button class="btn" type="button" data-rt="snooze">1 hour</button>' : ''}</div>
+    <div class="actions"><button class="btn btn--primary" type="button" data-rt="done">Done</button><button class="btn" type="button" data-rt="skip">Skip this one</button>${dueNow(x) ? '<button class="btn" type="button" data-rt="snooze">1 hour</button>' : ''}</div>
     <form class="rt-edit" id="rt-edit"><label for="rt-when" class="field-label">Change when</label><div class="form-row"><input id="rt-when" type="text" placeholder="every sat at 9am · every 2 weeks · monthly on the 15th" autocomplete="off"><button class="btn" type="submit">Change</button></div>
       <label for="rt-name" class="field-label">Name</label><div class="form-row"><input id="rt-name" type="text" value="${esc(x.text)}" maxlength="200" autocomplete="off"><button class="btn" type="button" data-rt="rename">Rename</button></div></form>
     <div class="actions"><button class="btn" type="button" data-rt="delete">${routineDeleteArmed === x.id ? 'Click again to delete it' : 'Delete'}</button></div>`;
@@ -48,7 +48,7 @@ document.addEventListener('click', async (e) => {
   if (idea) {
     idea.disabled = true;
     try { const r = await api('/api/routines', { add: idea.dataset.rtIdea, space: project }); toast(`Added: ${r.text}, ${r.every.charAt(0).toLowerCase() + r.every.slice(1)}.`); await load(); }
-    catch (err) { idea.disabled = false; toast(err.message); }
+    catch (err) { idea.disabled = false; toast(err.message, { kind: 'error' }); }
     return;
   }
   const b = e.target.closest('[data-rt]');
@@ -65,7 +65,7 @@ document.addEventListener('click', async (e) => {
       await api(`/api/items/${x.id}/delete`, {}); selected = null; routineDeleteArmed = null; toast('Deleted.');
     }
     await load();
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, { kind: 'error' }); }
 });
 
 document.addEventListener('submit', async (e) => {
@@ -74,5 +74,5 @@ document.addEventListener('submit', async (e) => {
   const x = selected && findRoutine(selected.key);
   if (!x || !$('rt-when').value.trim()) return;
   try { await api('/api/routines', { id: x.id, schedule: $('rt-when').value }); toast('Changed.'); await load(); }
-  catch (err) { toast(err.message); }
+  catch (err) { toast(err.message, { kind: 'error' }); }
 });

@@ -1,0 +1,327 @@
+/* Sessions (sessions.js, chat.js, bring.js, devchips.js). One job per area: the
+   panel picks a session, the console shows it, the message bar is what you send
+   it. The console (bar, terminal or chat, prompt) is always ink, in both themes,
+   on the --con-* tokens; the terminal reads the same tokens (TERM_THEME). Orange
+   means "needs you" and nothing else. */
+
+/* ---- The grid: the title across the top, the console in the middle, the lines
+   beside it, starting and ending where the console does. One screen, no scroll. */
+body[data-page="sessions"] { height: 100vh; overflow: hidden; }
+body[data-page="sessions"] .frame { height: calc(100vh - var(--top-h)); grid-template-columns: 200px minmax(0, 1fr) 288px; grid-template-rows: auto auto minmax(0, 1fr) auto; row-gap: 0; column-gap: 16px; align-items: stretch; padding-bottom: 28px; }
+body[data-page="sessions"] .rail { grid-column: 1; grid-row: 1 / -1; overflow: auto; }
+body[data-page="sessions"] .main { display: contents; }
+body[data-page="sessions"] #page { grid-column: 2 / -1; grid-row: 1; gap: 10px; margin-bottom: 14px; }
+body[data-page="sessions"] #term-bar { grid-column: 2; grid-row: 2; flex: none; }
+body[data-page="sessions"] #term-host, body[data-page="sessions"] #chat-host { grid-column: 2; grid-row: 3; }
+body[data-page="sessions"] #term-compose { grid-column: 2; grid-row: 4; position: relative; }
+body[data-page="sessions"] .panel { grid-column: 3; grid-row: 2 / -1; position: static; display: flex; min-height: 0; overflow: auto; }
+body[data-page="sessions"] .panel > .detail { flex: 1; min-height: 0; overflow: auto; padding: 10px 8px 12px; border-radius: var(--r-lg); scrollbar-width: thin; }
+@media (max-width: 1180px) {
+  body[data-page="sessions"] .frame { grid-template-columns: 170px minmax(0, 1fr); }
+  body[data-page="sessions"] #page { grid-column: 2; }
+  body[data-page="sessions"] .panel { display: none; }
+}
+
+/* ---- The page head: the title and the page tabs (Sessions · Builds · Browser checks). */
+.sessions-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sessions-head h1, .page-title { margin: 0; font-size: var(--fs-2xl); line-height: 1; flex: none; }
+.sessions-head .page-title { margin-right: 6px; }
+.sessions-head .chip, .sessions-head #new-term { flex: none; white-space: nowrap; }
+.sessions-head .linked { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.sessions-head .linked i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: inline-block; }
+body[data-page="builds"] #page > .sessions-head, body[data-page="checks"] #page > .sessions-head { margin-bottom: 4px; }
+/* Page tabs: words, a rule under the open one (subTabs in core.js). */
+.sub-tabs { flex: none; flex-wrap: nowrap; gap: 20px; align-self: flex-end; }
+.sub-tabs .chip, .sub-tabs .chip[aria-current="page"] { border: 0; border-radius: 0; background: none; padding: 4px 0 6px; border-bottom: 2px solid transparent; color: var(--fg-muted); font-weight: 600; align-items: center; white-space: nowrap; }
+.sub-tabs .chip:hover { color: var(--fg); }
+.sub-tabs .chip[aria-current="page"] { color: var(--fg); border-bottom-color: var(--fg); }
+.sub-tabs .chip .c, .sub-tabs .chip[aria-current="page"] .c { font: 500 var(--fs-base) var(--font-body); color: var(--fg-muted); }
+.sub-tabs .chip .c.bad { color: var(--bad); }
+.sub-tabs .ci-dot { width: 7px; height: 7px; }
+
+/* ---- The lines: the panel's one job is picking a session. Grouped under the
+   repo, the name then the state in its own column. Your turn reads a step louder
+   than working; needs you is the one orange, with the same mark on its left edge
+   that a needs-you card has on Now. */
+.lines { display: grid; }
+.line-group + .line-group { margin-top: 12px; }
+.lg-name { padding: 6px 12px 4px; font: 600 var(--fs-sm) var(--font-body); letter-spacing: .02em; color: var(--fg-muted); }
+.line { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; width: 100%; min-height: 36px; padding: 8px 12px; border: 0; border-radius: var(--r-md); background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; transition: background-color .12s; }
+.line:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); }
+.line[aria-pressed="true"] { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.line:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.l-name { font: 500 var(--fs-base)/1.3 var(--font-body); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-wrap: pretty; }
+.line[aria-pressed="true"] .l-name { font-weight: 650; }
+.l-state { font: 400 var(--fs-base)/1.3 var(--font-body); color: var(--fg-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.l-ago { color: var(--fg-muted); font-weight: 400; margin-left: 2px; }
+.l-more { grid-column: 1 / -1; margin-top: 2px; font: 400 var(--fs-sm)/1.3 var(--font-body); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.line.finished .l-state { color: var(--fg); font-weight: 600; }
+.line.waiting .l-state { color: var(--accent-text); font-weight: 600; }
+.line.waiting::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: var(--r-xs); background: var(--accent); }
+.w-failure, .w-bad { color: var(--bad); }
+.w-run, .w-running, .w-queued { color: var(--info); }
+.w-success { color: inherit; }
+.line-new { margin-top: 12px; padding: 8px 12px; border: 0; border-top: 1px solid var(--border-faint); border-radius: 0; background: none; color: var(--fg-muted); font: 500 var(--fs-base) var(--font-body); text-align: left; cursor: pointer; }
+.line-new span { display: inline-block; width: 1em; }
+.line-new:hover { color: var(--fg); }
+.lines-note { margin: 8px 12px 0; font-size: var(--fs-sm); color: var(--fg-muted); }
+.lines-note .btn--ghost { font-size: var(--fs-sm); padding: 0; }
+.lines-empty { padding: 4px 12px; }
+.lines-empty h2 { font-size: var(--fs-lg); }
+.detail .rename-form { margin: 0 4px 10px; }
+.rename-form { display: flex; gap: 6px; margin: 4px 0 8px; }
+.rename-form input { flex: 1; font: 600 var(--fs-xl) var(--font-body); padding: 5px 8px; }
+/* Narrow windows: the panel steps aside and the lines become one row of names. */
+.lines-strip { display: none; }
+@media (max-width: 1180px) {
+  body[data-page="sessions"] .lines-strip { display: flex; gap: 4px; align-items: center; margin-top: 10px; overflow-x: auto; scrollbar-width: none; }
+}
+.strip-line { flex: none; display: inline-flex; gap: 6px; align-items: baseline; padding: 6px 10px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--fg); font: 500 var(--fs-base) var(--font-body); cursor: pointer; }
+.strip-line span { font-size: var(--fs-sm); color: var(--fg-muted); }
+.strip-line.finished span { color: var(--fg); font-weight: 600; }
+.strip-line.waiting span { color: var(--accent-text); font-weight: 600; }
+.strip-line[aria-pressed="true"] { border-bottom-color: var(--fg); font-weight: 650; }
+
+/* ---- The console bar: the session's name and state, then plain words split by
+   a dot, then the controls a terminal window would have. */
+.term-bar { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 9px 12px 9px 16px; background: var(--con-bg-2); color: var(--con-fg); border: 1px solid var(--con-border); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.tb-id { display: flex; align-items: center; gap: 9px; min-width: 0; flex: none; max-width: 40%; }
+.tb-name { font: 700 var(--fs-base) var(--font-body); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-state { font: 500 var(--fs-xs) var(--font-mono); color: var(--con-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tb-state.waiting { color: var(--con-accent-text); } .tb-state.running { color: var(--con-info-2); } .tb-state.finished { color: var(--con-ok-2); }
+.tb-meta { display: flex; align-items: center; gap: 0; min-width: 0; flex: 1 1 auto; overflow: hidden; font: 500 var(--fs-sm) var(--font-body); color: var(--con-fg-dim); }
+.tb-meta > * { flex: none; white-space: nowrap; }
+.tb-meta > * + *::before { content: "·"; margin: 0 9px; color: var(--con-faint); }
+.tb-meta .mono { font: 500 var(--fs-xs) var(--font-mono); }
+.tb-meta .hot { color: var(--con-accent-text); }
+.tb-meta a.pr { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.tb-meta a.pr:hover, .tb-link:hover { color: var(--con-fg); text-decoration: underline; }
+.tb-meta .ci-dot { width: 7px; height: 7px; }
+.tb-path { flex: 0 1 auto; color: var(--con-muted); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tb-live { color: var(--con-muted); font-size: var(--fs-xs); letter-spacing: .01em; white-space: nowrap; }
+.tb-link { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.tb-link.w-failure { color: var(--con-bad-2); } .tb-link.w-running, .tb-link.w-queued { color: var(--con-info-2); }
+.tb-actions { display: flex; gap: 4px; flex: none; }
+.tb-btn { height: 26px; min-width: 30px; padding: 0 9px; border-radius: var(--r-md); border: 1px solid transparent; background: transparent; color: var(--con-fg-soft); font: 600 var(--fs-sm) var(--font-body); cursor: pointer; }
+.tb-btn:hover:not(:disabled) { background: var(--con-bg-3); color: var(--con-fg); }
+.tb-btn:disabled { opacity: .35; cursor: default; }
+.tb-btn.stop { border-color: var(--con-border); }
+.tb-btn.stop:hover { border-color: var(--con-bad); color: var(--con-bad-2); background: var(--con-bad-tint); }
+.tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Chat | Terminal */
+.tb-seg { display: inline-flex; flex: none; padding: 2px; margin-right: 6px; border-radius: var(--r-md); background: var(--con-bg); border: 1px solid var(--con-border); }
+.tb-segb { height: 22px; padding: 0 10px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--con-muted); font: 600 var(--fs-xs) var(--font-body); cursor: pointer; transition: background .12s, color .12s; }
+.tb-segb:hover { color: var(--con-fg); }
+.tb-segb[aria-pressed="true"] { background: var(--con-bg-3); color: var(--con-fg); }
+.tb-segb[aria-disabled="true"] { opacity: .4; cursor: help; }
+.tb-segb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* More */
+.tb-more { position: relative; }
+.tb-more > summary { list-style: none; display: inline-flex; align-items: center; }
+.tb-more > summary::-webkit-details-marker { display: none; }
+.tb-more[open] > summary { background: var(--con-bg-3); color: var(--con-fg); }
+.tb-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-popover); display: grid; min-width: 210px; padding: 4px; background: var(--con-bg-2); border: 1px solid var(--con-border); border-radius: var(--r-md); box-shadow: var(--con-shadow); }
+.tb-menu button, .tb-check { padding: 8px 10px; border: 0; border-radius: var(--r-md); background: none; color: var(--con-fg); font: 500 var(--fs-base) var(--font-body); text-align: left; cursor: pointer; }
+.tb-check { display: flex; gap: 8px; align-items: center; }
+.tb-menu button:hover, .tb-menu button:focus-visible, .tb-check:hover { background: var(--con-bg-3); outline: none; }
+.tb-menu button.danger { color: var(--con-bad-2); margin-top: 4px; border-top: 1px solid var(--con-border); border-radius: 0 0 var(--r-md) var(--r-md); }
+
+/* ---- The terminal. The bar, the screen and the prompt stack flush with no gap;
+   the prompt never covers the screen, so menus Claude draws at the bottom are
+   never cut off. xterm's own padding sits on .xterm, not its box: fit counts its
+   own padding but not its parent's, and padding on the box cut the last row off. */
+.term-host { position: relative; min-height: 0; overflow: hidden; padding: 0; background: var(--con-bg); border: 1px solid var(--con-border); border-bottom: 0; border-radius: 0; transition: box-shadow .15s; }
+.term-host::after { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 2px; background: var(--accent); opacity: 0; transition: opacity .15s; }
+.term-host.focused::after { opacity: .9; }
+.term-host .xterm { box-sizing: border-box; height: 100%; padding: 12px 12px 8px 16px; }
+.term-host .xterm, .term-host .xterm-viewport { background-color: var(--con-bg) !important; }
+.term-host .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--con-thumb) transparent; }
+.term-host .xterm-viewport::-webkit-scrollbar { width: 8px; }
+.term-host .xterm-viewport::-webkit-scrollbar-thumb { background: var(--con-thumb); border-radius: var(--r-md); }
+/* Terminal view with no message bar under it: the terminal closes the console itself. */
+body.term-only[data-page="sessions"] #term-host { border-bottom: 1px solid var(--con-border); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+body.term-only[data-page="sessions"] #term-host .xterm { padding-bottom: 16px; }
+
+/* ---- The message bar: one prompt (like Claude and Codex desktop). */
+.term-compose { margin: 0; padding: 4px 12px 12px; display: block; background: var(--con-bg); color: var(--con-fg); border: 1px solid var(--con-border); border-top: 0; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.prompt { display: grid; gap: 6px; background: var(--con-bg-2); border: 1px solid var(--con-border); border-radius: var(--r-xl); padding: 10px 10px 8px 14px; cursor: text; transition: border-color .15s, box-shadow .15s; }
+.prompt:focus-within { border-color: var(--con-border-2); box-shadow: 0 0 0 3px var(--accent-ring); }
+.prompt.drop { border-color: var(--accent); border-style: dashed; }
+.prompt textarea { width: 100%; resize: none; border: 0; outline: 0; background: transparent; color: var(--con-fg); font: var(--fs-md)/var(--lh) var(--font-body); padding: 2px 0; max-height: 200px; min-height: 24px; }
+.prompt textarea::placeholder { color: var(--con-muted); }
+.prompt-tools { display: flex; align-items: center; gap: 4px; min-height: 32px; cursor: text; }
+.ptool { display: inline-flex; align-items: center; justify-content: center; height: 30px; min-width: 30px; padding: 0; border-radius: var(--r-md); border: 0; background: transparent; color: var(--con-fg-dim); cursor: pointer; font: 600 var(--fs-sm) var(--font-body); flex: none; }
+.ptool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ptool:hover, .ptool[aria-expanded="true"] { background: var(--con-bg-3); color: var(--con-fg); }
+.ptool.txt { padding: 0 10px; }
+.ptool.warn:hover { color: var(--con-bad-2); background: var(--con-bad-tint); }
+.ptool:focus-visible, .send:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.prompt .mic.ptool { width: 30px; height: 30px; border: 0; border-radius: var(--r-md); background: transparent; }
+.prompt .mic.ptool svg { width: 17px; height: 17px; stroke: currentColor; } .prompt .mic.ptool svg rect { fill: currentColor; }
+.prompt .mic.ptool.on { background: var(--accent); color: var(--accent-fg); }
+.prompt .q-hint { flex: 1 1 auto; min-width: 0; margin: 0 6px; font: 500 var(--fs-xs) var(--font-body); color: var(--con-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.send { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; min-width: 32px; padding: 0; margin-left: 2px; border: 0; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-fg); cursor: pointer; transition: filter .15s, transform .1s; }
+.send svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.send:hover { filter: brightness(1.08); } .send:active { transform: scale(.96); }
+.send:disabled { opacity: .5; }
+.send.queue { padding: 0 12px 0 14px; background: var(--con-warn); }
+.send .ql { font: 700 var(--fs-sm) var(--font-body); }
+.term-queue { display: grid; gap: 2px; }
+.term-queue:empty, .q-images:empty { display: none; }
+/* Images waiting to go with the next message */
+.q-images { display: flex; gap: 8px; flex-wrap: wrap; }
+.q-img { position: relative; width: 72px; height: 72px; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--con-border); background: var(--bg-hover); }
+.q-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.q-img button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--overlay-ink); color: var(--fg-on-color); cursor: pointer; line-height: 1; font-size: var(--fs-base); }
+/* Queued messages: a short list over the prompt. */
+.qline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 3px 2px 3px 10px; border-left: 2px solid var(--accent); font-size: var(--fs-base); color: var(--con-fg); }
+.qline.held { border-left-color: var(--con-muted); }
+.qline .qn { font: 600 var(--fs-sm) var(--font-body); color: var(--con-accent-text); }
+.qline.held .qn { color: var(--con-muted); }
+.qline .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qline .src { font-size: var(--fs-sm); color: var(--con-muted); }
+.qline button { border: 0; background: none; padding: 2px 6px; border-radius: var(--r-sm); color: var(--con-muted); font: 500 var(--fs-sm) var(--font-body); cursor: pointer; }
+.qline button:hover { color: var(--con-fg); background: var(--con-bg-3); }
+.qline button.go { color: var(--con-accent-text); }
+
+/* ---- Bring in a message: a sheet that rises from the message bar (bring.js). */
+.bring-pop { position: absolute; left: 12px; right: 12px; bottom: calc(100% - 2px); z-index: var(--z-prompt); max-height: min(60vh, 520px); overflow: auto; padding: 6px; background: var(--con-bg-2); color: var(--con-fg); border: 1px solid var(--con-border); border-radius: var(--r-lg); box-shadow: var(--con-shadow); scrollbar-width: thin; }
+.bring-head { position: sticky; top: -6px; z-index: 1; display: flex; align-items: baseline; gap: 12px; margin: -6px -6px 4px; padding: 12px 14px 10px; background: var(--con-bg-2); border-bottom: 1px solid var(--con-border); }
+.bring-head b { font: 650 var(--fs-base) var(--font-body); }
+.bring-head span { flex: 1; font-size: var(--fs-sm); color: var(--con-muted); }
+.bring { display: grid; gap: 0; }
+.bring-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 0; border-radius: var(--r-md); cursor: grab; }
+.bring-item:hover, .bring-item.open { background: var(--con-bg-3); }
+.bring-add, .bring-msg { grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: baseline; padding: 9px 10px; }
+.bring-msg:hover, .bring-add:hover { background: var(--con-bg-3); }
+.bi-who { font: 600 var(--fs-base) var(--font-body); white-space: nowrap; }
+.bi-when { font-size: var(--fs-sm); color: var(--con-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bi-s { grid-column: 1 / -1; margin-top: 2px; font-size: var(--fs-base); color: var(--con-fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bring-more { margin-right: 6px; padding: 4px 8px; border: 0; border-radius: var(--r-sm); background: none; color: var(--con-muted); font: 500 var(--fs-sm) var(--font-body); cursor: pointer; opacity: 0; }
+.bring-item:hover .bring-more, .bring-item.open .bring-more, .bring-more:focus-visible { opacity: 1; }
+.bring-more:hover { color: var(--con-fg); background: var(--con-border); }
+.bring-msgs { margin: 2px 0 6px 14px; padding-left: 8px; border-left: 2px solid var(--con-border); display: grid; }
+.bring-msg .bi-s { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.bring-none { margin: 8px 10px; font-size: var(--fs-base); color: var(--con-muted); }
+.bring-add:focus-visible, .bring-msg:focus-visible, .bring-more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---- The "/" menu over the message bar: on paper, so it reads as a card over
+   the console, like a menu in the rest of the page. */
+.slash-pop { position: absolute; left: 12px; right: 12px; bottom: calc(100% - 2px); z-index: var(--z-prompt); max-height: min(50vh, 420px); overflow: auto; padding: 6px; background: var(--bg-surface); color: var(--fg); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--con-shadow); scrollbar-width: thin; }
+.slash-opt { grid-template-columns: minmax(120px, auto) minmax(0, 1fr) auto; align-items: baseline; gap: 0 12px; padding: 7px 10px; font-size: var(--fs-base); }
+.slash-opt[aria-selected="true"] { background: var(--accent-ring); box-shadow: inset 2px 0 0 var(--accent); }
+.slash-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sl-name { font: 600 var(--fs-sm) var(--font-mono); color: var(--fg); white-space: nowrap; }
+.sl-desc { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-where { font-size: var(--fs-xs); color: var(--fg-muted); text-transform: lowercase; letter-spacing: .02em; }
+.slash-none { margin: 0; padding: 8px 10px; color: var(--fg-muted); font-size: var(--fs-base); }
+@media (max-width: 640px) { .slash-opt { grid-template-columns: auto minmax(0, 1fr); } .sl-where { display: none; } }
+
+/* ---- The Chat view (chat.js): the same ink console as the terminal, with the
+   type and room of a chat app. */
+.chat-host { position: relative; display: flex; min-height: 0; background: var(--con-bg); color: var(--con-fg); border: 1px solid var(--con-border); border-bottom: 0; }
+body[data-page="sessions"] .chat-host { flex: 1 1 auto; }
+.chat-scroll { flex: 1 1 auto; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--con-thumb) transparent; }
+.chat-scroll::-webkit-scrollbar { width: 8px; }
+.chat-scroll::-webkit-scrollbar-thumb { background: var(--con-thumb); border-radius: var(--r-md); }
+.chat-col { max-width: 780px; margin: 0 auto; padding: 26px 28px 18px; font-size: calc(var(--fs-md) * var(--chat-k, 1)); line-height: var(--lh-loose); }
+.chat-col ::selection { background: var(--con-selection); }
+.chat-list { display: flow-root; }
+.cm-user { display: flex; justify-content: flex-end; margin: 26px 0 16px; }
+.cm-user:first-child { margin-top: 4px; }
+.cm-bubble { max-width: 82%; padding: 10px 15px; background: var(--con-bg-3); border: 1px solid var(--con-border); border-radius: var(--r-xl) var(--r-xl) var(--r-sm) var(--r-xl); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--con-fg-strong); }
+.cm-img { display: block; margin-top: 6px; font: 500 var(--fs-xs) var(--font-body); color: var(--con-muted); }
+.cm-agent { margin: 8px 0; overflow-wrap: anywhere; color: var(--con-fg); }
+.cm-agent > :first-child { margin-top: 0; }
+.cm-agent > :last-child { margin-bottom: 0; }
+.cm-agent p { margin: .6em 0; }
+.cm-agent .cm-h { margin: 1.1em 0 .4em; font-weight: 700; line-height: 1.3; color: var(--con-fg-strong); }
+.cm-agent h3.cm-h { font-size: 1.1em; }
+.cm-agent h4.cm-h { font-size: 1em; }
+.cm-agent strong { font-weight: 700; color: var(--con-fg-strong); }
+.cm-agent a { color: var(--con-accent-text); text-underline-offset: 2px; text-decoration-thickness: 1px; }
+.cm-agent ul, .cm-agent ol { margin: .5em 0; padding-left: 1.4em; }
+.cm-agent li { margin: .22em 0; }
+.cm-agent li::marker { color: var(--con-muted); }
+.cm-agent li.task { list-style: none; position: relative; }
+.cm-agent li.task::before { content: ""; position: absolute; left: -1.25em; top: .42em; width: .78em; height: .78em; border: 1.5px solid var(--con-muted); border-radius: var(--r-xs); }
+.cm-agent li.task.checked::before { background: var(--con-ok); border-color: var(--con-ok); }
+.cm-agent blockquote { margin: .7em 0; padding: 0 0 0 14px; border-left: 3px solid var(--con-border); color: var(--con-fg-dim); }
+.cm-agent hr { border: 0; border-top: 1px solid var(--con-border); margin: 1.2em 0; }
+.cm-ic { font: .86em var(--font-mono); padding: 1px 5px; border-radius: var(--r-sm); background: var(--con-inline); color: var(--accent-on-ink); }
+.cm-code { margin: .8em 0; border: 1px solid var(--con-border); border-radius: var(--r-lg); overflow: hidden; background: var(--con-code-bg); }
+.cc-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 4px 12px; background: var(--con-bg-2); border-bottom: 1px solid var(--con-border); }
+.cc-lang { font: 500 var(--fs-xs) var(--font-mono); color: var(--con-muted); }
+.cc-copy { height: 22px; padding: 0 9px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--con-fg-dim); font: 600 var(--fs-xs) var(--font-body); cursor: pointer; }
+.cc-copy:hover { background: var(--con-bg-3); color: var(--con-fg); }
+.cm-code pre { margin: 0; padding: 12px 14px; max-height: 440px; overflow: auto; font: calc(var(--fs-sm) * var(--chat-k, 1))/1.55 var(--font-mono); color: var(--con-fg-soft); tab-size: 2; }
+.cm-table { margin: .8em 0; overflow-x: auto; }
+.cm-table table { border-collapse: collapse; font-size: .92em; }
+.cm-table th, .cm-table td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--con-border); text-align: left; vertical-align: top; }
+.cm-table th { color: var(--con-muted); font-weight: 600; }
+/* A tool call: one quiet line; open it for what went in and what came back. */
+.cm-tool { margin: 1px 0; font-size: .86em; }
+.cm-agent + .cm-tool, .cm-user + .cm-tool { margin-top: 10px; }
+.cm-tool + .cm-agent { margin-top: 14px; }
+.cm-tool summary { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 4px 10px; margin: 0 -10px; border-radius: var(--r-md); list-style: none; cursor: pointer; color: var(--con-muted); }
+.cm-tool summary::-webkit-details-marker { display: none; }
+.cm-tool summary:hover { background: var(--con-bg-2); }
+.cm-tool summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ct-mark { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--con-faint); }
+.cm-tool.done .ct-mark { border-color: var(--con-ok); background: var(--con-ok); }
+.cm-tool.err .ct-mark { border-color: var(--con-bad); background: var(--con-bad); }
+.ct-name { flex: none; font: 600 var(--fs-xs) var(--font-mono); color: var(--con-fg-soft); }
+.ct-sum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-xs) var(--font-mono); }
+.cm-tool[open] summary { background: var(--con-bg-2); color: var(--con-fg); border-radius: var(--r-md) var(--r-md) 0 0; }
+.ct-body { margin: 0 -10px 6px; padding: 2px 10px 10px; background: var(--con-bg-2); border-radius: 0 0 var(--r-md) var(--r-md); }
+.ct-label { margin: 8px 0 4px; font-family: var(--font-body); font-weight: 600; color: var(--con-muted); }
+.ct-pre { margin: 0; padding: 9px 11px; max-height: 280px; overflow: auto; background: var(--con-code-bg); border: 1px solid var(--con-border); border-radius: var(--r-md); font: var(--fs-xs)/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--con-fg-soft); }
+.ct-pre.err { color: var(--con-bad-2); }
+.cm-note { display: flex; align-items: center; gap: 12px; margin: 18px 0; font: 500 var(--fs-xs) var(--font-body); letter-spacing: .02em; color: var(--con-muted); }
+.cm-note::before, .cm-note::after { content: ""; flex: 1; height: 1px; background: var(--con-border); }
+.chat-earlier { display: flex; margin: 0 auto 18px; }
+.chat-jump { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: var(--con-bg-3); box-shadow: var(--con-shadow); }
+.chat-empty { margin: 64px 0; text-align: center; color: var(--con-muted); }
+/* Working: three quiet dots and what it is doing ("Running npm test"). */
+.chat-working { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 14px 0 6px; color: var(--con-muted); font-size: .9em; }
+.cwk-dots { display: inline-flex; gap: 4px; flex: none; }
+.chat-working i { width: 5px; height: 5px; border-radius: 50%; background: var(--con-info); animation: chat-dot 1.2s ease-in-out infinite; }
+.chat-working i:nth-child(2) { animation-delay: .15s; } .chat-working i:nth-child(3) { animation-delay: .3s; }
+@keyframes chat-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.cwk-verb { flex: none; color: var(--con-fg-soft); font-weight: 600; }
+.cwk-sum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: .92em var(--font-mono); }
+/* Needs you, when the question could not be read off the screen: one orange card. */
+.chat-wait { margin: 20px 0 6px; padding: 14px 16px 16px; border: 1px solid var(--accent-half); border-radius: var(--r-lg); background: var(--accent-tint); }
+.cw-head { display: flex; align-items: center; gap: 8px; font-family: var(--font-body); font-weight: 700; color: var(--con-accent-text); }
+.cw-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); animation: tb-breathe 1.4s ease-in-out infinite; }
+@keyframes tb-breathe { 50% { box-shadow: 0 0 0 6px transparent; } }
+.cw-q { margin: 8px 0 4px; font-weight: 600; color: var(--con-fg-strong); overflow-wrap: anywhere; }
+.cw-how { margin: 0 0 12px; font-size: .85em; color: var(--con-muted); }
+/* The question with its choices as buttons: one card at the end of the conversation. */
+.chat-ask { margin: 22px 0 8px; padding: 16px 18px 14px; border: 1px solid var(--accent-half); border-radius: var(--r-xl); background: var(--accent-tint); }
+.ca-head { font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 700; text-transform: none; letter-spacing: .02em; color: var(--con-accent-text); margin-bottom: 8px; }
+.ca-head span { color: var(--con-muted); font-weight: 600; }
+.ca-line { margin: 0 0 6px; color: var(--con-fg-soft); overflow-wrap: anywhere; }
+.ca-code { margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--con-border); border-radius: var(--r-md); background: var(--con-code-bg); color: var(--con-fg); font: calc(var(--fs-sm) * var(--chat-k, 1))/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+.ca-q { margin: 10px 0 10px; font-weight: 650; color: var(--con-fg-strong); }
+.ca-opts { display: grid; gap: 6px; }
+.ca-opt { display: flex; align-items: baseline; gap: 10px; width: 100%; min-height: 40px; padding: 9px 14px; text-align: left; border: 1px solid var(--con-border); border-radius: var(--r-lg); background: var(--con-bg-2); color: var(--con-fg); font: 500 calc(var(--fs-base) * var(--chat-k, 1))/1.4 var(--font-body); overflow-wrap: anywhere; cursor: pointer; transition: background-color .12s, border-color .12s; }
+.ca-opt:hover { background: var(--con-bg-3); border-color: var(--con-border-2); }
+.ca-opt.first { border-color: var(--accent-half); }
+.ca-opt.first:hover { background: var(--accent-ring); }
+.ca-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ca-opt:disabled { opacity: .55; cursor: progress; }
+.ca-n { flex: none; min-width: 1.4em; font: 600 var(--fs-sm) var(--font-mono); color: var(--con-muted); }
+.ca-how { margin: 10px 0 0; font-size: .86em; color: var(--con-muted); }
+.ca-hint { display: block; margin-top: 1px; font-size: .84em; font-weight: 400; color: var(--con-muted); }
+.ca-notes { margin: 8px 0 0; font: var(--fs-sm) var(--font-mono); color: var(--con-muted); }
+/* Asked once, the first time a session opens as a chat: keep it, or terminal. */
+.chat-first { position: sticky; top: 10px; z-index: 2; box-shadow: var(--con-shadow); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--con-border); border-radius: var(--r-lg); background: var(--con-bg-2); font-size: .9em; color: var(--con-fg-soft); }
+.chat-first p { flex: 1 1 320px; margin: 0; }
+.chat-first b { color: var(--con-fg-strong); }
+.cf-btns { display: flex; gap: 8px; }
+
+/* ---- New session: the model picker and its 1M box on one row. */
+.nt-inline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nt-inline select { flex: 0 1 200px; }
+.nt-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-base); color: var(--fg-muted); white-space: nowrap; }

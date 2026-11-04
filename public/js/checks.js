@@ -13,7 +13,7 @@ const bcLive = (c) => c.runs.find((r) => r.state === 'running' || r.state === 'q
 const bcLast = (c) => c.runs.find((r) => r.state === 'success' || r.state === 'failure' || r.state === 'cancelled');
 const bcState = (c) => (bcLive(c) || bcLast(c) || {}).state || '';
 const bcWhat = (c) => c.kind === 'page' ? c.url.replace(/^https?:\/\//, '').replace(/\/$/, '') : c.folder.split(/[\\/]/).filter(Boolean).slice(-2).join('/');
-const bcShot = (run, n) => `/api/checks/runs/${run.id}/shot/${n}`;
+const bcShot = (run, n) => `/api/checks/runs/${Number(run.id)}/shot/${Number(n)}`;
 function bcTime(r) {
   if (r.state === 'running') return `<span class="mono" data-tick="${r.startedAt}">${dur(Date.now() - r.startedAt)}</span>`;
   if (r.state === 'queued') return '<span class="mono muted">waiting its turn</span>';
@@ -49,14 +49,14 @@ function bcRow(c) {
       <span class="ci-main"><span class="t">${tag(c.space)}${esc(c.name)}</span>
         <span class="s">${c.kind === 'page' ? 'Page' : 'Tests'} · ${esc(bcWhat(c))}${c.every ? ' · ' + esc(BC_EVERY[c.every].toLowerCase()) : ''}</span>${sum}</span>
       <span class="r">${r ? bcTime(r) : '<span class="mono muted">not run yet</span>'}</span></button>
-    ${bcLive(c) ? `<button class="btn" type="button" data-bc="cancel" data-id="${c.id}">Cancel</button>` : `<button class="btn" type="button" data-bc="run" data-id="${c.id}">Run</button>`}</div>`;
+    ${bcLive(c) ? `<button class="btn btn--sm" type="button" data-bc="cancel" data-id="${c.id}">Cancel</button>` : `<button class="btn btn--sm" type="button" data-bc="run" data-id="${c.id}">Run</button>`}</div>`;
 }
 
 // Sessions, Browser checks.
 function renderChecksPage() {
   const list = bcList();
   $('page').innerHTML = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}<span class="grow"></span>
-      <button class="btn go" type="button" data-bc="new">Add a check</button></div>
+      <button class="btn btn--primary" type="button" data-bc="new">Add a check</button></div>
     <section class="card bc-card">${list.length ? `<div class="list">${list.map(bcRow).join('')}</div>`
       : `<p class="empty">A check opens a page, or runs a project's Playwright tests, in a browser you never see, and puts a Needs-you card on Now when something breaks. Add one here, or ask an agent to set one up for you.</p>`}</section>`;
 }
@@ -70,12 +70,12 @@ function checkDetail(x, kick) {
   const r = (bcRun?.check === x.id && x.runs.find((y) => y.id === bcRun.run)) || bcLive(x) || bcLast(x);
   const newest = r && r === (bcLive(x) || bcLast(x));
   const fails = (r?.failures || []).map((f) => `<li><div class="bc-ft">${ciDot('failure')}<b>${esc(f.title)}</b></div>
-      <div class="mono muted">${esc(f.file)}${f.line ? ':' + f.line : ''}${f.project ? ' · ' + esc(f.project) : ''}</div>
+      <div class="mono muted">${esc(f.file)}${f.line ? ':' + Number(f.line) : ''}${f.project ? ' · ' + esc(f.project) : ''}</div>
       <pre class="bc-err">${esc(f.error)}</pre>
       ${f.shots.length ? `<div class="bc-shots">${f.shots.map((n) => `<a href="${bcShot(r, n)}" target="_blank" rel="noopener"><img src="${bcShot(r, n)}" alt="Screenshot of ${esc(f.title)}" loading="lazy"></a>`).join('')}</div>` : ''}</li>`).join('');
   const pageShot = x.kind === 'page' && r?.shots ? `<a class="bc-page" href="${bcShot(r, 0)}" target="_blank" rel="noopener"><img src="${bcShot(r, 0)}" alt="The page as the check saw it" loading="lazy"></a>` : '';
   const facts = x.kind === 'page'
-    ? [['Page', `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>`], x.expect && ['Must show', esc(x.expect)]]
+    ? [['Page', `<a href="${safeHref(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>`], x.expect && ['Must show', esc(x.expect)]]
     : [['Folder', `<span class="mono">${esc(x.folder)}</span>`], ['Command', `<span class="mono">${esc(x.command)}</span>`]];
   facts.push(['Runs', esc(BC_EVERY[x.every] || '')]);
   if (r) facts.push(['Started', `${when(r.startedAt)}${r.by === 'schedule' ? ' · on schedule' : ''}`]);
@@ -88,10 +88,10 @@ function checkDetail(x, kick) {
     ${pageShot}
     ${fails ? `<div class="section-label">Failed</div><ul class="bc-flist">${fails}</ul>` : ''}
     <dl class="facts">${facts.filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
-    <div class="actions">${bcLive(x) ? `<button class="btn danger" type="button" data-bc="cancel" data-id="${x.id}">Cancel run</button>` : `<button class="btn go" type="button" data-bc="run" data-id="${x.id}">Run now</button>`}
+    <div class="actions">${bcLive(x) ? `<button class="btn btn--danger" type="button" data-bc="cancel" data-id="${x.id}">Cancel run</button>` : `<button class="btn btn--primary" type="button" data-bc="run" data-id="${x.id}">Run now</button>`}
       ${bcLast(x)?.state === 'failure' && !x.cleared ? '<button class="btn" data-act="clear" type="button">Clear</button>' : ''}
       <button class="btn" type="button" data-bc="edit" data-id="${x.id}">Change</button>
-      <button class="btn ${bcSure === x.id ? 'danger' : ''}" type="button" data-bc="remove" data-id="${x.id}">${bcSure === x.id ? 'Click again to remove' : 'Remove'}</button></div>
+      <button class="btn ${bcSure === x.id ? 'btn--danger' : ''}" type="button" data-bc="remove" data-id="${x.id}">${bcSure === x.id ? 'Click again to remove' : 'Remove'}</button></div>
     ${out}`;
 }
 
@@ -100,7 +100,7 @@ function bcSheet() {
   if ($('bc-scrim')) return;
   document.body.insertAdjacentHTML('beforeend', `<div class="scrim" id="bc-scrim" role="dialog" aria-modal="true" aria-labelledby="bc-title">
   <form class="sheet" id="bc-form" autocomplete="off">
-    <div class="sheet-head"><h2 id="bc-title">Add a check</h2><button class="icon-btn" type="button" data-close="bc-scrim">Close</button></div>
+    <div class="sheet-head"><h2 id="bc-title">Add a check</h2><button class="btn btn--quiet" type="button" data-close="bc-scrim">Close</button></div>
     <div class="seg" role="group" aria-label="What to check"><button type="button" data-bc-kind="page" aria-pressed="true">A web page</button><button type="button" data-bc-kind="tests" aria-pressed="false">My project's tests</button></div>
     <div class="form-grid">
       <label for="bc-url" class="bc-fpage">Address</label><input id="bc-url" class="bc-fpage" type="url" placeholder="https://example.com">
@@ -115,7 +115,7 @@ function bcSheet() {
     </div></details>
     <datalist id="bc-folders"></datalist>
     <p class="muted small" id="bc-note"></p>
-    <div class="form-row"><button class="btn go" type="submit" id="bc-save">Add check</button><span id="bc-msg" class="small"></span></div>
+    <div class="form-row"><button class="btn btn--primary" type="submit" id="bc-save">Add check</button><span id="bc-msg" class="small"></span></div>
   </form></div>`);
 }
 let bcKind = 'page', bcEditing = null;
@@ -134,7 +134,7 @@ async function bcOpen(c) {
   $('bc-title').textContent = c ? 'Change check' : 'Add a check';
   $('bc-save').textContent = c ? 'Save' : 'Add check';
   $('bc-space').innerHTML = S.spaces.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
-  $('bc-space').value = c ? c.space : project !== 'all' ? project : (S.spaces.find((s) => /datum/i.test(s.name)) || S.spaces[0]).id;
+  $('bc-space').value = c ? c.space : project !== 'all' ? project : ((project !== 'all' && S.spaces.find((s) => s.id === project)) || S.spaces[0]).id;
   $('bc-name').value = c?.name || '';
   $('bc-folder').value = c?.folder || '';
   $('bc-command').value = c?.command || 'npx playwright test';
@@ -143,7 +143,7 @@ async function bcOpen(c) {
   $('bc-every').value = String(c?.every || 0);
   $('bc-msg').textContent = '';
   bcSetKind(c?.kind || bcKind);
-  $('bc-scrim').classList.add('open');
+  openDialog('bc-scrim');
   (bcKind === 'tests' ? $('bc-folder') : $('bc-url')).focus();
   api('/api/folders').then((list) => { $('bc-folders').innerHTML = list.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join(''); }).catch(() => {});
 }
@@ -165,7 +165,7 @@ document.addEventListener('click', async (e) => {
     if (act === 'run') { bcRun = null; if (!selected || selected.type !== 'check') selected = { type: 'check', key: String(id) }; toast('Running it, headless.'); }
     if (act === 'remove') { bcSure = null; selected = null; toast('Check removed.'); }
     await load();
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, { kind: 'error' }); }
   finally { if (b.isConnected) b.disabled = false; }
 });
 
@@ -185,7 +185,7 @@ document.addEventListener('submit', async (e) => {
   $('bc-save').disabled = true;
   try {
     const r = await api('/api/checks', body);
-    $('bc-scrim').classList.remove('open');
+    closeDialog('bc-scrim');
     selected = { type: 'check', key: String(r.id) };
     toast(bcEditing ? 'Saved.' : 'Added. Press Run to try it.');
     await load();

@@ -1,0 +1,17 @@
+/* Cards: the paper box everything sits in. One shape (radius --r-lg, a soft
+   edge, paper), shared by every box on the page through the selector list
+   below, so a new box joins the list rather than drawing its own.
+     .card              on the counter: the page's boxes and the detail panel
+     .card--tight       less padding: tiles, the Today card
+     .card--line        a plainer edge (--border) for a box that sits on paper,
+                        inside a dialog: an account, a project, a toggle group
+   .card h2 is the title row; .count and .aside are its quiet mono notes. */
+.card, .tile, .acct-card, .proj, .toggles, .w-use, .w-conn, .unlock-way, .prompt-card, .job, .convo, .rt-ideas, .ed-logsum {
+  background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--r-lg); padding: 16px 18px; min-width: 0;
+}
+.card--tight, .tile { padding: 12px 14px; }
+.card--line, .acct-card, .proj, .toggles, .w-use, .w-conn, .unlock-way, .prompt-card { border-color: var(--border); }
+.card h2 { margin: 0 0 12px; display: flex; align-items: baseline; gap: 10px; font-size: var(--fs-lg); text-wrap: balance; }
+.card h2 .count, .card h2 .aside { font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 400; color: var(--fg-muted); }
+.card h2 .aside { margin-left: auto; }
+.empty { color: var(--fg-muted); margin: 4px 0; font-size: var(--fs-base); }

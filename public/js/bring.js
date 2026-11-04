@@ -42,28 +42,46 @@ async function bringText(v) {
 function toggleBring(key) {
   bringOpen = bringOpen === key ? null : key;
   const x = bringOpen && bringThread(bringOpen);
-  if (x && bringFull[x.key]?.date !== x.date) fullMessages(x).catch(() => { bringFull[x.key] = { date: x.date, messages: [], error: true }; }).finally(renderDetail);
-  renderDetail();
+  if (x && bringFull[x.key]?.date !== x.date) fullMessages(x).catch(() => { bringFull[x.key] = { date: x.date, messages: [], error: true }; }).finally(renderBringPop);
+  renderBringPop();
 }
 
+// One row per recent conversation: click it (or drag it) to add its newest
+// message; Earlier opens the conversation, one row per message.
 function bringList(t) {
   const seen = new Set();
   const list = [...S.threads, ...S.recent].filter((x) => !seen.has(x.key) && seen.add(x.key))
-    .filter((x) => x.space === t.space || t.space === 'personal').slice(0, 6);
-  if (!list.length) return '';
-  return `<div class="section-label">Bring in a message</div><div class="bring">${list.map((x) => {
+    .filter((x) => x.space === t.space || t.space === 'personal').slice(0, 8);
+  if (!list.length) return '<p class="bring-none">No recent messages for this project.</p>';
+  return `<div class="bring">${list.map((x) => {
     const open = bringOpen === x.key, c = bringFull[x.key];
-    const head = `<div class="bring-item" draggable="true" data-bring="${esc(x.key)}" title="Drag into the message bar, or Add">
-      <span><b>${esc(x.who)}</b> <span class="mono muted">${when(x.date)}</span> <span class="s">${esc(x.snippet || x.subject || '')}</span></span>
-      <button class="icon-btn" type="button" data-bring-more="${esc(x.key)}" aria-expanded="${open}" title="Earlier messages">${open ? '▴' : '▾'}</button>
-      <button class="icon-btn" type="button" data-bring-add="${esc(x.key)}">Add</button></div>`;
+    const head = `<div class="bring-item${open ? ' open' : ''}" draggable="true" data-bring="${esc(x.key)}">
+      <button class="bring-add" type="button" data-bring-add="${esc(x.key)}" title="Add to your message"><span class="bi-who">${esc(x.who)}</span><span class="bi-when">${when(x.date)}</span><span class="bi-s">${esc(x.snippet || x.subject || '')}</span></button>
+      <button class="bring-more" type="button" data-bring-more="${esc(x.key)}" aria-expanded="${open}">${open ? 'Close' : 'Earlier'}</button></div>`;
     if (!open) return head;
     const msgs = c && c.date === x.date ? c.messages : null;
-    const body = !msgs ? `<p class="note-line">Getting messages…</p>`
-      : !msgs.length ? `<p class="note-line">${c.error ? 'Could not get the messages.' : 'No messages found.'}</p>`
-      : msgs.map((m, i) => ({ m, i })).reverse().slice(0, 12).map(({ m, i }) => `<div class="bring-msg" draggable="true" data-bring="${esc(x.key)}|${i}">
-          <span><b>${esc(m.from)}</b> <span class="mono muted">${when(m.date)}</span><span class="s">${esc(m.text)}</span></span>
-          <button class="icon-btn" type="button" data-bring-add="${esc(x.key)}|${i}">Add</button></div>`).join('');
+    const body = !msgs ? `<p class="bring-none">Getting messages…</p>`
+      : !msgs.length ? `<p class="bring-none">${c.error ? 'Could not get the messages.' : 'No messages found.'}</p>`
+      : msgs.map((m, i) => ({ m, i })).reverse().slice(0, 12).map(({ m, i }) => `<button class="bring-msg" type="button" draggable="true" data-bring="${esc(x.key)}|${i}" data-bring-add="${esc(x.key)}|${i}" title="Add to your message"><span class="bi-who">${esc(m.from)}</span><span class="bi-when">${when(m.date)}</span><span class="bi-s">${esc(m.text)}</span></button>`).join('');
     return head + `<div class="bring-msgs">${body}</div>`;
   }).join('')}</div>`;
 }
+
+// The list opens over the message bar, from the button beside the paperclip:
+// messages go where the message is written.
+let bringShown = false;
+function renderBringPop() {
+  const el = $('bring-pop'), t = termByKey(currentTerm);
+  if (!el) return;
+  $('q-bring')?.setAttribute('aria-expanded', String(bringShown && !!t));
+  if (!bringShown || !t) { el.hidden = true; el.dataset.html = ''; return; }
+  const html = `<div class="bring-head"><b>Bring in a message</b><span>Click one to add it to your message, or drag it in.</span><button class="btn btn--ghost btn--sm" type="button" data-bring-close>Close</button></div>${bringList(t)}`;
+  el.hidden = false;
+  if (el.dataset.html !== html) { const top = el.scrollTop; el.innerHTML = html; el.dataset.html = html; el.scrollTop = top; }
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#q-bring')) { bringShown = !bringShown; renderBringPop(); return; }
+  if (e.target.closest('[data-bring-close]')) { bringShown = false; renderBringPop(); $('q-text')?.focus(); return; }
+  if (bringShown && e.target.isConnected && !e.target.closest('#bring-pop')) { bringShown = false; renderBringPop(); }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bringShown) { bringShown = false; renderBringPop(); $('q-text')?.focus(); } });

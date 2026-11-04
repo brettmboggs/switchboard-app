@@ -19,14 +19,14 @@ function devChips(t) {
   const g = c.data?.git, pr = c.data?.pr;
   let h = '';
   if (g) {
-    if (g.changed) h += `<span class="tb-chip dev" title="${g.changed} file${g.changed === 1 ? '' : 's'} changed and not committed">${g.changed} changed</span>`;
-    if (g.ahead || g.behind) h += `<span class="tb-chip mono dev" title="${esc(`${g.ahead} commit${g.ahead === 1 ? '' : 's'} to push, ${g.behind} to pull (${g.upstream})`)}">${g.ahead ? '↑' + g.ahead : ''}${g.ahead && g.behind ? ' ' : ''}${g.behind ? '↓' + g.behind : ''}</span>`;
-    else if (g.branch && !g.upstream) h += `<span class="tb-chip dev" title="This branch is not on GitHub (or any remote) yet">not pushed</span>`;
-    if (!t.ci?.branch && g.branch) h += `<span class="tb-chip mono" title="Branch">⎇ ${esc(g.branch)}</span>`;
+    if (g.changed) h += `<span class="dev" title="${Number(g.changed)} file${g.changed === 1 ? '' : 's'} changed and not committed">${Number(g.changed)} changed</span>`;
+    if (g.ahead || g.behind) h += `<span class="mono dev" title="${esc(`${Number(g.ahead)} commit${g.ahead === 1 ? '' : 's'} to push, ${Number(g.behind)} to pull (${g.upstream})`)}">${g.ahead ? '↑' + Number(g.ahead) : ''}${g.ahead && g.behind ? ' ' : ''}${g.behind ? '↓' + Number(g.behind) : ''}</span>`;
+    else if (g.branch && !g.upstream) h += `<span class="dev" title="This branch is not on GitHub (or any remote) yet">not pushed</span>`;
+    if (!t.ci?.branch && g.branch) h += `<span class="mono" title="Branch">⎇ ${esc(g.branch)}</span>`;
   }
   if (pr) {
     const checks = pr.checks ? { success: 'checks passed', failure: 'checks failed', running: 'checks running' }[pr.checks] : 'no checks';
-    h += `<a class="tb-chip pr" href="${esc(pr.url)}" target="_blank" rel="noopener noreferrer" title="${esc(`#${pr.number} ${pr.title}${pr.draft ? ' (draft)' : ''} · ${checks}`)}">${pr.checks ? ciDot(pr.checks, checks) : ''}PR #${pr.number}${pr.draft ? ' · draft' : ''}</a>`;
+    h += `<a class="pr" href="${safeHref(pr.url)}" target="_blank" rel="noopener noreferrer" title="${esc(`#${Number(pr.number)} ${pr.title}${pr.draft ? ' (draft)' : ''} · ${checks}`)}">${pr.checks ? ciDot(pr.checks, checks) : ''}PR #${Number(pr.number)}${pr.draft ? ' · draft' : ''}</a>`;
   }
   return h;
 }

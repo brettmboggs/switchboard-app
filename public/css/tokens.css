@@ -1,0 +1,147 @@
+/* Switchboard's design tokens: the one place a size, colour, radius, shadow,
+   layer or typeface is decided. Everything else in public/css uses these by
+   name. docs/DESIGN.md explains the roles; change a value here, not in a rule.
+
+   Colour roles come in one light block and one dark block. The old names
+   (--counter --paper --ink --muted --signal …, and the --con* console names)
+   stay as aliases of the roles so older rules keep working; new rules use
+   the role names. */
+
+:root {
+  /* ---- spacing: 4 8 12 16 20 24 32 40 */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 40px;
+
+  /* ---- type scale (px) and line heights */
+  --fs-xs: 11px; --fs-sm: 12.5px; --fs-base: 14px; --fs-md: 15px; --fs-lg: 17px; --fs-xl: 20px; --fs-2xl: 26px; --fs-3xl: 32px;
+  --lh-tight: 1.25; --lh: 1.45; --lh-loose: 1.6;
+
+  /* ---- the three faces (public/css/fonts.css, shipped in public/fonts) */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display: var(--font-display); --body: var(--font-body); --mono: var(--font-mono);
+  /* The one display setting: weight, optical size, and Fraunces's soft cut. */
+  --display-weight: 600;
+  --display-opsz: auto;
+  --display-soft: 30;
+
+  /* ---- radii */
+  --r-xs: 3px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px; --r-pill: 999px;
+
+  /* ---- elevation and the scrim behind a dialog */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .12);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, .15);
+  --shadow-3: 0 20px 60px rgba(0, 0, 0, .25);
+  --scrim: rgba(21, 23, 28, .35);
+
+  /* ---- layers: bar 5, overlay 10, popover 20, toast 30, prompt 40 */
+  --z-bar: 5; --z-overlay: 10; --z-popover: 20; --z-toast: 30; --z-prompt: 40;
+
+  /* ---- the page frame */
+  --top-h: 64px;
+  --zoom: 1;
+}
+
+/* ---- colour, light: the counter (grey top, paper cards, ink, one signal orange) */
+:root {
+  --bg-canvas: #E4E7EB;
+  --bg-surface: #FCFCFA;
+  --bg-raised: #FFFFFF;
+  --bg-hover: #F4F5F6;
+  --bg-selected: #F1F2F4;
+  --fg: #15171C;
+  --fg-muted: #5C626C;
+  --border: #CDD1D7;
+  --border-soft: #DCDFE4;
+  --border-faint: #EAECEF;
+  --brand: #4967E8;      /* the logo's cobalt: the mark's dots and calm lamp, nothing else */
+  --brand-soft: #8EA0FF; /* the same on ink: the dock tile, dark surfaces */
+  --accent: #FF4F00;
+  --accent-fg: #15171C;
+  --accent-text: #B33300;
+  --accent-tint: rgba(255, 79, 0, .08);
+  --accent-ring: rgba(255, 79, 0, .12);
+  --accent-half: rgba(255, 79, 0, .5);   /* the edge of a thing that asks */
+  --ok: #1F7A4D;   --ok-tint: #DDEFE5;
+  --bad: #B42318;  --bad-tint: #F6DEDB;
+  --info: #2F5D8A; --info-tint: #DCE6F0;
+  --warn: #6A520F; --warn-tint: #F3E9CC;
+  --ci-run: #BF8700; --ci-glow: rgba(191, 135, 0, .55);   /* GitHub's own running yellow */
+  --placeholder: #747A84;   /* 4.5:1 on paper and on white */
+  --accent-on-ink: #FFB08A; /* the orange count on an ink button */
+  --fg-on-color: #FCFCFA;   /* initials on a project colour, in both themes */
+  --knob: #FFFFFF;          /* the toggle's knob, in both themes */
+  --mail-paper: #FFFFFF; --mail-ink: #15171C;   /* an email preview is always white paper */
+  --overlay-ink: rgba(21, 23, 28, .75);
+  --border-inset: rgba(0, 0, 0, .12);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --brand: #8EA0FF;
+  --bg-canvas: #0F1115;
+  --bg-surface: #191C22;
+  --bg-raised: #121419;
+  --bg-hover: #21252C;
+  --bg-selected: #262A32;
+  --fg: #ECEDEF;
+  --fg-muted: #9BA1AA;
+  --border: #2F343C;
+  --border-soft: #272B32;
+  --border-faint: #24282F;
+  --accent-text: #FF8A57;
+  --accent-tint: rgba(255, 79, 0, .12);
+  --accent-ring: rgba(255, 79, 0, .18);
+  --ok: #4CC38A;   --ok-tint: #18301F;
+  --bad: #F07167;  --bad-tint: #3A1F1D;
+  --info: #82AEDC; --info-tint: #1E2C3B;
+  --warn: #E2C46E; --warn-tint: #352C14;
+  --ci-run: #E3B341; --ci-glow: rgba(227, 179, 65, .5);
+  --placeholder: #8B919B;
+  --scrim: rgba(0, 0, 0, .55);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, .45);
+  --shadow-3: 0 20px 60px rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+
+/* ---- the console: always ink, in both themes. The terminal (sessions.js,
+   TERM_THEME) reads these with getComputedStyle, so chat and terminal share one palette. */
+:root {
+  --con-bg: #121418;
+  --con-bg-2: #181B21;
+  --con-bg-3: #20242B;
+  --con-border: #2A2F38;
+  --con-border-2: #3A404B;
+  --con-fg: #E4E6E9;
+  --con-fg-strong: #F6F7F8;
+  --con-fg-soft: #C8CBD0;
+  --con-muted: #8B919B;        /* 5.9:1 on --con-bg: fine for hints and placeholders */
+  --con-faint: #4E545E;        /* separators and dots only, never text */
+  --con-accent-text: #FF8A57;
+  --con-ok: #5FC98E;
+  --con-ok-2: #80DEA9;
+  --con-bad: #EF6F68;
+  --con-bad-2: #FF8B82;
+  --con-bad-tint: rgba(239, 111, 104, .10);
+  --con-info: #78A5DE;
+  --con-info-2: #9BC1F1;
+  --con-warn: #E6B657;
+  --con-code-bg: #0D0F12;
+  --con-selection: rgba(255, 79, 0, .30);
+  --con-thumb: rgba(255, 255, 255, .12);
+  --con-fg-dim: #AEB3BB;       /* tool buttons and the bar's words: 7:1 on --con-bg-2 */
+  --con-inline: rgba(255, 255, 255, .07);
+  --con-shadow: 0 0 40px rgba(0, 0, 0, .45);
+}
+
+/* ---- aliases: the names the first stylesheet used. New rules use the roles above. */
+:root {
+  --counter: var(--bg-canvas); --paper: var(--bg-surface); --field: var(--bg-raised);
+  --hover: var(--bg-hover); --sel: var(--bg-selected);
+  --ink: var(--fg); --muted: var(--fg-muted);
+  --line: var(--border); --card-line: var(--border-soft); --soft: var(--border-faint);
+  --signal: var(--accent); --signal-text: var(--accent-text);
+  --run: var(--info); --wait: var(--warn);
+  --tint-run: var(--info-tint); --tint-ok: var(--ok-tint); --tint-bad: var(--bad-tint); --tint-wait: var(--warn-tint);
+  --con: var(--con-bg); --con-2: var(--con-bg-2); --con-3: var(--con-bg-3); --con-line: var(--con-border); --con-ink: var(--con-fg);
+}

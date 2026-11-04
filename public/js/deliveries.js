@@ -25,7 +25,7 @@ function deliveriesBlock() {
   const coming = list.filter((p) => p.status !== 'delivered').length;
   return `<div class="ship-block"><div class="ship-head"><span class="ship-label">Packages</span><span class="muted small">${coming ? `${coming} on the way` : 'All here'}</span></div>
     <ul class="ship-list">${list.map((p) => `<li><button type="button" class="ship st-${p.status} ${isSel('delivery', p.key) ? 'sel' : ''}" data-type="delivery" data-key="${esc(p.key)}">
-      <span class="ship-chip">${esc(shipWhen(p))}</span>
+      <span class="pill pill--soft ship-chip">${esc(shipWhen(p))}</span>
       <span class="ship-what"><b>${esc(p.name)}</b>${p.from ? `<span class="muted"> · ${esc(p.from)}</span>` : ''}</span>
       <span class="ship-win mono">${p.window && p.status !== 'delivered' ? esc(p.window) : ''}</span></button></li>`).join('')}</ul></div>`;
 }
@@ -52,6 +52,6 @@ function deliveryDetail(x, kick) {
   ].filter(Boolean);
   return kick('Package') + `<h2>${esc(x.name)}</h2>
     <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd${k === 'Tracking' || k === 'Order' ? ' class="mono"' : ''}>${esc(v)}</dd>`).join('')}</dl>
-    <div class="actions">${x.url ? `<a class="btn go" href="${esc(x.url)}" target="_blank" rel="noopener">Track it</a>` : ''}${x.link ? `<a class="btn" href="${esc(x.link)}" target="_blank" rel="noopener">Open the email</a>` : ''}<button class="btn" data-act="clear" type="button">Clear</button></div>
+    <div class="actions">${x.url ? `<a class="btn btn--primary" href="${safeHref(x.url)}" target="_blank" rel="noopener">Track it</a>` : ''}${x.link ? `<a class="btn" href="${safeHref(x.link)}" target="_blank" rel="noopener">Open the email</a>` : ''}<button class="btn" data-act="clear" type="button">Clear</button></div>
     ${x.status === 'delayed' ? '<p class="note-line">Clear it once you have dealt with it. It comes back if there is more news.</p>' : ''}`;
 }

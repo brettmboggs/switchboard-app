@@ -20,7 +20,7 @@ test('the project folder name: every character but letters and digits becomes "-
   assert.equal(projectDir('/home/me/dev/my-app/.claude/worktrees/x'), '-home-me-dev-my-app--claude-worktrees-x');
 });
 
-test('what Brett typed, without Claude Code\'s wrappers', () => {
+test('what the person typed, without Claude Code\'s wrappers', () => {
   const [m] = normalize(user('fix the <pasted_content id="a1">login</pasted_content> page<system-reminder>ignore</system-reminder>'));
   assert.equal(m.k, 'user');
   assert.equal(m.t, 'fix the login page');

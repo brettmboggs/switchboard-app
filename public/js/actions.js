@@ -2,10 +2,12 @@
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 // ---------- actions
+// One line at the bottom. An error ({ kind: 'error' }) gets a red edge and
+// stays longer; anything else is gone in three seconds.
 let toastTimer;
-function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+function toast(msg, { kind = 'ok' } = {}) {
+  const t = $('toast'); t.textContent = msg; t.classList.toggle('error', kind === 'error'); t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), kind === 'error' ? 6000 : 3200);
 }
 const tomorrow9 = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d.getTime(); };
 
@@ -68,7 +70,7 @@ async function act(name, btn) {
     }
     extra = { key: null, html: '' };
     await load();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message, { kind: 'error' }); }
   finally { if (btn && btn.isConnected) btn.disabled = false; }
 }
 
@@ -78,7 +80,7 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('click', (e) => {
   const close = e.target.closest('[data-close]');
-  if (close) { $(close.dataset.close).classList.remove('open'); return; }
+  if (close) { closeDialog(close.dataset.close); return; }
   const sp = e.target.closest('.space');
   if (sp) { project = sp.dataset.space; store.set('space', project); selected = null; render(); return; }
   const nf = e.target.closest('[data-now]');
@@ -91,7 +93,7 @@ document.addEventListener('click', (e) => {
   if (a) { act(a.dataset.act, a); return; }
   const it = e.target.closest('[data-type]');
   if (it) {
-    if (it.dataset.type === 'window') { api('/api/focus', { windowId: Number(it.dataset.key) }).catch(() => {}); $('windows-scrim').classList.remove('open'); return; }
+    if (it.dataset.type === 'window') { api('/api/focus', { windowId: Number(it.dataset.key) }).catch(() => {}); closeDialog('windows-scrim'); return; }
     selected = { type: it.dataset.type, key: it.dataset.key };
     extra = { key: null, html: '' };
     mergeArmed = null;
@@ -107,17 +109,17 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#needs')) { nowFilter = 'needs'; store.set('nowFilter', nowFilter); project = 'all'; store.set('space', project); if (location.hash !== '#now') location.hash = '#now'; else route(); return; }
   if (e.target.closest('#update-btn')) {
     const b = $('update-btn'); b.disabled = true; b.textContent = 'Updating…';
-    api('/api/update', {}).then(() => toast('Updated. Restarting, the page reloads in a moment.')).catch((err) => { toast(err.message); b.disabled = false; b.textContent = 'Update ready'; });
+    api('/api/update', {}).then(() => toast('Updated. Restarting, the page reloads in a moment.')).catch((err) => { toast(err.message, { kind: 'error' }); b.disabled = false; b.textContent = 'Update ready'; });
     return;
   }
   if (e.target.closest('#open-cmd')) { openCmd(); return; }
-  if (e.target.closest('#open-windows')) { renderWindows(); $('windows-scrim').classList.add('open'); return; }
+  if (e.target.closest('#open-windows')) { renderWindows(); openDialog('windows-scrim'); return; }
   if (e.target.closest('#open-settings, #status')) { openSettings(); return; }
-  if (e.target.closest('#refresh')) { toast('Checking everything…'); api('/api/refresh', {}).then(() => { toast('Up to date.'); load(); }).catch((err) => toast(err.message)); return; }
+  if (e.target.closest('#refresh')) { toast('Checking everything…'); api('/api/refresh', {}).then(() => { toast('Up to date.'); load(); }).catch((err) => toast(err.message, { kind: 'error' })); return; }
   if (e.target.closest('#ms-disconnect')) { api('/api/microsoft/disconnect', {}).then(load).then(renderMsStatus); return; }
   const rm = e.target.closest('[data-remove-gmail]');
   if (rm) { api('/api/gmail', { remove: rm.dataset.removeGmail }).then(openSettings); return; }
-  if (e.target.classList.contains('scrim')) e.target.classList.remove('open');
+  if (e.target.classList.contains('scrim') && e.target.id) closeDialog(e.target.id);
 });
 
 document.addEventListener('submit', async (e) => {
@@ -126,7 +128,7 @@ document.addEventListener('submit', async (e) => {
   const v = $('notes-input').value.trim();
   if (!v) return;
   try { const item = await api('/api/capture', { line: v, space: project }); $('notes-input').value = ''; toast(`Added · ${spaceOf(item.space).name}`); await load(); $('notes-input')?.focus(); }
-  catch (err) { toast(err.message); }
+  catch (err) { toast(err.message, { kind: 'error' }); }
 });
 
 // ---------- sending conversations into a session
@@ -150,7 +152,7 @@ function toSession(t) {
   const linked = (S.links || []).find((l) => l.chat_key === t.key);
   return `<div class="section-label">Claude</div><div class="composer"><div class="row">
     <label for="ts-term" class="sr">Session</label><select id="ts-term" style="flex:1">${terms.map((x) => `<option value="${esc(x.id)}" ${linked?.term_id === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-    <button class="btn go" type="button" data-act="to-session">Send to session</button>
+    <button class="btn btn--primary" type="button" data-act="to-session">Send to session</button>
     ${t.kind === 'teams' ? `<button class="btn" type="button" data-act="link">${linked ? 'Unlink' : 'Link chat'}</button>` : ''}</div>
     <span class="note-line">${linked ? `Linked: new messages here are queued into ${esc((terms.find((x) => x.id === linked.term_id) || {}).name || 'the session')}.` : 'Queued, and typed in when Claude finishes what it is doing.'}</span></div>`;
 }

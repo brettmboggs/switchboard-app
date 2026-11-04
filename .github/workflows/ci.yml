@@ -1,0 +1,50 @@
+# Every push and pull request: the scripts parse, the tests pass, the
+# dependencies are clean, nothing personal is in the tree, and the server
+# boots and keeps its security envelope. Same file in the private and the
+# public repo (scripts/publish.mjs copies it).
+name: CI
+
+on:
+  push:
+    branches: [master, main, stable]
+  pull_request:
+  schedule:
+    - cron: '0 9 * * 1'   # Mondays: the audit runs even in a week with no push
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      # node-pty has no Linux prebuild, so npm ci compiles it; python3, make
+      # and g++ are on GitHub's ubuntu images.
+      - run: npm ci --no-audit --no-fund
+      - name: Scripts parse
+        run: for f in $(git ls-files '*.js' '*.mjs'); do node --check "$f" || exit 1; done
+      - run: npm test
+      - run: npm run lint
+      - run: npm audit --omit=dev --audit-level=high
+      # docs/HANDOFF.md and docs/REVIEW.md are private notes and never ship. This
+      # file and scripts/publish.mjs hold the patterns, so they are skipped.
+      - name: Nothing personal in the tree
+        run: |
+          if git ls-files -z | grep -zv -e '^docs/HANDOFF.md$' -e '^docs/REVIEW.md$' -e 'package-lock.json$' -e 'Cargo.lock$' -e '^.github/workflows/ci.yml$' -e '^scripts/publish.mjs$' \
+             | xargs -0 grep -n -i -P '/home/brett|\bblake\b|\bdatum(ci)?\b|brettmboggs@gmail|\(\d{3}\) (?!555)\d{3}-\d{4}' ; then
+            echo "Personal data found (see above). Move it to settings, HANDOFF, or make it up."; exit 1
+          fi
+      - name: Server boots with its envelope
+        run: |
+          SWITCHBOARD_PORT=4899 SWITCHBOARD_DATA="$RUNNER_TEMP/sb" node --disable-warning=ExperimentalWarning server.js > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:4899/ && break; sleep 1; done
+          curl -fsS -D - -o /dev/null http://127.0.0.1:4899/ | grep -i 'content-security-policy'
+          curl -fsS http://127.0.0.1:4899/api/state | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const s=JSON.parse(d);if(!Array.isArray(s.spaces))process.exit(1)})'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4899/api/item)" = 403
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.test:4899' http://127.0.0.1:4899/)" = 403
+          kill %1 || true

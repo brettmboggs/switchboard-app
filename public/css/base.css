@@ -1,0 +1,43 @@
+/* Base: the reset, the body, the focus ring, the type helpers (.display, .kicker,
+   .mono, .muted, .small, .hint), [hidden], and the one reduced-motion rule.
+   Tokens are in tokens.css; nothing here picks a colour or size by hand. */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg-canvas); color: var(--fg); font: var(--fs-md)/var(--lh) var(--font-body); min-height: 100vh; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1[tabindex="-1"]:focus-visible, h2[tabindex="-1"]:focus-visible, h3[tabindex="-1"]:focus-visible { outline: none; }   /* a dialog's heading takes focus on open; the ring is for things you press */
+a { color: var(--accent-text); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+[hidden] { display: none !important; }
+[inert] { pointer-events: none; }
+
+/* The one display setting: Fraunces, one weight, its soft cut, a touch tighter
+   at the big sizes. Every heading-like thing lists itself here or takes .display. */
+.display, .page-head h1, .page-title, .sessions-head h1, .card h2, .sheet h2, .drawer h2, .prefs-nav h2, .welcome h2, .send-pal h2, .tile .big, .ls-v, .ed-title, .ed-doc h1 {
+  font-family: var(--font-display); font-weight: var(--display-weight); font-optical-sizing: var(--display-opsz);
+  font-variation-settings: "SOFT" var(--display-soft); letter-spacing: -.01em; font-variant-numeric: tabular-nums;
+}
+.page-head h1, .page-title, .sessions-head h1, .ed-title, .welcome h2 { letter-spacing: -.02em; }
+
+/* Kickers: the small mono uppercase label over a group or beside a value. One
+   rule; the older names in the list are the same thing where a script emits them. */
+.kicker, .rail h3, .facts dt, .section-label, .ship-label, .ls-k, .cv-sub, .cv-day, .cv-from label, .bc-out summary, .sig-list label, .ct-label, .cw-head, .ca-head {
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-muted);
+}
+.mono { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .02em; }
+.muted { color: var(--fg-muted); }
+.small { font-size: var(--fs-base); }
+.hint, .note-line { margin: 0; font-size: var(--fs-base); color: var(--fg-muted); }
+.note-line { font-size: var(--fs-sm); }
+.ok-text { color: var(--ok); } .bad-text { color: var(--bad); }
+.grow { flex: 1; }
+
+/* "Show me" points at a thing by flashing its edge once. */
+.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* Motion: one rule for everyone who asked for less. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

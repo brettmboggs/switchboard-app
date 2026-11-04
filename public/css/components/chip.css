@@ -1,0 +1,19 @@
+/* Chips and pills.
+     .chip        a filter or tab you press (Now's "Needs you 3", Notes' tabs); solid ink when pressed
+     .chip .c     its count, in mono
+     .pill        a state word on a card or row, mono uppercase ("FAILED", "DONE"); the
+                  state colours live with the thing that shows them (pages/now.css)
+     .pill--soft  the same shape in body type, for a package or weather note
+     .via         the small bordered source label on a row ("EMAIL", "TEAMS") */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; gap: 6px; align-items: baseline; padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--bg-surface); color: var(--fg); font-size: var(--fs-base); font-weight: 600; text-decoration: none; cursor: pointer; }
+.chip:hover { border-color: var(--fg); }
+.chip .c { font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 400; color: var(--fg-muted); }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg-surface); border-color: var(--fg); }
+.chip[aria-pressed="true"] .c { color: var(--bg-surface); opacity: .8; }
+.chip.hot .c { color: var(--accent-text); }
+
+.pill { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: var(--r-pill); white-space: nowrap; }
+.pill--soft { font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600; text-transform: none; letter-spacing: 0; padding: 3px 10px; background: var(--border-faint); color: var(--fg-muted); }
+
+.via { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-muted); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0 5px; margin-right: 6px; }

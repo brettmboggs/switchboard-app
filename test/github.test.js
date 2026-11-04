@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { githubRepo, runState } from '../lib/github.js';
 
 test('a folder\'s remote gives its GitHub repo', () => {
-  assert.equal(githubRepo('git@github.com:brett/switchboard.git'), 'brett/switchboard');
-  assert.equal(githubRepo('https://github.com/datum-ci/web.app'), 'datum-ci/web.app');
+  assert.equal(githubRepo('git@github.com:acme/switchboard.git'), 'acme/switchboard');
+  assert.equal(githubRepo('https://github.com/acme-co/web.app'), 'acme-co/web.app');
   assert.equal(githubRepo('ssh://git@github.com/x/y.git\n'), 'x/y');
   assert.equal(githubRepo('https://gitlab.com/a/b'), null);
   assert.equal(githubRepo(null), null);

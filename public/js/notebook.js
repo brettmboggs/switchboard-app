@@ -1,5 +1,6 @@
 // The Notes page: the notebook (pages, in your projects, with #tags), quick
-// notes, reminders and to-dos, and routines, as tabs. Plus search in Ctrl K.
+// notes, reminders and to-dos, and routines, as tabs. Plus search in Ctrl K,
+// and Send to session: a page or a quick note into a session's message bar.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 let notesTab = store.get('notesTab', 'pages');
@@ -42,7 +43,7 @@ function renderNotes() {
   leaveEditor();
   const keepQ = nbQuery;
   $('page').innerHTML = notesHead() + `<div class="nb">
-    <aside class="nb-side card"><div class="nb-tools"><label for="nb-q" class="sr">Search pages</label><input id="nb-q" type="search" placeholder="Search pages" value="${esc(keepQ)}" autocomplete="off"><button class="btn go" type="button" data-nb-new>New page</button></div>
+    <aside class="nb-side card"><div class="nb-tools"><label for="nb-q" class="sr">Search pages</label><input id="nb-q" type="search" placeholder="Search pages" value="${esc(keepQ)}" autocomplete="off"><button class="btn btn--primary" type="button" data-nb-new>New page</button></div>
       <div id="nb-tags" class="nb-tags">${tagsHtml()}</div><div id="nb-list" class="nb-list">${listHtml()}</div></aside>
     <section class="nb-main card" id="nb-main"></section></div>`;
   mountPage();
@@ -78,8 +79,9 @@ async function mountPage() {
   if (seq !== mountSeq || uid !== openUid || !(main = $('nb-main'))) return;
   main.innerHTML = `<div class="ed-head"><label for="ed-title" class="sr">Title</label><input id="ed-title" class="ed-title" value="${esc(p.title)}" placeholder="Untitled" maxlength="200" autocomplete="off">
     <div class="ed-meta"><label for="ed-space" class="sr">Project</label><select id="ed-space">${S.spaces.map((x) => `<option value="${esc(x.id)}" ${x.id === p.space ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-      <button class="icon-btn" type="button" id="ed-pin" aria-pressed="${!!p.pinned}">${p.pinned ? 'Pinned' : 'Pin'}</button><span id="ed-saved" class="small muted" aria-live="polite"></span><span class="grow"></span>
-      <button class="icon-btn" type="button" id="ed-del">Delete</button></div></div><div class="ed-body" id="ed-body"></div>`;
+      <button class="btn btn--quiet" type="button" id="ed-pin" aria-pressed="${!!p.pinned}">${p.pinned ? 'Pinned' : 'Pin'}</button>
+      <button class="btn btn--quiet" type="button" id="ed-send" title="${SEND_TITLE}">Send to session</button><span id="ed-saved" class="small muted" aria-live="polite"></span><span class="grow"></span>
+      <button class="btn btn--quiet" type="button" id="ed-del">Delete</button></div></div><div class="ed-body" id="ed-body"></div>`;
   edUid = uid; edLoaded = p.updated_at; delArmed = false;
   editor = makeEditor($('ed-body'), p.body, { onSave: (body) => savePage({ body }) });
   if (edLine != null) { editor.focusText(edLine); edLine = null; }
@@ -137,14 +139,17 @@ document.addEventListener('click', async (e) => {
   if (nw) {
     const t = nw.dataset.nbTpl != null ? TEMPLATES[+nw.dataset.nbTpl] : null;
     try { const p = await api('/api/pages', { title: t ? t[1] : '', body: t ? t[2] : '', space: project }); await load(); openPage(p.uid); if (t) setTimeout(() => (t[1].endsWith('log') ? $('ls-n') : null)?.focus() ?? editor?.focusStart(), 300); }
-    catch (err) { toast(err.message); }
+    catch (err) { toast(err.message, { kind: 'error' }); }
     return;
   }
+  if (e.target.closest('#ed-send') && editor) { sendPick({ title: $('ed-title').value.trim() || 'Untitled', text: pageText(editor.html()) }); return; }
+  const sn = e.target.closest('[data-send-note]');
+  if (sn) { const i = S.items.find((x) => String(x.id) === sn.dataset.sendNote); if (i) sendPick({ title: '', text: i.text }); return; }
   if (e.target.closest('#ed-pin')) { const on = $('ed-pin').getAttribute('aria-pressed') !== 'true'; $('ed-pin').setAttribute('aria-pressed', on); $('ed-pin').textContent = on ? 'Pinned' : 'Pin'; savePage({ pinned: on }); return; }
   if (e.target.closest('#ed-del')) {
-    if (!delArmed) { delArmed = true; $('ed-del').textContent = 'Delete this page?'; $('ed-del').classList.add('danger'); return; }
+    if (!delArmed) { delArmed = true; $('ed-del').textContent = 'Delete this page?'; $('ed-del').classList.add('btn--danger'); return; }
     const uid = edUid; editor = null; edUid = null;
-    try { await api(`/api/pages/${uid}/delete`, {}); openUid = null; toast('Page deleted.'); await load(); } catch (err) { toast(err.message); }
+    try { await api(`/api/pages/${uid}/delete`, {}); openUid = null; toast('Page deleted.'); await load(); } catch (err) { toast(err.message, { kind: 'error' }); }
   }
 });
 
@@ -152,11 +157,11 @@ document.addEventListener('click', async (e) => {
 function renderNoteLists() {
   const now = Date.now();
   const keep = document.activeElement?.id === 'notes-input' ? $('notes-input').value : '';
-  const add = `<form class="inline-add" id="notes-add"><label for="notes-input" class="sr">Add</label><input id="notes-input" type="text" placeholder="remind fri 9am call the bank · feed the animals every day at 6am · or just a note" autocomplete="off"><button class="btn go" type="submit">Add</button></form>`;
+  const add = `<form class="inline-add" id="notes-add"><label for="notes-input" class="sr">Add</label><input id="notes-input" type="text" placeholder="remind fri 9am call the bank · feed the animals every day at 6am · or just a note" autocomplete="off"><button class="mic" type="button" data-mic="notes-input" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn btn--primary" type="submit">Add</button></form>`;
   let body = '';
   if (notesTab === 'quick') {
     const notes = S.items.filter((i) => i.kind === 'note').filter(inProject).sort((a, b) => b.created_at - a.created_at);
-    body = `<section class="card"><div class="list">${notes.map((i) => row({ type: 'item', key: String(i.id), space: i.space, title: i.text, sub: when(i.created_at) })).join('') || empty('Anything typed in Ctrl K that is not a reminder, a to-do or money lands here.')}</div></section>`;
+    body = `<section class="card"><div class="list qn-list">${notes.map((i) => `<div class="qn">${row({ type: 'item', key: String(i.id), space: i.space, title: i.text, sub: when(i.created_at) })}<button class="btn btn--quiet btn--sm qn-send" type="button" data-send-note="${i.id}" title="${SEND_TITLE}">Send to session</button></div>`).join('') || empty('Anything typed in Ctrl K that is not a reminder, a to-do or money lands here.')}</div></section>`;
   } else if (notesTab === 'tasks') {
     const tasks = S.items.filter((i) => i.kind === 'reminder' || i.kind === 'todo').filter(inProject);
     const done = S.recentDone.filter(inProject);
@@ -166,6 +171,98 @@ function renderNoteLists() {
   $('page').innerHTML = notesHead() + add + body;
   if (keep) { $('notes-input').value = keep; $('notes-input').focus(); }
 }
+
+// ---- Send to session: a page (or a quick note) into a session's message bar,
+// under a line saying what to do with it. Nothing is sent: the person reads
+// it there and presses Enter, the same as anything else they type.
+const SEND_TITLE = 'Put this in a session\'s message bar, with a line saying what to do with it. Nothing is sent until you press Enter there.';
+const SEND_PROMPTS = ['Summarise these notes into to-dos', 'Turn this into a plan', 'Just the notes'];
+let sendTo = null;   // { title, text, key, prompt } while the picker is open
+
+// A page as plain text an agent can read: headings marked, bullets and boxes
+// as lines, a nested list indented.
+function pageText(html) {
+  const root = new DOMParser().parseFromString(`<body>${html || ''}</body>`, 'text/html').body;
+  root.querySelectorAll('br').forEach((b) => b.replaceWith('\n'));
+  const own = (el) => [...el.childNodes].filter((n) => !(n.nodeType === 1 && /^(UL|OL)$/.test(n.tagName))).map((n) => n.textContent).join('').replace(/[ \t\u00a0]+/g, ' ').trim();
+  const lines = [];
+  (function walk(el, depth) {
+    for (const n of el.children) {
+      const t = n.tagName;
+      if (t === 'UL' || t === 'OL') {
+        let i = 0;
+        for (const li of n.children) {
+          const mark = t === 'OL' ? `${++i}. ` : n.classList.contains('checklist') ? (li.dataset.checked === 'true' ? '- [x] ' : '- [ ] ') : '- ';
+          lines.push('  '.repeat(depth) + mark + own(li));
+          walk(li, depth + 1);
+        }
+      }
+      else if (/^H[1-3]$/.test(t)) lines.push('#'.repeat(+t[1]) + ' ' + own(n));
+      else if (t === 'BLOCKQUOTE') lines.push('> ' + own(n));
+      else if (t === 'HR') lines.push('---');
+      else lines.push(own(n));
+    }
+  })(root, 0);
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function sendPick({ title, text }) {
+  const terms = allTerms();
+  if (!terms.length) { toast('No session is open. Start one on Sessions first.'); return; }
+  if (!text.trim()) { toast('Nothing on this page yet.'); return; }
+  let scrim = $('send-scrim');
+  if (!scrim) {
+    scrim = document.createElement('div');
+    scrim.id = 'send-scrim'; scrim.className = 'scrim';
+    scrim.setAttribute('role', 'dialog'); scrim.setAttribute('aria-modal', 'true'); scrim.setAttribute('aria-label', 'Send to a session');
+    document.body.appendChild(scrim);
+  }
+  const key = terms.length === 1 ? terms[0].key : terms.some((t) => t.key === currentTerm) ? currentTerm : null;
+  sendTo = { title, text, key, prompt: SEND_PROMPTS[0] };
+  drawSendPick(terms);
+  openDialog('send-scrim');
+  $('send-prompt').focus(); $('send-prompt').select();
+}
+function drawSendPick(terms = allTerms()) {
+  const one = terms.length === 1;
+  const what = sendTo.title ? `“${esc(sendTo.title)}”` : 'this note';
+  $('send-scrim').innerHTML = `<div class="palette send-pal">
+    <h2>Send to a session</h2>
+    <p class="send-why">Puts ${what} in ${one ? `<b>${esc(termLabel(terms[0]))}</b>’s` : 'the session’s'} message bar. Nothing is sent until you press Enter there.</p>
+    ${one ? '' : `<div class="send-terms" role="radiogroup" aria-label="Session">${terms.map((t) => `<button type="button" class="send-term" role="radio" data-send-term="${esc(t.key)}" aria-checked="${t.key === sendTo.key}">${tag(t.space)}<span class="t">${esc(termLabel(t))}</span><span class="s">${esc(t.agentName || '')}${termLabel(t) !== t.name ? ' · ' + esc(t.name) : ''}${t.remote ? ' · on ' + esc(t.deviceName || t.device) : ''} · ${esc(TERM_STATE[t.state] || t.state || '')}</span></button>`).join('')}</div>`}
+    <div class="rt-chips send-chips">${SEND_PROMPTS.map((p) => `<button type="button" class="rt-idea" data-send-chip="${esc(p)}" aria-pressed="${sendTo.prompt === p || (p === 'Just the notes' && !sendTo.prompt)}">${esc(p)}</button>`).join('')}</div>
+    <label for="send-prompt" class="sr">What to do with it</label>
+    <input id="send-prompt" type="text" value="${esc(sendTo.prompt)}" placeholder="Just the notes, no instruction" autocomplete="off">
+    <div class="actions"><button class="btn btn--primary" type="button" data-send-go ${sendTo.key ? '' : 'disabled'}>Put it in the message bar</button><button class="btn" type="button" data-close="send-scrim">Cancel</button></div>
+  </div>`;
+}
+async function sendToSession() {
+  const { key, title, text } = sendTo, prompt = $('send-prompt').value.trim();
+  const t = termByKey(key);
+  if (!t) { toast('That session is gone.'); return; }
+  const msg = [prompt, [title, text].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
+  closeDialog('send-scrim'); sendTo = null;
+  currentTerm = key; store.set('term', key);
+  if (!inProject(t)) { project = 'all'; store.set('space', project); }
+  if (location.hash !== '#sessions') location.hash = '#sessions'; else render();
+  // The message bar holds this session's draft once Sessions has drawn with it open (composeFor, sessions.js).
+  for (let i = 0; i < 60 && !(page === 'sessions' && composeFor === key && $('q-text')); i++) await new Promise((r) => setTimeout(r, 50));
+  await addToComposer(msg);
+  growText($('q-text'));
+  toast('In the message bar. Read it over, then Enter sends it.');
+}
+document.addEventListener('click', (e) => {
+  if (!sendTo || !$('send-scrim')?.classList.contains('open')) return;
+  const st = e.target.closest('[data-send-term]');
+  if (st) { sendTo.key = st.dataset.sendTerm; document.querySelectorAll('[data-send-term]').forEach((b) => b.setAttribute('aria-checked', b === st)); $('send-scrim').querySelector('[data-send-go]').disabled = false; return; }
+  const ch = e.target.closest('[data-send-chip]');
+  if (ch) { const p = ch.dataset.sendChip === 'Just the notes' ? '' : ch.dataset.sendChip; sendTo.prompt = p; $('send-prompt').value = p; document.querySelectorAll('[data-send-chip]').forEach((b) => b.setAttribute('aria-pressed', b === ch)); $('send-prompt').focus(); return; }
+  if (e.target.closest('[data-send-go]')) sendToSession();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.id === 'send-prompt' && e.key === 'Enter' && sendTo?.key) { e.preventDefault(); sendToSession(); }
+});
+document.addEventListener('input', (e) => { if (e.target.id === 'send-prompt' && sendTo) { sendTo.prompt = e.target.value; document.querySelectorAll('[data-send-chip]').forEach((b) => b.setAttribute('aria-pressed', (b.dataset.sendChip === 'Just the notes' ? '' : b.dataset.sendChip) === e.target.value.trim())); } });
 
 // ---- Ctrl K: search everything as you type; Enter still adds what was typed unless a result is picked
 let cmdHits = [], cmdSel = -1, cmdTimer = null;
@@ -177,7 +274,7 @@ function drawCmdResults() {
   host.hidden = !cmdHits.length;
 }
 function cmdOpen(r) {
-  $('cmd-scrim').classList.remove('open');
+  closeDialog('cmd-scrim');
   if (r.type === 'page') return openPage(r.uid, r.line && r.line !== r.title ? r.line : null);
   notesTab = r.type === 'note' ? 'quick' : r.type === 'routine' ? 'routines' : 'tasks';
   store.set('notesTab', notesTab);

@@ -32,8 +32,16 @@ const sh = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'inherit', wi
 const BIN = process.env.SWITCHBOARD_BIN || join(HERE, 'bin');
 const SETTINGS = join(HOME, '.claude', 'settings.json');
 const HOOK = OS === 'win32' ? `"${join(BIN, 'hook.cmd')}"` : join(BIN, 'hook.sh');
-const EVENTS = [['SessionStart'], ['UserPromptSubmit'], ['Notification'], ['Stop'], ['SessionEnd'], ['PostToolUse'], ['PreToolUse', 'AskUserQuestion']];
+const EVENTS = [['SessionStart'], ['UserPromptSubmit'], ['Notification'], ['Stop'], ['SessionEnd'], ['PostToolUse'], ['PreToolUse', 'AskUserQuestion'], ['PreModelSwitch'], ['PostModelSwitch']];
 const OURS = /switchboard[\\/]+bin[\\/]+hook\.(sh|cmd)/i;
+// The status line: Claude Code runs this command with the session's model,
+// effort, context used and cost as JSON on stdin; bin/statusline.sh posts it to
+// the board for the session's bar. Set only for someone with no status line of
+// their own, and removed only when it is ours. To keep your own status line
+// and still feed the board, chain the two in settings.json (sh, Linux and macOS):
+//   "statusLine": { "type": "command", "command": "j=$(cat); printf %s \"$j\" | /path/to/switchboard/bin/statusline.sh; printf %s \"$j\" | your-own-command" }
+const STATUS = OS === 'win32' ? `"${join(BIN, 'statusline.cmd')}"` : join(BIN, 'statusline.sh');
+const OURS_STATUS = /switchboard[\\/]+bin[\\/]+statusline\.(sh|cmd)/i;
 
 function hooks(install) {
   mkdirSync(dirname(SETTINGS), { recursive: true });
@@ -45,15 +53,40 @@ function hooks(install) {
     s.hooks[ev] = s.hooks[ev].map((g) => ({ ...g, hooks: (g.hooks || []).filter((h) => !OURS.test(String(h.command || ''))) })).filter((g) => g.hooks.length);
     if (!s.hooks[ev].length) delete s.hooks[ev];
   }
+  // The status line (see STATUS above): ours comes out first, so a reinstall
+  // puts the current path back and an uninstall leaves nothing; someone else's
+  // is never touched.
+  if (s.statusLine && OURS_STATUS.test(String(s.statusLine.command || ''))) delete s.statusLine;
+  let statusNote = '';
   if (install) {
-    if (OS !== 'win32') try { chmodSync(join(BIN, 'hook.sh'), 0o755); } catch {}
+    if (OS !== 'win32') try { chmodSync(join(BIN, 'hook.sh'), 0o755); chmodSync(join(BIN, 'statusline.sh'), 0o755); } catch {}
     for (const [ev, matcher] of EVENTS) {
       s.hooks[ev] ||= [];
       s.hooks[ev].push({ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: `${HOOK} ${ev}`, timeout: 3 }] });
     }
+    if (!s.statusLine) { s.statusLine = { type: 'command', command: STATUS }; statusNote = ' Status line set: sessions show their model, effort, context and cost.'; }
+    else statusNote = ` Your own status line is kept; to show model, effort, context and cost on Sessions too, chain ${STATUS} into it (see scripts/setup.mjs).`;
   }
   writeFileSync(SETTINGS, JSON.stringify(s, null, 2) + '\n');
-  console.log(install ? `Claude hooks added to ${SETTINGS}.` : 'Claude hooks removed.');
+  console.log(install ? `Claude hooks added to ${SETTINGS}.${statusNote}` : 'Claude hooks removed.');
+}
+
+// ---- 1b. updates from the stable branch
+// A git install updates from whatever branch it tracks (lib/update.js). The
+// public repo's `stable` branch moves at each release; main moves at every push.
+// A fresh clone tracks main (or master): move it to stable when the remote has
+// one. A branch with any other name is somebody's own work and is left alone.
+// Settings, General, About switches between Stable and Latest afterwards.
+function upstream() {
+  if (!existsSync(join(HERE, '.git'))) return;
+  const git = (args) => { try { return execFileSync('git', args, { cwd: HERE, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, timeout: 60000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }).trim(); } catch { return null; } };
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+  if (!['main', 'master', 'stable'].includes(branch)) return;
+  if (git(['rev-parse', '--abbrev-ref', '@{u}']) === 'origin/stable') { console.log('Updates come from the stable branch (releases).'); return; }
+  git(['fetch', '--quiet', 'origin']);
+  if (git(['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/stable']) === null) return;   // no stable branch yet: every push it is
+  if (git(['branch', '--set-upstream-to=origin/stable']) === null) return;
+  console.log(`Updates come from the stable branch (releases), not every push to ${branch}. Settings, General, About switches to Latest.`);
 }
 
 // ---- 2. start at login
@@ -288,7 +321,7 @@ const service = { linux: linuxService, darwin: macService, win32: winService }[O
 const launcher = { linux: linuxLauncher, darwin: macLauncher, win32: winLauncher }[OS];
 if (!service) { console.log(`Switchboard has no installer for ${OS} yet. Run it with: npm start`); process.exit(1); }
 
-if (mode === 'install') { hooks(true); service(true); launcher(true); mcp(true); console.log('\nOpen Switchboard from your apps, or go to http://127.0.0.1:4747'); }
+if (mode === 'install') { hooks(true); upstream(); service(true); launcher(true); mcp(true); console.log('\nOpen Switchboard from your apps, or go to http://127.0.0.1:4747'); }
 else if (mode === 'remove') { hooks(false); service(false); launcher(false); mcp(false); browser(false); }
 else console.log('Usage: node scripts/setup.mjs install|remove|voice|mcp|browser [remove]');
 }

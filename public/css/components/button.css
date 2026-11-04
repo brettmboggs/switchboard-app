@@ -1,0 +1,52 @@
+/* Buttons: one family.
+     .btn               outlined in ink on paper, 600 weight: the ordinary action
+     .btn--primary      orange, ink text: the one action that goes somewhere (Send, Start, Connect)
+     .btn--quiet        a soft outline (the old .icon-btn): Close, Done, Settings, Copy
+     .btn--ghost        no box, underlined muted text (the old .linkish): Skip, Show all
+     .btn--danger       red outline and text; becomes solid on the second, armed, click ([data-sure])
+     .btn--sm / .btn--lg / .btn--wide   sizes
+   Inside the console (.chat-host, .term-bar, .term-compose) the outline turns to
+   the console's own border and text. A round icon button is .mic (talk to type). */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-height: 32px; padding: 5px 14px; border: 1px solid var(--fg); border-radius: var(--r-pill);
+  background: var(--bg-surface); color: var(--fg); font: 600 var(--fs-base)/var(--lh-tight) var(--font-body);
+  text-decoration: none; white-space: nowrap; cursor: pointer; transition: filter .12s, border-color .12s, background-color .12s;
+}
+.btn:hover { filter: brightness(.95); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .5; cursor: progress; }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn--primary:hover { filter: brightness(1.06); }
+.btn--quiet { border-color: var(--border); font-weight: 500; }
+.btn--quiet:hover { filter: none; border-color: var(--fg); }
+.btn--quiet[disabled] { opacity: .4; cursor: default; }
+.btn--quiet[aria-pressed="true"] { background: var(--fg); color: var(--bg-surface); border-color: var(--fg); }
+.btn--ghost { min-height: 0; padding: 4px 0; border: 0; background: none; color: var(--fg-muted); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; justify-self: start; }
+.btn--ghost:hover { filter: none; color: var(--fg); }
+.btn--danger, .btn[data-sure] { border-color: var(--bad); color: var(--bad); background: var(--bg-surface); }
+.btn--danger:hover, .btn[data-sure]:hover { background: var(--bad-tint); filter: none; }
+.btn--sm { min-height: 26px; padding: 2px 10px; font-size: var(--fs-sm); }
+.btn--lg { min-height: 40px; padding: 9px 22px; font-size: var(--fs-md); }
+.btn--wide { justify-content: center; min-height: 40px; padding: 9px 16px; font-size: var(--fs-md); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 14px; }
+
+/* On the console (dark in both themes) */
+.chat-host .btn, .term-bar .btn, .term-compose .btn { background: transparent; border-color: var(--con-border); color: var(--con-fg); }
+.chat-host .btn:hover, .term-bar .btn:hover, .term-compose .btn:hover { filter: none; background: var(--con-bg-2); }
+.chat-host .btn--primary, .term-bar .btn--primary, .term-compose .btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.chat-host .btn--primary:hover, .term-compose .btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
+.chat-host .btn--ghost, .term-bar .btn--ghost, .term-compose .btn--ghost { border: 0; color: var(--con-muted); text-decoration: none; }
+.chat-host .btn--ghost:hover, .term-bar .btn--ghost:hover, .term-compose .btn--ghost:hover { color: var(--con-fg); background: none; }
+
+/* Talk to type: a round button that pulses while it listens and dims while it thinks. */
+.mic { flex: none; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-surface); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.mic svg { width: 18px; height: 18px; fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; }
+.mic svg rect { fill: var(--fg); stroke: none; }
+.mic:hover { border-color: var(--fg); }
+.mic.on { background: var(--accent); border-color: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+.mic.on svg { stroke: var(--accent-fg); }
+.mic.on svg rect { fill: var(--accent-fg); }
+.mic.busy:not(.on) { border-color: var(--accent); }
+.mic.busy:not(.on) svg { animation: think 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-half); } 50% { box-shadow: 0 0 0 7px transparent; } }
+@keyframes think { 50% { opacity: .35; } }

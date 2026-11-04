@@ -63,3 +63,26 @@ test('all-day events and yearly birthdays', () => {
   assert.equal(day(x.start), '2027-03-15');
   assert.equal(durationMs('P1DT2H'), 26 * 3600e3);
 });
+
+// A calendar link is outside input: the parser stays quick on a hostile feed.
+test('a 1 MB line with an unclosed quote parses in a blink, and lines are capped', async () => {
+  const { MAX_LINE, readCapped } = await import('../lib/calendar.js');
+  // A million colons and one stray quote: the old lookahead regex scanned to the
+  // end of the line from every colon (minutes); one pass finds the first colon.
+  const hostile = 'SUMMARY:' + ':'.repeat(1e6) + '"';
+  const t0 = performance.now();
+  const e = parseICS(cal(ev(['UID:h', hostile, 'DTSTART:20261104T120000Z'])));
+  assert.ok(performance.now() - t0 < 50, `took ${Math.round(performance.now() - t0)} ms`);
+  assert.equal(e.length, 1);
+  assert.equal(e[0].summary.length, MAX_LINE - 'SUMMARY:'.length);
+  const long = parseICS(cal(ev(['UID:l', 'SUMMARY:' + 'b'.repeat(10000), 'DTSTART:20261104T120000Z'])));
+  assert.equal(long[0].summary.length, MAX_LINE - 'SUMMARY:'.length);
+  // Quotes are honoured: the colon inside a parameter value is not the separator.
+  const q = parseICS(cal(ev(['UID:q', 'DTSTART;TZID="America/Chicago":20261104T120000', 'SUMMARY:Lunch at 12:30'])));
+  assert.equal(q[0].summary, 'Lunch at 12:30');
+  assert.equal(q[0].start.zone, 'America/Chicago');
+  // A feed past 2 MB is not read to the end.
+  assert.equal(await readCapped(new Response('BEGIN:VCALENDAR'), 100), 'BEGIN:VCALENDAR');
+  await assert.rejects(readCapped(new Response('x'.repeat(3 * 1024 * 1024)), 2 * 1024 * 1024), /too big/);
+  await assert.rejects(readCapped(new Response('x', { headers: { 'content-length': String(5e6) } }), 2 * 1024 * 1024), /too big/);
+});

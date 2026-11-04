@@ -1,0 +1,101 @@
+/* Now: the in-flight cards, the Today card (events, weather, packages) and the welcome. */
+
+/* In flight: one small card per thing, its state on the left edge and in a pill.
+   Orange is "needs you" and nothing else; the rest are the state colours. */
+.flight { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.job { text-align: left; cursor: pointer; border-color: var(--border); border-left-width: 4px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
+.job:hover { border-color: var(--fg); }
+.job.sel { box-shadow: 0 0 0 2px var(--fg); }
+.job .where { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.job .where .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job .what { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.job .meta { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.st-needs { border-left-color: var(--accent); } .st-needs .pill { background: var(--accent); color: var(--accent-fg); }
+.st-running { border-left-color: var(--info); } .st-running .pill { background: var(--info-tint); color: var(--info); }
+.st-done { border-left-color: var(--ok); } .st-done .pill { background: var(--ok-tint); color: var(--ok); }
+.st-idle { border-left-color: var(--border); } .st-idle .pill { background: var(--bg-canvas); color: var(--fg-muted); }
+.st-waiting-others { border-left-color: var(--warn); } .st-waiting-others .pill { background: var(--warn-tint); color: var(--warn); }
+.run-dots::after { content: "···"; animation: blink 1.4s steps(4) infinite; display: inline-block; width: 1.4em; overflow: hidden; vertical-align: bottom; }
+@keyframes blink { 0% { width: 0 } 100% { width: 1.4em } }
+
+.group-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.group-head .tag { width: 11px; height: 11px; }
+.group-head h2 { margin: 0; }
+.group-head .sum { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.left-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.left-card { padding: 12px 18px; }
+.empty-cta { display: grid; gap: 10px; padding: 6px 0; }
+
+/* Today: events, the weather on the title row, then packages. */
+.today { padding: 14px 18px; }
+.today .group-head { margin-bottom: 6px; flex-wrap: wrap; }
+.ev-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.ev-list li { display: grid; grid-template-columns: 72px 10px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 6px 2px; border-top: 1px solid var(--border-faint); }
+.ev-list li:first-child { border-top: 0; }
+.ev-list .tag { align-self: center; }
+.ev-time { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--fg-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ev-list li.on .ev-time { color: var(--accent-text); font-weight: 500; }
+.ev-title { font-weight: 600; overflow-wrap: anywhere; }
+.ev-where { display: block; font-weight: 400; font-size: var(--fs-base); color: var(--fg-muted); }
+.ev-soon { font-size: var(--fs-sm); color: var(--accent-text); font-weight: 600; white-space: nowrap; }
+.wx { margin-left: auto; font-size: var(--fs-base); font-weight: 600; }
+.wx-notes { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.wx-note { color: var(--fg); background: var(--bg-hover); }
+.wx-frost, .wx-heat, .wx-wind { background: var(--warn-tint); color: var(--warn); }
+.wx-rain { background: var(--info-tint); color: var(--info); }
+.wx-warn { flex-basis: 100%; background: var(--bad-tint); color: var(--bad); border-radius: var(--r-md); padding: 8px 12px; font-size: var(--fs-base); }
+.wx-warn summary { font-weight: 700; cursor: pointer; }
+.wx-warn p { margin: 6px 0 0; color: var(--fg); white-space: pre-wrap; }
+
+/* Packages (deliveries.js) */
+.ship-block { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-faint); }
+.today .ev-list + .ship-block, .today .empty + .ship-block { margin-top: 6px; }
+.today .group-head + .ship-block { margin-top: 0; padding-top: 0; border-top: 0; }
+.ship-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.ship-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ship { grid-template-columns: 132px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 6px 6px; }
+.ship-chip { justify-self: start; white-space: nowrap; }
+.ship-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ship-what b { font-weight: 600; }
+.ship-win { font-size: var(--fs-sm); color: var(--fg-muted); white-space: nowrap; }
+.st-out .ship-chip { background: var(--accent); color: var(--accent-fg); }
+.st-out .ship-win { color: var(--accent-text); font-weight: 500; }
+.st-delivered .ship-chip { background: var(--ok-tint); color: var(--ok); }
+.st-delivered .ship-what { color: var(--fg-muted); }
+.st-delayed .ship-chip { background: var(--bad-tint); color: var(--bad); }
+.st-pickup .ship-chip { background: var(--warn-tint); color: var(--warn); }
+.st-shipped .ship-chip { background: var(--info-tint); color: var(--info); }
+@media (max-width: 700px) { .ship { grid-template-columns: auto minmax(0, 1fr); } .ship-win { grid-column: 2; } }
+
+/* The welcome (now.js): the first run and the setup guide. */
+.welcome-scrim { z-index: calc(var(--z-overlay) - 1); background: color-mix(in srgb, var(--bg-canvas) 88%, transparent); backdrop-filter: blur(6px); padding-top: 8vh; }
+.welcome { width: min(640px, 100%); border-radius: var(--r-xl); padding: 30px 34px 28px; display: grid; gap: 14px; position: relative; margin-bottom: 40px; }
+.welcome.hello { padding: 54px 40px 40px; text-align: center; justify-items: center; }
+.welcome h2 { margin: 0; font-size: var(--fs-2xl); }
+.w-mark { margin: 0; font-size: calc(var(--fs-3xl) * 1.375); line-height: 1; }
+.w-lead { margin: 0; color: var(--fg-muted); font-size: var(--fs-lg); max-width: 520px; }
+.welcome.hello .w-lead { font-size: var(--fs-xl); }
+.w-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.welcome.hello .w-actions { justify-content: center; flex-direction: column; gap: 10px; }
+.w-top { display: flex; justify-content: space-between; align-items: center; }
+.w-dots { display: flex; gap: 6px; }
+.w-dots span { width: 22px; height: 5px; border-radius: var(--r-xs); background: var(--border-faint); }
+.w-dots span.past { background: var(--border); }
+.w-dots span.on { background: var(--accent); }
+.w-back { justify-self: start; }
+.w-signin { display: grid; gap: 8px; max-width: 340px; }
+.w-uses { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.w-use { text-align: left; padding: 14px; cursor: pointer; display: grid; gap: 3px; }
+.w-use b { font-size: var(--fs-md); }
+.w-use span { color: var(--fg-muted); font-size: var(--fs-base); }
+.w-use:hover { border-color: var(--fg); }
+.w-use[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.w-conns { display: grid; gap: 8px; }
+.w-conn { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 11px 14px; }
+.w-conn > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.w-conn span { color: var(--fg-muted); font-size: var(--fs-base); }
+.w-conn.done { background: var(--bg-hover); border-color: transparent; }
+.w-ok { color: var(--ok) !important; font-weight: 600; white-space: nowrap; }
+.w-tips { display: grid; gap: 10px; }
+.w-tips > div { display: grid; gap: 2px; }
+.w-tips span { color: var(--fg-muted); font-size: var(--fs-base); }

@@ -67,7 +67,7 @@ function renderDetail() {
       <dt>Folder</dt><dd class="mono">${esc(x.cwd || '')}</dd><dt>Window</dt><dd>${esc(x.windowTitle || 'Not found yet. Send it a prompt and it is remembered.')}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
       ${x.prompt ? `<div class="mono muted">You asked</div><div class="quote">${esc(x.prompt)}</div>` : ''}
       ${x.lastMessage ? `<div class="mono muted" style="margin-top:10px">Claude's last words</div><div class="quote">${esc(x.lastMessage)}</div>` : ''}
-      <div class="actions">${x.termId ? `<button class="btn go" data-act="open-term" type="button">Open in Sessions</button>` : x.windowId ? `<button class="btn go" data-act="focus" type="button">Jump to window</button>` : ''}${x.state === 'finished' ? `<button class="btn" data-act="seen" type="button">Got it</button>` : ''}
+      <div class="actions">${x.termId ? `<button class="btn btn--primary" data-act="open-term" type="button">Open in Sessions</button>` : x.windowId ? `<button class="btn btn--primary" data-act="focus" type="button">Jump to window</button>` : ''}${x.state === 'finished' ? `<button class="btn" data-act="seen" type="button">Got it</button>` : ''}
       ${!x.termId && x.cwd ? `<button class="btn" data-act="move" type="button">Move into Switchboard</button>` : ''}</div>
       ${!x.termId && x.cwd ? `<p class="note-line">Move: close this session in VS Code first, then it reopens here with the same conversation.</p>` : ''}
       ${extra.key === x.id ? extra.html : ''}`;
@@ -76,34 +76,34 @@ function renderDetail() {
     const sib = S.runs.filter((r) => r.repo === x.repo && r.title === x.title);
     const failed = sib.filter((r) => r.state === 'failed');
     html = kick('GitHub Actions') + `<h2>${esc(x.title)}</h2>
-      <ul class="tl">${sib.map((r) => `<li><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.workflow)}</a> · ${esc(r.conclusion || 'running')}</li>`).join('')}</ul>
+      <ul class="tl">${sib.map((r) => `<li><a href="${safeHref(r.url)}" target="_blank" rel="noopener">${esc(r.workflow)}</a> · ${esc(r.conclusion || 'running')}</li>`).join('')}</ul>
       <dl class="facts"><dt>Repo</dt><dd>${esc(x.fullName)}</dd><dt>Branch</dt><dd>${esc(x.branch)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
-      <div class="actions">${failed.length ? `<button class="btn go" data-act="rerun" type="button">Re-run failed</button>` : ''}<a class="btn" href="${esc(x.url)}" target="_blank" rel="noopener">Open on GitHub</a><button class="btn" data-act="clear" type="button">Clear</button></div>`;
+      <div class="actions">${failed.length ? `<button class="btn btn--primary" data-act="rerun" type="button">Re-run failed</button>` : ''}<a class="btn" href="${safeHref(x.url)}" target="_blank" rel="noopener">Open on GitHub</a><button class="btn" data-act="clear" type="button">Clear</button></div>`;
   } else if (t === 'ci') {
     html = ciDetail(x, kick);
   } else if (t === 'review') {
     html = kick('Pull request') + `<h2>${esc(x.title)}</h2>
-      <dl class="facts"><dt>Repo</dt><dd>${esc(x.repo)} #${x.number}</dd><dt>By</dt><dd>${esc(x.author)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
-      <div class="actions"><a class="btn" href="${esc(x.url)}" target="_blank" rel="noopener">Read it on GitHub</a><button class="btn go" data-act="approve" type="button">Approve</button>
-      <button class="btn ${mergeArmed === x.id ? 'danger' : ''}" data-act="merge" type="button">${mergeArmed === x.id ? 'Click again to squash and merge' : 'Merge'}</button><button class="btn" data-act="clear" type="button">Clear</button></div>`;
+      <dl class="facts"><dt>Repo</dt><dd>${esc(x.repo)} #${Number(x.number)}</dd><dt>By</dt><dd>${esc(x.author)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      <div class="actions"><a class="btn" href="${safeHref(x.url)}" target="_blank" rel="noopener">Read it on GitHub</a><button class="btn btn--primary" data-act="approve" type="button">Approve</button>
+      <button class="btn ${mergeArmed === x.id ? 'btn--danger' : ''}" data-act="merge" type="button">${mergeArmed === x.id ? 'Click again to squash and merge' : 'Merge'}</button><button class="btn" data-act="clear" type="button">Clear</button></div>`;
   } else if (t === 'awaiting') {
     html = kick('Waiting on them') + `<h2>${esc(x.subject)}</h2>
       <dl class="facts"><dt>To</dt><dd>${esc(x.who)}</dd><dt>Sent</dt><dd>${when(x.date)} · ${since(x.date)}</dd></dl>
       ${extra.key === x.key ? extra.html : ''}
       <div class="composer"><label for="r-from" class="sr">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>From ${esc(a.address)}</option>`).join('')}</select>
       <label for="r-text" class="sr">Follow up</label><textarea id="r-text" placeholder="Follow up…">${esc(draft[x.key] || '')}</textarea>
-      <div class="row"><button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn go" type="button" data-act="send">Send follow-up</button><span class="note-line">Goes in the same thread. Ctrl+Enter sends.</span></div></div>
-      <div class="actions"><button class="btn" data-act="stop-waiting" type="button">Stop waiting</button>${x.link ? `<a class="btn" href="${esc(x.link)}" target="_blank" rel="noopener">Open in Gmail</a>` : ''}</div>`;
+      <div class="row"><button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn btn--primary" type="button" data-act="send">Send follow-up</button><span class="note-line">Goes in the same thread. Ctrl+Enter sends.</span></div></div>
+      <div class="actions"><button class="btn" data-act="stop-waiting" type="button">Stop waiting</button>${x.link ? `<a class="btn" href="${safeHref(x.link)}" target="_blank" rel="noopener">Open in Gmail</a>` : ''}</div>`;
     loadExtra(x.key, `/api/thread?key=${encodeURIComponent(x.key)}`, msgsHtml);
   } else if (t === 'invoice') {
     html = kick('Invoice out') + `<h2>${esc(x.text)}</h2>
       <dl class="facts"><dt>Amount</dt><dd>${$$(x.amount)}</dd><dt>Sent</dt><dd>${when(x.created_at)}</dd>${x.due_at ? `<dt>Due</dt><dd>${dayOnly(x.due_at)}</dd>` : ''}</dl>
-      <div class="actions"><button class="btn go" data-act="paid" type="button">Mark paid</button><button class="btn" data-act="delete" type="button">Delete</button></div>`;
+      <div class="actions"><button class="btn btn--primary" data-act="paid" type="button">Mark paid</button><button class="btn" data-act="delete" type="button">Delete</button></div>`;
   } else if (t === 'item' || t === 'done') {
     const label = { note: 'Note', todo: 'To-do', reminder: 'Reminder', paid: 'Payment', bill: 'Bill' }[x.kind] || 'Item';
     html = kick(label) + `<h2>${esc(x.text)}</h2>
       <dl class="facts">${x.due_at && x.kind !== 'bill' ? `<dt>Due</dt><dd>${when(x.due_at)}</dd>` : ''}${x.kind === 'bill' ? `<dt>Next</dt><dd>${x.next ? dayOnly(x.next) : 'no date'} · ${esc(x.cadence)}</dd>` : ''}${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Added</dt><dd>${when(x.created_at)}</dd></dl>
-      <div class="actions">${t === 'done' ? `<button class="btn" data-act="undo" type="button">Not done</button>` : (x.kind === 'reminder' || x.kind === 'todo') ? `<button class="btn go" data-act="done" type="button">Done</button><button class="btn" data-act="snooze" data-hours="1" type="button">1 hour</button><button class="btn" data-act="snooze" data-hours="tomorrow" type="button">Tomorrow 9am</button>` : ''}<button class="btn" data-act="delete" type="button">Delete</button></div>`;
+      <div class="actions">${t === 'done' ? `<button class="btn" data-act="undo" type="button">Not done</button>` : (x.kind === 'reminder' || x.kind === 'todo') ? `<button class="btn btn--primary" data-act="done" type="button">Done</button><button class="btn" data-act="snooze" data-hours="1" type="button">1 hour</button><button class="btn" data-act="snooze" data-hours="tomorrow" type="button">Tomorrow 9am</button>` : ''}<button class="btn" data-act="delete" type="button">Delete</button></div>`;
   } else if (t === 'routine') {
     html = routineDetail(x, kick);
   } else if (t === 'delivery') {
@@ -113,7 +113,7 @@ function renderDetail() {
   } else if (t === 'money') {
     html = kick(x.kind === 'charge' ? 'Card or bank alert' : 'Receipt') + `<h2>${esc(x.merchant || x.from_name)}</h2>
       <dl class="facts">${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Subject</dt><dd>${esc(x.subject)}</dd><dt>From</dt><dd>${esc(x.from_addr)}</dd><dt>Date</dt><dd>${when(x.date)}</dd></dl>
-      <div class="quote">${esc(x.snippet || '')}</div><div class="actions">${x.link ? `<a class="btn" href="${esc(x.link)}" target="_blank" rel="noopener">Open</a>` : ''}</div>`;
+      <div class="quote">${esc(x.snippet || '')}</div><div class="actions">${x.link ? `<a class="btn" href="${safeHref(x.link)}" target="_blank" rel="noopener">Open</a>` : ''}</div>`;
   }
   // Keep a half-written reply, and the cursor, when the board refreshes underneath.
   const focused = document.activeElement?.id === 'r-text';
@@ -133,7 +133,10 @@ function render() {
   syncConvo();
   $('term-host').hidden = page !== 'sessions' || !currentTerm;
   $('term-bar').hidden = page !== 'sessions' || !currentTerm;
-  $('term-compose').hidden = page !== 'sessions' || !currentTerm;
+  // One place to type: the message bar in a chat, the terminal itself on Terminal.
+  const soloTerm = page === 'sessions' && !!currentTerm && termOnly(currentTerm);
+  $('term-compose').hidden = page !== 'sessions' || !currentTerm || soloTerm;
+  document.body.classList.toggle('term-only', soloTerm);   // the terminal is the last box: pages/sessions.css gives it a bottom edge
   renderImages();
   renderAccountPrompts();
   if (page === 'sessions') { syncTerminal(); renderTermCompose(); } else closeTerminal();

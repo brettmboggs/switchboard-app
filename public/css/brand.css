@@ -1,0 +1,13 @@
+/* Brand: three streams converge on one jack and leave as one. The wordmark is
+   the mark (ring, lamp, three dots, inline SVG) and the word "switchboard" in
+   the body face, bold, lowercase, tight. The dots take --brand; the lamp is the
+   state light: --brand while the board loads, --accent when something needs
+   you, --ok when nothing does (core.js sets data-board on the page). The lamp
+   sits on the word's x-height midline. Geometry and the icons: docs/DESIGN.md. */
+.mark, .w-mark { white-space: nowrap; font-family: var(--font-body); font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+.mark-sym { display: inline-block; height: .96em; width: auto; vertical-align: -.22em; margin-right: .2em; overflow: visible; }
+.mk-dot { fill: var(--brand); }
+.mk-lamp { fill: var(--lamp, var(--brand)); transition: fill .3s; }
+:root[data-board="needs"] { --lamp: var(--accent); }
+:root[data-board="clear"] { --lamp: var(--ok); }
+@media (prefers-reduced-motion: reduce) { .mk-lamp { transition: none; } }

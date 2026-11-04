@@ -1,0 +1,81 @@
+/* Layout: the top bar, the frame (rail, main, panel), the page head, the detail
+   panel, the toast, and the breakpoints. Pages override the frame in pages/*.css. */
+/* top */
+.top { display: flex; align-items: center; gap: 10px; height: var(--top-h); padding: 0 20px; position: sticky; top: 0; z-index: var(--z-bar); background: var(--bg-canvas); }
+.top > * { flex: none; }
+.mark { font-size: var(--fs-2xl); line-height: 1; }
+.cmd { flex: 1 1 260px; min-width: 180px; max-width: 520px; margin-right: auto; white-space: nowrap; overflow: hidden; display: flex; align-items: center; gap: 10px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-pill); padding: 8px 14px; cursor: text; text-align: left; }
+.cmd kbd { font-family: var(--font-mono); font-size: var(--fs-xs); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 1px 6px; color: var(--fg-muted); }
+.cmd span { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; }
+.status { flex: 0 1 auto; background: none; border: 0; padding: 0; cursor: pointer; font: 600 var(--fs-base) var(--font-body); color: var(--bad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.status[hidden] { display: none; }
+
+.needs { display: flex; align-items: center; gap: 8px; background: var(--fg); color: var(--bg-surface); border-radius: var(--r-pill); padding: 6px 14px; font-weight: 600; border: 0; cursor: pointer; }
+.needs i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.needs.zero i { background: var(--ok); }
+
+/* frame */
+.frame { display: grid; grid-template-columns: 200px minmax(0, 1fr) 360px; gap: 16px; padding: 0 20px 24px; align-items: start; }
+.rail { display: flex; flex-direction: column; gap: 2px; position: sticky; top: var(--top-h); }
+.rail h3 { margin: 14px 10px 6px; }
+.space { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; border-radius: var(--r-md); padding: 8px 10px; text-align: left; cursor: pointer; }
+.space:hover { background: color-mix(in srgb, var(--bg-surface) 55%, transparent); }
+.space[aria-pressed="true"] { background: var(--bg-surface); font-weight: 600; box-shadow: 0 1px 0 var(--border); }
+.space .dot { width: 9px; height: 9px; border-radius: var(--r-xs); flex: none; }
+.space .n { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--accent-text); }
+
+.main { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+
+/* detail */
+.panel { position: sticky; top: var(--top-h); }
+.detail h2 { font-size: var(--fs-xl); margin-bottom: 4px; }
+.detail .kicker { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 12px 0; font-size: var(--fs-base); }
+.facts dt { padding-top: 3px; }
+.section-label { margin: 14px 0 6px; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.quote { background: var(--bg-hover); border-radius: var(--r-md); padding: 10px 12px; font-size: var(--fs-base); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 260px; overflow: auto; }
+.tl { list-style: none; margin: 12px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); display: grid; gap: 8px; max-height: 320px; overflow: auto; }
+.tl li { position: relative; font-size: var(--fs-base); overflow-wrap: anywhere; }
+.tl li::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--bg-surface); border: 2px solid var(--fg-muted); }
+.tl li.me::before { background: var(--fg); border-color: var(--fg); }
+.tl .when { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+
+
+@media (max-width: 1280px) {
+  .frame { grid-template-columns: 180px minmax(0, 1fr); }
+  .panel { grid-column: 2; position: static; }
+}
+@media (max-width: 860px) {
+  .top { flex-wrap: wrap; }
+  .cmd { order: 3; max-width: none; flex-basis: 100%; }
+  .frame { grid-template-columns: minmax(0, 1fr); padding: 0 16px 16px; }
+  .panel { grid-column: 1; }
+  .rail { flex-direction: row; overflow-x: auto; gap: 6px; position: static; }
+  .rail h3 { display: none; }
+  .space { white-space: nowrap; width: auto; background: color-mix(in srgb, var(--bg-surface) 55%, transparent); }
+  .row2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* the rail's page links */
+.pages { display: grid; gap: 2px; margin-bottom: 6px; }
+.page-link { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; border-radius: var(--r-md); padding: 9px 10px; text-align: left; cursor: pointer; font-weight: 600; font-size: var(--fs-md); text-decoration: none; color: var(--fg); }
+.page-link:hover { background: color-mix(in srgb, var(--bg-surface) 55%, transparent); }
+.page-link[aria-current="page"] { background: var(--fg); color: var(--bg-surface); }
+.page-link .n { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 400; color: var(--accent-text); }
+.page-link[aria-current="page"] .n { color: var(--accent-on-ink); }
+
+.page-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 2px 0 2px; }
+.page-head h1 { margin: 0; font-size: var(--fs-2xl); line-height: 1; }
+.page-head .grow { flex: 1; }
+
+.page { display: grid; gap: 16px; align-content: start; min-width: 0; }
+
+.panel, .detail { min-width: 0; overflow-wrap: anywhere; }
+
+
+:root[data-theme="dark"] .page-link[aria-current="page"] .n { color: var(--accent-text); }
+
+/* Text size (Settings, General): everything but the terminal, which has its own size. */
+.top, .rail, #page, .panel, .term-compose, .scrim > * { zoom: var(--zoom); }

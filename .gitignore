@@ -5,3 +5,11 @@ node_modules/
 
 # private working copies of helper agents (git worktrees)
 .claude/worktrees/
+
+# editors and operating systems
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+.claude/settings.local.json

@@ -96,7 +96,7 @@ function composerHtml(x) {
   const ph = cvChat(x.kind) ? `Message ${x.who}` : `Reply to ${x.who}`;
   return `${from}<div class="cv-box"><label for="r-text" class="sr">Reply</label><textarea id="r-text" rows="1" placeholder="${esc(ph)}">${esc(draft[x.key] || '')}</textarea>
     <button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button>
-    <button class="btn go" type="button" data-act="send">Send</button></div>
+    <button class="btn btn--primary" type="button" data-act="send">Send</button></div>
     <div class="cv-hint">${hint} <kbd>Ctrl</kbd> <kbd>Enter</kbd> sends. Nothing goes until you send it.</div>`;
 }
 
@@ -111,7 +111,7 @@ function mountConvo(x) {
     <div class="cv-body"><div class="cv-main">
       <div class="cv-scroll" id="cv-scroll"><div class="cv-earlier" id="cv-earlier" hidden><button class="btn" type="button" data-cv="earlier">Load earlier messages</button></div>
         <div class="cv-list" id="cv-list" role="log" aria-label="Messages"><p class="cv-note">Opening the conversation…</p></div></div>
-      <button class="cv-pill" id="cv-pill" type="button" data-cv="bottom" hidden></button>
+      <button class="btn cv-pill" id="cv-pill" type="button" data-cv="bottom" hidden></button>
     </div><aside class="cv-side" id="cv-side" ${store.get('cvSide', false) ? '' : 'hidden'}></aside></div>
     <div class="cv-compose">${composerHtml(x)}</div>`;
   host.hidden = false;
@@ -132,7 +132,7 @@ function unmountConvo() {
 function openIn(x) {
   if (!x.link) return '';
   const name = x.kind === 'teams' ? 'Teams' : x.kind === 'outlook' ? 'Outlook' : ((S.status.gmail.find((g) => g.email === x.account) || {}).name || 'Gmail');
-  return `<a class="btn" href="${esc(x.link)}" target="_blank" rel="noopener">Open in ${esc(name)}</a>`;
+  return `<a class="btn" href="${safeHref(x.link)}" target="_blank" rel="noopener">Open in ${esc(name)}</a>`;
 }
 
 function paintHead() {
@@ -142,7 +142,7 @@ function paintHead() {
   const html = `<button class="cv-back" type="button" data-cv="close" title="Back to the list (Esc)"><span aria-hidden="true">←</span><span class="sr">Back to the list</span></button>${avatar(x.who, 'big')}
     <div class="cv-title"><h2>${esc(x.who)}</h2><div class="cv-sub">${tag(x.space)}<span>${esc(spaceOf(x.space).name)}</span><span class="via">${esc(VIA[x.kind] || 'Email')}</span>${mailish && x.subject ? `<span class="cv-subject">${esc(x.subject)}</span>` : ''}</div></div>
     <div class="cv-acts"><button class="btn" data-act="archive" type="button">Done${x.kind === 'mail' ? ' (archive)' : ''}</button>${openIn(x)}
-      <button class="icon-btn" type="button" data-cv="side" aria-pressed="${side}">Details</button></div>`;
+      <button class="btn btn--quiet" type="button" data-cv="side" aria-pressed="${side}">Details</button></div>`;
   if (html !== CV.headHtml) { CV.headHtml = html; $('cv-head').innerHTML = html; }
 }
 
@@ -322,7 +322,7 @@ async function loadWholeEmail(btn) {
       if (m && f.text && f.text.length >= m.text.length) { m.text = f.text; CV.full.add(m.id); redraw(m); }
     }
     if (id && !CV.full.has(id)) { CV.full.add(id); const m = CV.byId.get(id); if (m) redraw(m); toast('Only the start of that email is kept here. Open it in your mail for the rest.'); }
-  } catch (e) { toast(e.message); if (btn.isConnected) { btn.disabled = false; btn.textContent = 'Show the whole email'; } }
+  } catch (e) { toast(e.message, { kind: 'error' }); if (btn.isConnected) { btn.disabled = false; btn.textContent = 'Show the whole email'; } }
 }
 
 // ---------- clicks and keys inside the conversation

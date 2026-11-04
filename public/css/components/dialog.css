@@ -1,0 +1,41 @@
+/* Dialogs. Every dialog is a .scrim (fixed, the whole window, shown with .open)
+   holding one box: .palette (Ctrl K), .sheet (a form), .drawer (from the right),
+   .prefs (Settings, pages/settings.css), .monitor (pages/system.css) or .welcome (pages/now.css). The boxes
+   share one surface: paper, radius --r-xl, --shadow-3. Opening, focus and
+   Escape are openDialog/closeDialog in core.js. The account prompts
+   (.prompt-card) sit over everything at --z-prompt. */
+.scrim { position: fixed; inset: 0; background: var(--scrim); display: none; align-items: flex-start; justify-content: center; padding: 10vh 16px 16px; z-index: var(--z-overlay); overflow: auto; }
+.scrim.open { display: flex; }
+.palette, .sheet, .drawer, .prefs, .welcome { background: var(--bg-surface); border-radius: var(--r-xl); box-shadow: var(--shadow-3); }
+.palette { width: min(640px, 100%); overflow: hidden; }
+.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 16px 18px; font-size: var(--fs-lg); background: var(--bg-surface); outline: none; }
+.palette .hint { margin: 0; padding: 8px 18px; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--accent-text); min-height: 1em; }
+.palette .examples { list-style: none; margin: 0; padding: 4px 10px 12px; display: grid; }
+.palette .examples li { padding: 6px 8px; display: flex; gap: 10px; align-items: baseline; color: var(--fg-muted); font-size: var(--fs-base); }
+.palette .examples .k { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--accent-text); min-width: 72px; }
+.sheet { width: min(760px, 100%); padding: 18px 22px 22px; display: grid; gap: 18px; margin-bottom: 40px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet h2, .drawer h2 { margin: 0; font-size: var(--fs-xl); }
+.drawer-scrim { justify-content: flex-end; align-items: stretch; padding: 0; }
+.drawer { width: min(460px, 100%); border-radius: 0; padding: 18px 20px; overflow: auto; display: grid; align-content: start; gap: 12px; }
+
+.acct-prompts { position: fixed; right: 20px; bottom: 20px; z-index: var(--z-prompt); display: grid; gap: 10px; }
+.prompt-card { padding: 18px 20px; width: min(380px, calc(100vw - 40px)); box-shadow: var(--shadow-3); display: grid; gap: 6px; }
+.prompt-card b { font-size: var(--fs-lg); }
+.prompt-card p { margin: 0; color: var(--fg-muted); font-size: var(--fs-base); }
+.prompt-card.wide { width: min(520px, calc(100vw - 40px)); gap: 10px; }
+.prompt-scrim { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: var(--z-prompt); }
+.recovery { font-family: var(--font-mono); font-size: var(--fs-xl); letter-spacing: .06em; background: var(--bg-hover); border-radius: var(--r-md); padding: 14px; text-align: center; user-select: all; overflow-wrap: anywhere; }
+
+/* Ctrl K results */
+.cmd-results { list-style: none; margin: 0; padding: 4px 8px 10px; display: grid; gap: 1px; max-height: 50vh; overflow: auto; }
+.cmd-hit { grid-template-columns: 10px 64px minmax(0, 1fr); gap: 10px; align-items: center; font-size: var(--fs-base); padding: 7px 10px; }
+.cmd-hit .tag { width: 8px; height: 8px; }
+.cmd-hit .k { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.cmd-hit .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-hit.sel { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* The toast: one line at the bottom; an error gets an orange-red edge and stays longer (actions.js). */
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--fg); color: var(--bg-surface); padding: 10px 16px; border-radius: var(--r-lg); font-size: var(--fs-base); max-width: min(560px, calc(100% - 32px)); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: var(--z-toast); }
+.toast.show { opacity: 1; }
+.toast.error { box-shadow: inset 4px 0 0 var(--bad); padding-left: 18px; }

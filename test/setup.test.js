@@ -23,7 +23,7 @@ test('every entry is complete', () => {
     assert.ok(e.uses === 'all' || (Array.isArray(e.uses) && e.uses.every((u) => uses.has(u))), `${e.id}: uses`);
     assert.match(e.added || '', /^\d{4}-\d{2}-\d{2}$/, `${e.id}: added`);
     if (e.kind === 'connect') assert.equal(typeof e.done, 'function', `${e.id}: done`);
-    assert.ok(e.open && (e.open.pane || e.open.go), `${e.id}: open`);
+    assert.ok(e.open && (e.open.pane || e.open.go || e.open.cmd), `${e.id}: open`);
   }
   assert.equal(new Set(ids).size, ids.length, 'ids are unique');
 });

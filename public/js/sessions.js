@@ -9,6 +9,9 @@ function allTerms() {
     ...(S.remoteTerms || []).map((t) => ({ ...t, key: `r:${t.device}:${t.id}` }))];
 }
 const termByKey = (k) => allTerms().find((t) => t.key === k);
+// A session goes by your name for it if you gave one, else by what it is
+// working on (Claude Code's title for it), else by its folder.
+const termLabel = (t) => (!t.named && t.title) || t.name;
 const termPath = (t, act) => t.remote ? `/api/remote/${t.device}/${encodeURIComponent(t.id)}/${act}` : `/api/terms/${encodeURIComponent(t.id)}/${act}`;
 
 function openTerm(id) {
@@ -16,39 +19,64 @@ function openTerm(id) {
   if (location.hash !== '#sessions') location.hash = '#sessions'; else render();
 }
 
+// Sessions follow the project picked on the rail; the one open stays listed.
+const visibleTerms = () => allTerms().filter((t) => inProject(t) || t.key === currentTerm);
+
 function renderSessions() {
   const terms = allTerms();
-  if (currentTerm && !terms.some((t) => t.key === currentTerm)) currentTerm = terms[0]?.key || null;
-  if (!currentTerm && terms[0]) currentTerm = terms[0].key;
-  const label = (st) => ({ running: 'Working', waiting: 'Needs you', finished: 'Your turn', idle: 'Ready', starting: 'Starting' }[st] || st);
-  const tab = (t) => {
-    const branch = t.ci?.branch && !['main', 'master'].includes(t.ci.branch) ? t.ci.branch : '';
-    return `<button class="term-tab" type="button" data-term="${esc(t.key)}" aria-pressed="${t.key === currentTerm}" title="${esc([t.name, TERM_STATE[t.state] || t.state, t.agentName, t.cwd].filter(Boolean).join(' · '))}${t.remote ? '' : ' · double-click to rename'}"><span class="st ${esc(t.state)}"></span>${esc(t.name)}<span class="meta">${[branch ? '⎇ ' + esc(branch) : '', t.agent !== 'claude' ? esc(t.agentName) : '', t.remote ? 'on ' + esc(t.deviceName) : '', label(t.state)].filter(Boolean).join(' · ')}</span>${t.queued.length ? `<span class="q">${t.queued.length} queued</span>` : ''}${sessionCiDot(t)}</button>`;
-  };
-  // Sessions grouped under the repo they work in (worktrees and clones of one
-  // repo together), like a project tree.
-  const groups = new Map();
-  for (const t of terms) {
-    const g = t.ci?.fullName?.split('/')[1] || (t.cwd || '').split(/[\\/]/).filter(Boolean).pop() || t.name;
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(t);
-  }
+  if (currentTerm && !terms.some((t) => t.key === currentTerm)) currentTerm = null;
+  if (currentTerm && project !== 'all' && !inProject(termByKey(currentTerm))) currentTerm = null;
+  if (!currentTerm) currentTerm = (terms.find(inProject) || terms[0])?.key || null;
   let html = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}</div>
-    <div class="sessions-head sessions-row"><div class="term-tabs">${[...groups].map(([g, list]) => `<div class="term-group" role="group" aria-label="${esc(g)}"><span class="g-name">${esc(g)}${list.length > 1 ? ` <span class="g-n">${list.length}</span>` : ''}</span><div class="g-tabs">${list.map(tab).join('')}</div></div>`).join('')}</div>
-    <button class="btn go" type="button" id="new-term">New session</button></div>`;
-  if (!terms.length) html += `<section class="card"><p class="empty">No sessions yet. Start one here; sessions on your other computers show up here too when they are on and signed in.</p></section>`;
+    <div class="lines-strip">${visibleTerms().map((t) => `<button type="button" class="strip-line ${esc(t.state)}" data-term="${esc(t.key)}" aria-pressed="${t.key === currentTerm}" title="${esc(t.name)}">${esc(termLabel(t))}<span>${esc(TERM_STATE[t.state] || t.state)}</span></button>`).join('')}<button class="btn" type="button" data-new-term>New</button></div>`;
+  if (!terms.length) html += `<section class="card"><p class="empty">No sessions yet. Start one here; sessions on your other computers show up here too when they are on and signed in.</p><div class="actions"><button class="btn btn--primary" type="button" data-new-term>New session</button></div></section>`;
   $('page').innerHTML = html;
+}
+
+// The lines: the panel's one job is picking a session. Each is one row in a
+// list grouped under its repo: the name (without the repo's name repeated),
+// then what it is doing, in a column of its own so the eye can run down it.
+// The order never shuffles, so a session stays where you last saw it. Orange
+// is kept for the one thing that asks for you, as on Now; a second line shows
+// only when there is something more to know (a queue, a build gone wrong).
+const shortAgo = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'now' : m < 60 ? m + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
+function lineGroup(t) { return t.ci?.fullName?.split('/')[1] || (t.cwd || '').split(/[\\/]/).filter(Boolean).pop() || t.name; }
+function sessionLines() {
+  const terms = visibleTerms();
+  const groups = new Map();
+  for (const t of terms) { const g = lineGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(t); }
+  const hidden = allTerms().length - terms.length;
+  const line = (t, g, list) => {
+    const p = g + '-';
+    let name = termLabel(t);
+    if (name === t.name) {
+      // A folder name: without the repo's name repeated, and two alike told apart by their id.
+      if (name.startsWith(p) && name.length > p.length) name = name.slice(p.length);
+      if (list.filter((o) => termLabel(o) === t.name).length > 1) name = t.id.replace(/^sb-/, '') || name;
+    }
+    const ask = t.state === 'waiting' || t.state === 'finished';
+    const more = [t.queued.length ? `${t.queued.length} queued` : '', sessionBuildWord(t), t.agent !== 'claude' ? esc(t.agentName) : '', t.remote ? 'on ' + esc(t.deviceName) : ''].filter(Boolean).join(' · ');
+    return `<button class="line ${esc(t.state)}" type="button" data-term="${esc(t.key)}" aria-pressed="${t.key === currentTerm}" title="${esc([t.name, t.ci?.branch, t.remote ? '' : 'double-click to rename'].filter(Boolean).join(' · '))}">
+      <span class="l-name">${esc(name)}</span><span class="l-state">${esc(TERM_STATE[t.state] || t.state)}${ask && t.updatedAt ? ` <span class="l-ago">${shortAgo(t.updatedAt)}</span>` : ''}</span>${more ? `<span class="l-more">${more}</span>` : ''}</button>`;
+  };
+  return `<nav class="lines" aria-label="Sessions">${[...groups].map(([g, list]) => `<div class="line-group" role="group" aria-label="${esc(g)}"><div class="lg-name">${esc(g)}</div>${list.map((t) => line(t, g, list)).join('')}</div>`).join('')}
+    <button class="line-new" type="button" data-new-term><span aria-hidden="true">+</span> New session</button>
+    ${hidden ? `<p class="lines-note">${hidden} more in other projects. <button class="btn btn--ghost" type="button" data-show-all>Show all</button></p>` : ''}</nav>`;
 }
 
 // The console's look: JetBrains Mono, and the sixteen terminal colours tuned to
 // the counter (ink background, signal-orange cursor), soft enough to read all day.
+// The background, foreground, cursor and selection come from the --con-* tokens
+// (public/css/tokens.css) so the terminal and the Chat view share one palette;
+// the literals are the fallback if a token is ever empty.
 const TERM_FONT = '"JetBrains Mono", "DejaVu Sans Mono", "Ubuntu Mono", ui-monospace, Menlo, Consolas, monospace';
+const cssVar = (name, fallback) => (getComputedStyle(document.documentElement).getPropertyValue(name) || '').trim() || fallback;
 const TERM_THEME = {
-  background: '#121418', foreground: '#E4E6E9', cursor: '#FF4F00', cursorAccent: '#121418',
-  selectionBackground: 'rgba(255, 79, 0, 0.30)', selectionInactiveBackground: 'rgba(255, 255, 255, 0.12)',
+  background: cssVar('--con-bg', '#121418'), foreground: cssVar('--con-fg', '#E4E6E9'), cursor: cssVar('--accent', '#FF4F00'), cursorAccent: cssVar('--con-bg', '#121418'),
+  selectionBackground: cssVar('--con-selection', 'rgba(255, 79, 0, 0.30)'), selectionInactiveBackground: cssVar('--con-thumb', 'rgba(255, 255, 255, 0.12)'),
   scrollbarSliderBackground: 'rgba(255, 255, 255, 0.10)', scrollbarSliderHoverBackground: 'rgba(255, 255, 255, 0.18)', scrollbarSliderActiveBackground: 'rgba(255, 79, 0, 0.45)',
-  black: '#1D2027', red: '#EF6F68', green: '#5FC98E', yellow: '#E6B657', blue: '#78A5DE', magenta: '#C395E6', cyan: '#57C3CD', white: '#C8CBD0',
-  brightBlack: '#626873', brightRed: '#FF8B82', brightGreen: '#80DEA9', brightYellow: '#FFD07A', brightBlue: '#9BC1F1', brightMagenta: '#DBB2F4', brightCyan: '#80D9E2', brightWhite: '#FCFCFA'
+  black: '#1D2027', red: cssVar('--con-bad', '#EF6F68'), green: cssVar('--con-ok', '#5FC98E'), yellow: cssVar('--con-warn', '#E6B657'), blue: cssVar('--con-info', '#78A5DE'), magenta: '#C395E6', cyan: '#57C3CD', white: cssVar('--con-fg-soft', '#C8CBD0'),
+  brightBlack: '#626873', brightRed: cssVar('--con-bad-2', '#FF8B82'), brightGreen: cssVar('--con-ok-2', '#80DEA9'), brightYellow: '#FFD07A', brightBlue: cssVar('--con-info-2', '#9BC1F1'), brightMagenta: '#DBB2F4', brightCyan: '#80D9E2', brightWhite: '#FCFCFA'
 };
 const TERM_STATE = { running: 'Working', waiting: 'Needs you', finished: 'Your turn', idle: 'Ready', starting: 'Starting' };
 
@@ -59,22 +87,31 @@ function renderTermBar() {
   if (!t || !el) return;
   const branch = t.ci?.branch || '';
   const size = Number(S?.prefs?.termSize) || 13.5;
-  const html = `<div class="tb-id"><span class="tb-dot ${esc(t.state)}"></span><b class="tb-name">${esc(t.name)}</b>
+  const meta = [
+    t.agent !== 'claude' ? `<span>${esc(t.agentName)}</span>` : '',
+    liveReadout(t),
+    branch ? `<span class="mono" title="Branch">⎇ ${esc(branch)}</span>` : '',
+    devChips(t),
+    t.queued.length ? `<span class="hot">${t.queued.length} queued</span>` : '',
+    t.remote ? `<span>on ${esc(t.deviceName)}</span>` : '',
+    termBuild(t),
+    ...(t.links || []).map((l) => `<span title="${l.auto ? 'New messages go in by themselves' : 'Linked; new messages wait for you'}">with ${esc(l.who || 'Teams chat')}${l.auto ? ' (auto)' : ''}</span>`),
+    t.mode === 'direct' ? `<span title="This session ends if Switchboard restarts or updates.${S.platform === 'darwin' ? ' Install tmux (brew install tmux) to keep it running.' : ''}">ends on restart</span>` : '',
+    `<span class="tb-path mono" title="${esc(t.cwd || '')}">${esc((t.cwd || '').replace(/^\/home\/[^/]+|^\/Users\/[^/]+|^[A-Za-z]:\\Users\\[^\\]+/, '~'))}</span>`].filter(Boolean).join('');
+  const html = `<div class="tb-id"><b class="tb-name" title="${esc(t.name)}">${esc(termLabel(t))}</b>
       <span class="tb-state ${esc(t.state)}">${esc(TERM_STATE[t.state] || t.state)}${t.updatedAt ? ` · <span data-tick="${t.updatedAt}">${dur(Date.now() - t.updatedAt)}</span>` : ''}</span></div>
-    <div class="tb-meta">
-      <span class="tb-chip">${esc(t.agentName)}</span>
-      ${devChips(t)}
-      ${branch ? `<span class="tb-chip mono" title="Branch">⎇ ${esc(branch)}</span>` : ''}
-      ${sessionCiDot(t) ? `<span class="tb-chip" title="Newest build on this branch">${sessionCiDot(t)} build</span>` : ''}
-      ${t.queued.length ? `<span class="tb-chip hot">${t.queued.length} queued</span>` : ''}
-      ${t.remote ? `<span class="tb-chip">on ${esc(t.deviceName)}</span>` : ''}
-      <span class="tb-path mono" title="${esc(t.cwd || '')}">${esc((t.cwd || '').replace(/^\/home\/[^/]+|^\/Users\/[^/]+|^[A-Za-z]:\\Users\\[^\\]+/, '~'))}</span></div>
+    <div class="tb-meta">${meta}</div>
     <div class="tb-actions">
       ${chatToggle(t)}
       <button class="tb-btn" type="button" data-tsize="-1" title="Smaller text" ${size <= 11 ? 'disabled' : ''}>A−</button>
       <button class="tb-btn" type="button" data-tsize="1" title="Bigger text" ${size >= 18 ? 'disabled' : ''}>A+</button>
       <button class="tb-btn" type="button" data-tcopy title="Copy what is selected">Copy</button>
-      <button class="tb-btn stop" type="button" data-qact="interrupt" title="Stop what the agent is doing (Esc)">Stop</button></div>`;
+      <button class="tb-btn stop" type="button" data-qact="interrupt" title="Stop what the agent is doing (Esc)">Stop</button>
+      <details class="tb-more"><summary class="tb-btn" title="More">More</summary><div class="tb-menu">
+        ${t.remote ? '' : `<button type="button" data-rename="${esc(t.key)}">Rename</button>`}
+        ${t.mode === 'tmux' && !t.remote ? `<button type="button" data-tcopy-attach="${esc(t.id)}">Copy tmux attach</button>` : ''}
+        ${(t.links || []).map((l) => `<label class="tb-check"><input type="checkbox" data-auto="${esc(l.chat_key)}" ${l.auto ? 'checked' : ''}> Send ${esc(l.who || 'chat')}'s new messages in</label><button type="button" data-unlink="${esc(l.chat_key)}">Unlink ${esc(l.who || 'chat')}</button>`).join('')}
+        <button type="button" class="danger" data-end-session>End session…</button></div></details></div>`;
   if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
 }
 const TERM_SIZES = [11, 12, 13, 13.5, 14, 15, 16, 18];
@@ -154,7 +191,7 @@ function syncTerminal() {
     scaleToFit();
     if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'size', c: term.cols, r: term.rows }));
   };
-  // JetBrains Mono arrives from the font service a moment after the page: measure again once it has.
+  // JetBrains Mono (shipped in public/fonts) can arrive a moment after the page: measure again once it has.
   document.fonts?.load(`400 ${term.options.fontSize}px "JetBrains Mono"`).then(() => { if (tv.term === term) { term.options.fontFamily = TERM_FONT; claim(); } }).catch(() => {});
   term.parser.registerOscHandler(7747, (data) => {
     const [c, r] = data.split('x').map(Number);
@@ -202,16 +239,28 @@ function termGpu(term) {
 
 function termDetail() {
   const t = termByKey(currentTerm);
-  if (!t) return `<div class="kicker">Sessions</div><h2>Claude, inside Switchboard</h2><p class="muted">Start a session and it shows here: type in the terminal like always, or queue messages from this panel so they go in when Claude is free.</p>`;
-  const label = { running: 'Working', waiting: 'Needs you', finished: 'Your turn', idle: 'Ready', starting: 'Starting' }[t.state] || t.state;
-  return `<div class="kicker">${tag(t.space)}${esc(spaceOf(t.space).name)} · ${esc(t.agentName)} · ${esc(label)}</div>${renaming === t.key ? `<form class="rename-form" id="rename-form"><label for="rename-input" class="sr">Session name</label><input id="rename-input" type="text" maxlength="60" value="${esc(renameVal ?? t.name)}" autocomplete="off"><button class="btn go" type="submit">Save</button><button class="btn" type="button" data-rename-cancel>Cancel</button></form>` : `<h2 class="term-title">${esc(t.name)}${t.remote ? '' : ` <button class="icon-btn" type="button" data-rename="${esc(t.key)}">Rename</button>`}</h2>`}
-    <p class="note-line mono">${t.remote ? `On ${esc(t.deviceName)} · ` : ''}${esc(t.cwd)}${t.mode === 'tmux' && !t.remote ? ` · tmux attach -t ${esc(t.id)}` : ''}</p>
-    ${t.mode === 'direct' ? `<p class="note-line">This session ends if Switchboard restarts or updates.${S.platform === 'darwin' ? ' Install tmux (brew install tmux) to keep sessions running through restarts.' : ''}</p>` : ''}
-    ${(t.links || []).length ? `<div class="section-label">Linked chats</div>${t.links.map((l) => `<div class="queue-item"><span>${esc(l.who || 'Teams chat')}</span><label class="check small"><input type="checkbox" data-auto="${esc(l.chat_key)}" ${l.auto ? 'checked' : ''}> Send new messages automatically</label><div class="row"><button class="btn" type="button" data-unlink="${esc(l.chat_key)}">Unlink</button></div></div>`).join('')}` : ''}
-    ${sessionCi(t)}
-    ${bringList(t)}
-    <div class="actions"><button class="btn" type="button" data-qact="interrupt">Stop (Esc)</button><button class="btn danger" type="button" data-qact="close">End session</button></div>`;
+  if (!t) return `${allTerms().length ? sessionLines() : ''}<div class="lines-empty"><h2>Claude, inside Switchboard</h2><p class="muted">Start a session and it shows here: type in the terminal like always, or queue messages so they go in when Claude is free.</p></div>`;
+  const rename = renaming === t.key ? `<form class="rename-form" id="rename-form"><label for="rename-input" class="sr">Session name</label><input id="rename-input" type="text" maxlength="60" value="${esc(renameVal ?? (t.named ? t.name : ''))}" placeholder="${esc(termLabel(t))}" autocomplete="off"><button class="btn btn--primary" type="submit">Save</button><button class="btn" type="button" data-rename-cancel>Cancel</button></form>` : '';
+  return rename + sessionLines();
 }
+
+// End session: from the bar's More menu, with one plain question first.
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-end-session]')) {
+    const t = termByKey(currentTerm); if (!t) return;
+    e.target.closest('details')?.removeAttribute('open');
+    if (confirmEnd === t.key) { confirmEnd = null; queueAct('close', null); return; }
+    confirmEnd = t.key; toast(`Click End session again to end ${termLabel(t)}.`);
+    setTimeout(() => { if (confirmEnd === t.key) confirmEnd = null; }, 4000);
+    return;
+  }
+  if (e.target.closest('[data-show-all]')) { project = 'all'; store.set('space', project); render(); return; }
+  const at = e.target.closest('[data-tcopy-attach]');
+  if (at) { e.target.closest('details')?.removeAttribute('open'); navigator.clipboard.writeText(`tmux attach -t ${at.dataset.tcopyAttach}`).then(() => toast('Copied.'), () => toast('Could not copy.')); return; }
+  // A click anywhere else closes the More menu.
+  for (const d of document.querySelectorAll('.tb-more[open]')) if (!d.contains(e.target)) d.removeAttribute('open');
+});
+let confirmEnd = null;
 
 // The docked message bar under the terminal. The textarea stays put across
 // refreshes (so typing and dictation are never interrupted); its draft follows
@@ -221,14 +270,18 @@ function renderTermCompose() {
   const t = termByKey(currentTerm);
   if (!t) return;
   renderTermBar();
+  renderBringPop();
   const ta = $('q-text');
   if (composeFor !== t.key) {
     if (composeFor) draft['term:' + composeFor] = ta.value;
     ta.value = draft['term:' + t.key] || '';
     composeFor = t.key;
     growText(ta);
+    slashUpdate();   // the "/" menu follows the draft shown
   }
-  const free = t.state === 'finished' || t.state === 'idle';
+  // Claude asking a question in the Chat view counts as free: a message then answers No and goes straight in.
+  const asking = chatOn(t.key) && !!cv?.menu && menuNoIndex() >= 0;
+  const free = t.state === 'finished' || t.state === 'idle' || asking;
   // One button: an arrow when the agent is free (it types in now); "Queue" while it works.
   const qs = $('q-send');
   qs.classList.toggle('queue', !free);
@@ -236,8 +289,8 @@ function renderTermCompose() {
   qs.querySelector('.sr').textContent = free ? 'Send' : 'Queue';
   if (!free && !qs.querySelector('.ql')) qs.insertAdjacentHTML('afterbegin', '<span class="ql">Queue</span>');
   if (free) qs.querySelector('.ql')?.remove();
-  $('q-hint').textContent = free ? 'Enter to send · Shift+Enter for a new line' : `${t.agentName} is working · Enter queues it`;
-  $('term-queue').innerHTML = t.queued.map((q) => `<span class="qchip ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="src">${esc(q.source)}${q.held ? ' · held' : ''}</span><span class="txt">${esc(q.text)}</span>${q.held ? `<button type="button" class="go" data-q="${q.id}" data-qa="release">Send when free</button>` : ''}<button type="button" data-q="${q.id}" data-qa="drop" aria-label="Remove">✕</button></span>`).join('');
+  $('q-hint').textContent = asking ? 'Enter sends this instead (answers No)' : free ? 'Enter to send · Shift+Enter for a new line' : `${t.agentName} is working · Enter queues it`;
+  $('term-queue').innerHTML = t.queued.map((q, i) => `<div class="qline ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="qn">${q.held ? 'Held' : 'Next' + (i ? ' +' + i : '')}</span><span class="txt">${esc(q.text)}</span><span class="src">${esc(q.source)}</span>${q.held ? `<button type="button" class="go" data-q="${q.id}" data-qa="release">Send when free</button>` : ''}<button type="button" data-q="${q.id}" data-qa="drop" title="Remove from the queue">Remove</button></div>`).join('');
 }
 function growText(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 180) + 'px'; }
 document.addEventListener('input', (e) => { if (e.target.id === 'q-text') growText(e.target); });
@@ -258,7 +311,7 @@ async function addImage(file) {
     const { path } = await api('/api/paste', { type: file.type, data });
     (images['term:' + t.key] ||= []).push({ path, url: URL.createObjectURL(file) });
     renderImages(); $('q-text').focus();
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, { kind: 'error' }); }
 }
 // The paperclip: pick images from the computer.
 document.addEventListener('click', (e) => { if (e.target.closest('#q-attach')) $('q-file').click(); });
@@ -294,34 +347,191 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
   if (rec && rec.target === e.target) { e.preventDefault(); stopDictation(); return; }
-  if (e.target.id === 'q-text') { e.preventDefault(); queueAct('queue', null); }
+  if (e.target.id === 'q-text') {
+    e.preventDefault();
+    // The "/" menu open: Enter picks the command; the next Enter sends it.
+    if (slash.open && slashPick() !== 'same') return;
+    queueAct('queue', null);
+  }
 }, true);
 
+// ---------- the session's readout: model, effort, context used and cost, as
+// Claude Code reports them live (its status line and hooks, lib/claude.js);
+// before it has, what the session was started with.
+const modelWord = (id) => { const m = String(id || '').match(/^(sonnet|opus|haiku|fable)(\[1m\])?$/i); return m ? m[1][0].toUpperCase() + m[1].slice(1) + (m[2] ? ' 1M' : '') : String(id || ''); };
+function liveReadout(t) {
+  const l = t.live || {};
+  const parts = [l.model || modelWord(t.model), l.effort || t.effort, l.context != null ? `${l.context}%` : '', l.cost != null ? `$${Number(l.cost).toFixed(2)}` : ''].filter(Boolean);
+  if (!parts.length) return '';
+  const title = t.live ? 'Model · effort · context used · cost this session, from Claude Code' : 'Model and effort asked for at start';
+  return `<span class="mono tb-live" title="${title}">${esc(parts.join(' · '))}</span>`;
+}
+
+// ---------- the "/" menu in the message bar. A message that starts with "/"
+// is a command to Claude Code; typing one lists what it can be: Claude's own
+// commands, and the folder's skills (GET /api/terms/<id>/slash), filtered by
+// what is typed. Arrows move, Enter or Tab picks (the box then holds the
+// command, and Enter sends it like any message), Esc closes. The menu never
+// changes what Enter does when the text does not start with "/".
+const SLASH_BUILTIN = [
+  ['model', 'Pick the model (Claude\'s picker, shown as buttons in Chat)'],
+  ['effort', 'How hard it thinks: /effort low, medium, high, xhigh or max (the slider opens in the terminal)'],
+  ['clear', 'Start the conversation over, same folder'],
+  ['compact', 'Fold the conversation down to a summary to free context'],
+  ['context', 'What is taking up the context window'],
+  ['cost', 'What this session has cost so far'],
+  ['rename', 'Name this conversation (the session\'s name here follows its title)'],
+  ['plan', 'Plan first: it works out an approach before changing anything'],
+  ['resume', 'Pick an earlier conversation to continue'],
+  ['help', 'Claude Code\'s own help'],
+  ['status', 'Version, model, account and what is connected'],
+  ['diff', 'What has changed in the working tree'],
+  ['review', 'Review a pull request or the changes'],
+  ['security-review', 'Look over the changes for security problems']
+].map(([name, description]) => ({ name, description, where: '' }));
+const slashCache = {};   // term id -> { at, list, busy }
+let slash = { open: false, items: [], at: 0, picked: '', html: '' };
+
+function slashHost() {
+  let el = $('slash-pop');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'slash-pop'; el.className = 'slash-pop'; el.hidden = true;
+  el.setAttribute('role', 'listbox'); el.setAttribute('aria-label', 'Commands');
+  $('q-prompt').before(el);
+  return el;
+}
+// The folder's skills, fetched at most every 30 s per session (the server caches too).
+function slashFetch(t) {
+  const c = slashCache[t.id] || (slashCache[t.id] = { at: 0, list: [], busy: false });
+  if (c.busy || Date.now() - c.at < 30e3) return;
+  c.busy = true;
+  api(`/api/terms/${encodeURIComponent(t.id)}/slash`).then((list) => { c.list = Array.isArray(list) ? list : []; c.at = Date.now(); slashUpdate(); })
+    .catch(() => { c.at = Date.now(); }).finally(() => { c.busy = false; });
+}
+function slashClose(picked) {
+  const ta = $('q-text'), el = $('slash-pop');
+  slash = { ...slash, open: false, items: [], at: 0, picked: picked ?? '', html: '' };
+  if (el) { el.hidden = true; el.innerHTML = ''; }
+  if (ta) { ta.removeAttribute('aria-activedescendant'); ta.removeAttribute('aria-controls'); ta.removeAttribute('aria-expanded'); }
+}
+function slashUpdate() {
+  const ta = $('q-text'), t = termByKey(currentTerm);
+  const v = ta?.value || '';
+  if (!t || t.agent !== 'claude' || !v.startsWith('/') || v.includes('\n') || v === slash.picked) { if (slash.open) slashClose(slash.picked); return; }
+  if (!t.remote) slashFetch(t);
+  const q = v.slice(1).toLowerCase();
+  const all = [...SLASH_BUILTIN, ...(t.remote ? [] : (slashCache[t.id]?.list || []))];
+  const items = [...all.filter((c) => c.name.toLowerCase().startsWith(q)), ...all.filter((c) => !c.name.toLowerCase().startsWith(q) && c.name.toLowerCase().includes(q))].slice(0, 60);
+  const same = slash.open && items.length === slash.items.length && items.every((c, i) => c === slash.items[i]);
+  slash.items = items;
+  if (!same) slash.at = 0;
+  slash.open = true;
+  slashRender();
+}
+function slashRender() {
+  const el = slashHost(), ta = $('q-text');
+  const html = slash.items.length
+    ? slash.items.map((c, i) => `<button type="button" role="option" id="slash-opt-${i}" class="slash-opt" aria-selected="${i === slash.at}" data-slash="${i}"><span class="sl-name">/${esc(c.name)}</span><span class="sl-desc">${esc(c.description || '')}</span><span class="sl-where">${esc(c.where || '')}</span></button>`).join('')
+    : `<p class="slash-none">No command starts like that. Enter sends it as written.</p>`;
+  if (slash.html !== html) { el.innerHTML = html; slash.html = html; }
+  el.hidden = false;
+  ta.setAttribute('aria-controls', 'slash-pop'); ta.setAttribute('aria-expanded', 'true');
+  if (slash.items.length) { ta.setAttribute('aria-activedescendant', `slash-opt-${slash.at}`); el.querySelector(`#slash-opt-${slash.at}`)?.scrollIntoView({ block: 'nearest' }); }
+  else ta.removeAttribute('aria-activedescendant');
+}
+// Put the command in the box. Returns 'same' when it was already there in full (so Enter sends).
+function slashPick(i = slash.at) {
+  const c = slash.items[i], ta = $('q-text');
+  if (!c || !ta) { slashClose(ta?.value); return 'none'; }
+  const cmd = '/' + c.name;
+  if (ta.value === cmd) { slashClose(cmd); return 'same'; }
+  ta.value = cmd;
+  slashClose(cmd);
+  draft['term:' + currentTerm] = cmd;
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+  ta.focus(); ta.setSelectionRange(cmd.length, cmd.length);
+  return 'picked';
+}
+document.addEventListener('input', (e) => { if (e.target.id === 'q-text') slashUpdate(); });
+document.addEventListener('keydown', (e) => {
+  if (!slash.open || e.target.id !== 'q-text' || e.isComposing) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!slash.items.length) return;
+    e.preventDefault();
+    slash.at = (slash.at + (e.key === 'ArrowDown' ? 1 : slash.items.length - 1)) % slash.items.length;
+    slashRender();
+  } else if (e.key === 'Tab') { e.preventDefault(); slashPick(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); slashClose(e.target.value); }
+}, true);
+// Clicks: the mouse picks without taking focus from the box; a click elsewhere closes it.
+document.addEventListener('mousedown', (e) => { if (e.target.closest('#slash-pop')) e.preventDefault(); });
+document.addEventListener('mouseover', (e) => { const o = e.target.closest('[data-slash]'); if (o && slash.open) { const i = Number(o.dataset.slash); if (i !== slash.at) { slash.at = i; slashRender(); } } });
+document.addEventListener('click', (e) => {
+  const o = e.target.closest('[data-slash]');
+  if (o) { slashPick(Number(o.dataset.slash)); return; }
+  if (slash.open && e.target.isConnected && !e.target.closest('#q-prompt')) slashClose($('q-text')?.value);
+});
+
+// New session. The agents come from the server with the choices each takes
+// (Claude: a model and an effort, and a 1M-context form of some models; Codex: any
+// model name); the last choice is remembered per folder and agent, in the browser.
+let ntAgents = [];
+const ntKey = () => $('nt-folder').value + '|' + $('nt-agent').value;
+const ntAgent = () => ntAgents.find((a) => a.id === $('nt-agent').value) || {};
 async function openNewTerm() {
   const [list, agents] = await Promise.all([api('/api/folders'), api('/api/agents')]);
+  ntAgents = agents;
   $('nt-folder').innerHTML = list.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join('');
   $('nt-agent').innerHTML = agents.map((a) => `<option value="${esc(a.id)}" ${a.installed ? '' : 'disabled'}>${esc(a.name)}${a.installed ? '' : ' (not installed)'}</option>`).join('');
   $('nt-agent').value = store.get('lastAgent', 'claude');
   if ($('nt-agent').selectedOptions[0]?.disabled) $('nt-agent').value = 'claude';
   syncAgentFields();
   $('nt-msg').textContent = '';
-  $('newterm-scrim').classList.add('open');
+  openDialog('newterm-scrim');
 }
 function syncAgentFields() {
-  const custom = $('nt-agent').value === 'custom';
+  const a = ntAgent(), custom = $('nt-agent').value === 'custom';
   document.querySelectorAll('.nt-custom').forEach((el) => { el.hidden = !custom; });
+  document.querySelectorAll('.nt-model').forEach((el) => { el.hidden = !a.models; });
+  document.querySelectorAll('.nt-effort').forEach((el) => { el.hidden = !a.efforts; });
+  document.querySelectorAll('.nt-free').forEach((el) => { el.hidden = !a.modelFree; });
+  const mem = store.get('ntChoices', {})[ntKey()] || {};
+  if (a.models) { $('nt-model').innerHTML = a.models.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join(''); $('nt-model').value = mem.model || ''; }
+  if (a.efforts) { $('nt-effort').innerHTML = a.efforts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join(''); $('nt-effort').value = mem.effort || ''; }
+  if (a.modelFree) $('nt-free').value = mem.model || '';
+  $('nt-1m').checked = !!mem.long;
+  syncLongBox();
   $('nt-note').textContent = $('nt-agent').value === 'claude'
-    ? 'Runs Claude Code in that folder, inside Switchboard. Switchboard knows exactly when it is busy or free.'
+    ? 'Runs Claude Code in that folder, inside Switchboard. Switchboard knows exactly when it is busy or free. Default keeps the model and effort you set in Claude Code itself.'
     : 'Runs it in that folder, signed in with your own account for it. Switchboard treats it as busy while it prints and free after a few quiet seconds.';
 }
+// The 1M box only for models that have a 1M form (Sonnet and Opus); Default keeps Claude's own choice.
+function syncLongBox() {
+  const a = ntAgent(), v = $('nt-model').value;
+  const ok = !!a.long && !!(a.models || []).find(([id, , long]) => id === v && long);
+  const box = $('nt-1m');
+  box.disabled = !ok;
+  if (!ok) box.checked = false;
+  box.parentElement.title = ok ? 'The 1M-token context window' : 'Pick Sonnet or Opus for the 1M-token context window';
+}
 $('nt-agent').addEventListener('change', syncAgentFields);
+$('nt-folder').addEventListener('change', syncAgentFields);
+$('nt-model').addEventListener('change', syncLongBox);
 $('newterm-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('nt-msg').textContent = 'Starting…';
   try {
-    store.set('lastAgent', $('nt-agent').value);
-    const r = await api('/api/terms', { cwd: $('nt-folder').value, agent: $('nt-agent').value, command: $('nt-command').value });
-    $('newterm-scrim').classList.remove('open'); openTerm(r.id); await load();
+    const a = ntAgent(), agent = $('nt-agent').value;
+    store.set('lastAgent', agent);
+    const picked = a.models ? $('nt-model').value : a.modelFree ? $('nt-free').value.trim() : '';
+    const long = !!(a.long && picked && !$('nt-1m').disabled && $('nt-1m').checked);
+    const effort = a.efforts ? $('nt-effort').value : '';
+    const mem = store.get('ntChoices', {});
+    mem[ntKey()] = { model: picked, long, effort };
+    store.set('ntChoices', mem);
+    const r = await api('/api/terms', { cwd: $('nt-folder').value, agent, command: $('nt-command').value, model: picked + (long ? a.long : ''), effort });
+    closeDialog('newterm-scrim'); openTerm(r.id); await load();
   } catch (err) { $('nt-msg').textContent = err.message; }
 });
 
@@ -346,5 +556,5 @@ document.addEventListener('submit', async (e) => {
   e.preventDefault();
   const t = termByKey(renaming); if (!t) return;
   try { await api(`/api/terms/${encodeURIComponent(t.id)}/rename`, { name: $('rename-input').value }); renaming = null; renameVal = null; await load(); toast('Renamed.'); }
-  catch (err) { toast(err.message); }
+  catch (err) { toast(err.message, { kind: 'error' }); }
 });

@@ -35,6 +35,13 @@ const cleanEmail = (e) => String(e || '').trim().toLowerCase();
 const validEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e.length < 200;
 const MAX_DOC = 900 * 1024;
 
+// Push to the phone. The text is fixed here on purpose: a computer only says what
+// kind of thing happened, never what it was.
+const PUSH_TEXT = { waiting: 'A session needs you.', builds: 'A build failed.' };
+const PUSH_GAP = 60e3;          // at most one push per kind per minute per account
+const PUSH_TOKEN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,80}\]$/;
+const MAX_PHONES = 10;
+
 async function issueToken(env, accountId, device) {
   const token = rand(32);
   await env.DB.prepare('INSERT INTO tokens (token_hash, account_id, device, created_at, last_used) VALUES (?, ?, ?, ?, ?)')
@@ -375,6 +382,46 @@ export default {
       const headers = new Headers(req.headers);
       headers.set('X-Token-Id', acct.tokenHash.slice(0, 16));
       return stub.fetch(new Request(req.url, { method: req.method, headers }));
+    }
+
+    // A phone gives its push token (or takes it back).
+    if (req.method === 'POST' && path === '/v1/push/register') {
+      const token = String(body.token || '');
+      if (!PUSH_TOKEN.test(token)) return bad('Bad push token.');
+      const others = await env.DB.prepare('SELECT COUNT(*) AS n FROM push_tokens WHERE account_id = ? AND token != ?').bind(acct.id, token).first();
+      if (others.n >= MAX_PHONES) return bad('Too many phones on this account.', 409);
+      await env.DB.prepare('INSERT INTO push_tokens (token, account_id, device, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET account_id = excluded.account_id, device = excluded.device')
+        .bind(token, acct.id, String(body.device || '').slice(0, 80), Date.now()).run();
+      return json({ ok: true });
+    }
+    if (req.method === 'POST' && path === '/v1/push/unregister') {
+      await env.DB.prepare('DELETE FROM push_tokens WHERE token = ? AND account_id = ?').bind(String(body.token || ''), acct.id).run();
+      return json({ ok: true });
+    }
+
+    // A computer says something needs the user; ping every phone on the account.
+    if (req.method === 'POST' && path === '/v1/push') {
+      const kind = String(body.kind || '');
+      if (!PUSH_TEXT[kind]) return bad('Unknown kind.');
+      const now = Date.now();
+      // Claim the slot first: only the first caller in each minute goes on to send.
+      const claim = await env.DB.prepare('INSERT INTO push_sent (account_id, kind, at) VALUES (?, ?, ?) ON CONFLICT(account_id, kind) DO UPDATE SET at = excluded.at WHERE push_sent.at <= ?')
+        .bind(acct.id, kind, now, now - PUSH_GAP).run();
+      if (!claim.meta.changes) return json({ sent: 0, throttled: true });
+      const { results } = await env.DB.prepare('SELECT token FROM push_tokens WHERE account_id = ?').bind(acct.id).all();
+      if (!results.length) return json({ sent: 0 });
+      let tickets = [];
+      try {
+        const res = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(results.map((r) => ({ to: r.token, title: 'Switchboard', body: PUSH_TEXT[kind], sound: 'default', data: { kind } })))
+        });
+        tickets = ((await res.json().catch(() => ({}))).data) || [];
+      } catch { return json({ sent: 0, error: 'Could not reach the push service.' }); }
+      // A phone that uninstalled the app or turned notifications off: stop pinging it.
+      const dead = results.filter((r, i) => tickets[i]?.details?.error === 'DeviceNotRegistered');
+      for (const r of dead) await env.DB.prepare('DELETE FROM push_tokens WHERE token = ?').bind(r.token).run();
+      return json({ sent: results.length - dead.length });
     }
 
     if (req.method === 'POST' && path === '/v1/logout') {

@@ -2,7 +2,8 @@
   "name": "switchboard",
   "version": "0.1.0",
   "private": true,
-  "description": "One screen for everything Brett runs: Claude sessions, GitHub, Gmail, Google Voice, money, reminders and windows.",
+  "license": "FSL-1.1-MIT",
+  "description": "One screen for everything you run: AI coding sessions, builds, email, chats, calendar, reminders and money, on your own computer.",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -12,7 +13,10 @@
     "open": "node bin/open.mjs",
     "setup": "node scripts/setup.mjs install",
     "uninstall": "node scripts/setup.mjs remove",
-    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "publish": "node scripts/publish.mjs",
+    "lint": "node scripts/page-globals.mjs && eslint .",
+    "notices": "node scripts/notices.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "0.11.0",
@@ -23,5 +27,8 @@
     "node-pty": "1.1.0",
     "nodemailer": "10.3.1",
     "ws": "8.22.1"
+  },
+  "devDependencies": {
+    "eslint": "10.14.0"
   }
 }

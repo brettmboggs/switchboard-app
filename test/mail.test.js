@@ -44,3 +44,15 @@ test('forwarding services and Proton', () => {
   assert.equal(byMx(['mail.protonmail.ch']), 'proton');
   assert.equal(byDomain('proton.me'), 'proton');
 });
+
+// A stranger's email must never stall the server: the snippet cleaner once
+// backtracked for hours on a body made of "{" and "a:" repeated.
+test('snippet cleaning stays quick on hostile bodies', async () => {
+  const { snippetOf } = await import('../lib/gmail.js');
+  for (const body of ['{' + 'a:'.repeat(20000), 'x{'.repeat(20000), 'a{b:c;'.repeat(8000), '{'.repeat(40000) + ':']) {
+    const t = Date.now();
+    snippetOf({ text: body });
+    assert.ok(Date.now() - t < 200, 'took ' + (Date.now() - t) + ' ms');
+  }
+  assert.equal(snippetOf({ text: 'Hi,\n.foo { color: red; margin: 0 } Your order shipped.\nbody{font:12px} {name} ok' }), 'Hi, Your order shipped. {name} ok');
+});

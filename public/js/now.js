@@ -51,20 +51,33 @@ function checkWelcome() {
 }
 function openWelcome(step = 0) {
   wStep = step; wUses = wUses || [...(welcomeState()?.uses || [])];
-  $('welcome').classList.add('open');
+  openDialog('welcome');   // renderWelcome draws only into an open scrim
   renderWelcome();
+  focusInto($('welcome'));
 }
 function closeWelcome(finished) {
-  $('welcome').classList.remove('open');
+  closeDialog('welcome');
   const w = welcomeState() || {};
   if (finished || !w.done) saveWelcome({ ...w, done: true, uses: wUses || w.uses || [], seen: [...new Set([...(w.seen || []), ...SETUP.map((e) => e.id)])] });
   render();
 }
+// "Show me" / "Set up" on a registry entry. A page destination that is already
+// open fired no hashchange before, so the click did nothing; now the page is
+// redrawn either way, the named element is flashed, and a `hint` says where
+// to look when there is nothing to point at yet.
+const flash = (el) => { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); };
 function openSetup(e) {
-  if (e.open?.go) { location.hash = e.open.go; return; }
-  openSettings(e.open?.pane || 'accounts').then(() => {
-    const el = e.open?.focus && $(e.open.focus);
-    if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
+  const o = e.open || {};
+  if (o.cmd) { openCmd(); return; }
+  if (o.go) {
+    const point = () => { const el = o.focus && $(o.focus); if (el) flash(el); else if (o.hint) toast(o.hint); };
+    if (location.hash === o.go) { route(); point(); }
+    else { location.hash = o.go; setTimeout(point, 80); }   // the hashchange draws the page first
+    return;
+  }
+  openSettings(o.pane || 'accounts').then(() => {
+    const el = o.focus && $(o.focus);
+    if (el) flash(el); else if (o.hint) toast(o.hint);
   });
 }
 
@@ -76,38 +89,38 @@ function renderWelcome() {
   // Already signed in: nothing to do on that step.
   if (steps[wStep] === 'account' && a.signedIn && !a.locked) wStep++;
   const step = steps[wStep];
-  const dots = `<div class="w-dots">${steps.map((_, i) => `<span class="${i === wStep ? 'on' : i < wStep ? 'past' : ''}"></span>`).join('')}</div>`;
+  const dots = `<div class="w-dots" aria-hidden="true">${steps.map((_, i) => `<span class="${i === wStep ? 'on' : i < wStep ? 'past' : ''}"></span>`).join('')}</div>`;
   let body = '';
   if (step === 'hello') {
-    body = `<h1 class="w-mark">Switchboard<b>.</b></h1>
+    body = `<h1 class="w-mark">${MARK_SVG}switchboard</h1>
       <p class="w-lead">Everything that needs you, on one screen: messages, work, money, reminders, and anything else you keep track of.</p>
-      <div class="w-actions"><button class="btn go big" type="button" data-w="next">Get started</button><button class="linkish" type="button" data-w="skip">Skip for now</button></div>`;
+      <div class="w-actions"><button class="btn btn--primary btn--lg" type="button" data-w="next">Get started</button><button class="btn btn--ghost" type="button" data-w="skip">Skip for now</button></div>`;
   } else if (step === 'account') {
     loadProviders();
     body = `<h2>Your account</h2>
       <p class="w-lead">Sign in on each computer you use and your setup follows you. It is encrypted on your computer: nobody else can read it, Switchboard included.</p>
-      ${a.locked ? `<p>You are signed in. This computer still needs your key.</p><div class="w-actions"><button class="btn go big" type="button" data-w-open="accounts">Finish signing in</button></div>`
-        : `<div class="w-signin">${providerButtons(false)}<button class="btn wide" type="button" data-w-open="accounts">Use email and password</button></div>`}
-      <div class="w-actions"><button class="linkish" type="button" data-w="next">Use without an account (everything stays on this computer)</button></div>`;
+      ${a.locked ? `<p>You are signed in. This computer still needs your key.</p><div class="w-actions"><button class="btn btn--primary btn--lg" type="button" data-w-open="accounts">Finish signing in</button></div>`
+        : `<div class="w-signin">${providerButtons(false)}<button class="btn btn--wide" type="button" data-w-open="accounts">Use email and password</button></div>`}
+      <div class="w-actions"><button class="btn btn--ghost" type="button" data-w="next">Use without an account (everything stays on this computer)</button></div>`;
   } else if (step === 'uses') {
     body = `<h2>What will you use it for?</h2><p class="w-lead">Pick any that fit. This picks what to suggest next and sets up projects to start from.</p>
       <div class="w-uses">${USES.map((u) => `<button type="button" class="w-use" data-w-use="${u.id}" aria-pressed="${wUses.includes(u.id)}"><b>${esc(u.name)}</b><span>${esc(u.blurb)}</span></button>`).join('')}</div>
-      <div class="w-actions"><button class="btn go big" type="button" data-w="uses">Next</button></div>`;
+      <div class="w-actions"><button class="btn btn--primary btn--lg" type="button" data-w="uses">Next</button></div>`;
   } else if (step === 'connect') {
     const list = SETUP.filter((e) => e.kind === 'connect' && e.id !== 'account');
     const mine = list.filter((e) => forUse(e, wUses)), rest = list.filter((e) => !forUse(e, wUses));
     const item = (e) => { const done = e.done(S); return `<div class="w-conn ${done ? 'done' : ''}"><div><b>${esc(e.title)}</b><span>${esc(e.why)}</span></div>${done ? `<span class="w-ok">${e.id === 'projects' ? 'Done' : 'Connected'}</span>` : `<button class="btn" type="button" data-w-setup="${e.id}">Connect</button>`}</div>`; };
     body = `<h2>Connect what you use</h2><p class="w-lead">Each one takes a minute. You can do the rest any time from Settings.</p>
       <div class="w-conns">${mine.map(item).join('')}</div>
-      ${rest.length ? (wMore ? `<div class="w-conns">${rest.map(item).join('')}</div>` : `<button class="linkish" type="button" data-w="more">Show ${rest.length} more</button>`) : ''}
-      <div class="w-actions"><button class="btn go big" type="button" data-w="next">Next</button></div>`;
+      ${rest.length ? (wMore ? `<div class="w-conns">${rest.map(item).join('')}</div>` : `<button class="btn btn--ghost" type="button" data-w="more">Show ${rest.length} more</button>`) : ''}
+      <div class="w-actions"><button class="btn btn--primary btn--lg" type="button" data-w="next">Next</button></div>`;
   } else {
     const tips = SETUP.filter((e) => e.kind === 'feature' && forUse(e, wUses));
     body = `<h2>You are set</h2><p class="w-lead">A few things worth knowing:</p>
       <div class="w-tips">${tips.map((e) => `<div><b>${esc(e.title)}</b><span>${esc(e.why)}</span></div>`).join('')}</div>
-      <div class="w-actions"><button class="btn go big" type="button" data-w="finish">Go to Switchboard</button><span class="hint">This guide is in Settings, General, any time.</span></div>`;
+      <div class="w-actions"><button class="btn btn--primary btn--lg" type="button" data-w="finish">Go to Switchboard</button><span class="hint">This guide is in Settings, General, any time.</span></div>`;
   }
-  host.innerHTML = `<div class="welcome ${step === 'hello' ? 'hello' : ''}">${step !== 'hello' ? `<div class="w-top">${dots}<button class="linkish" type="button" data-w="skip">Close</button></div>` : ''}${body}${step !== 'hello' && wStep > 1 ? '<button class="linkish w-back" type="button" data-w="back">Back</button>' : ''}</div>`;
+  host.innerHTML = `<div class="welcome ${step === 'hello' ? 'hello' : ''}">${step !== 'hello' ? `<div class="w-top">${dots}<button class="btn btn--ghost" type="button" data-w="skip">Close</button></div>` : ''}${body}${step !== 'hello' && wStep > 1 ? '<button class="btn btn--ghost w-back" type="button" data-w="back">Back</button>' : ''}</div>`;
 }
 
 // Projects from the picked uses, only on a fresh install (just the default project).
@@ -139,7 +152,13 @@ document.addEventListener('click', (e) => {
   const o = e.target.closest('[data-w-open]');
   if (o) { openSettings(o.dataset.wOpen); return; }
   const st = e.target.closest('[data-w-setup], [data-new-setup], [data-left-setup], [data-setup-link]');
-  if (st) { openSetup(SETUP.find((x) => x.id === (st.dataset.wSetup || st.dataset.newSetup || st.dataset.leftSetup || st.dataset.setupLink))); return; }
+  if (st) {
+    const id = st.dataset.wSetup || st.dataset.newSetup || st.dataset.leftSetup || st.dataset.setupLink;
+    openSetup(SETUP.find((x) => x.id === id));
+    // "Show me" on a new feature counts as seen: the card should not wait for a second click.
+    if (st.dataset.newSetup) { const ws = welcomeState() || {}; saveWelcome({ ...ws, seen: [...new Set([...(ws.seen || []), id])] }); }
+    return;
+  }
   const seen = e.target.closest('[data-new-seen]');
   if (seen) { const ws = welcomeState() || {}; saveWelcome({ ...ws, seen: [...new Set([...(ws.seen || []), ...seen.dataset.newSeen.split(',')])] }).then(render); return; }
   if (e.target.closest('[data-left-open]')) { openWelcome(3); return; }
@@ -157,11 +176,11 @@ function setupCards() {
   if (fresh.length && !show.length) saveWelcome({ ...w, seen: [...new Set([...(w.seen || []), ...fresh.map((e) => e.id)])] });
   if (show.length) {
     html += `<section class="card new-card" data-new><div class="group-head"><h2>New in Switchboard</h2></div>
-      <div class="w-conns">${show.map((e) => `<div class="w-conn"><div><b>${esc(e.title)}</b><span>${esc(e.why)}</span></div><div class="form-row">${e.kind === 'connect' ? `<button class="btn" type="button" data-new-setup="${e.id}">Set up</button>` : e.open?.pane || e.open?.go ? `<button class="btn" type="button" data-new-setup="${e.id}">Show me</button>` : ''}<button class="icon-btn" type="button" data-new-seen="${e.id}">Got it</button></div></div>`).join('')}</div></section>`;
+      <div class="w-conns">${show.map((e) => `<div class="w-conn"><div><b>${esc(e.title)}</b><span>${esc(e.why)}</span></div><div class="form-row">${e.kind === 'connect' ? `<button class="btn" type="button" data-new-setup="${e.id}">Set up</button>` : e.open?.pane || e.open?.go || e.open?.cmd ? `<button class="btn" type="button" data-new-setup="${e.id}">Show me</button>` : ''}<button class="btn btn--quiet" type="button" data-new-seen="${e.id}">Got it</button></div></div>`).join('')}</div></section>`;
   }
   if (!w.hideLeft && w.uses?.length) {
     const left = SETUP.filter((e) => e.kind === 'connect' && forUse(e, w.uses) && !e.done(S) && (w.seen || []).includes(e.id));
-    if (left.length) html += `<section class="card left-card" data-left><div class="left-row"><span><b>${left.length} left to connect</b> <span class="muted">${esc(left.map((e) => e.title).join(', '))}</span></span><span class="form-row"><button class="btn" type="button" data-left-open>Continue setup</button><button class="icon-btn" type="button" data-left-hide>Hide</button></span></div></section>`;
+    if (left.length) html += `<section class="card left-card" data-left><div class="left-row"><span><b>${left.length} left to connect</b> <span class="muted">${esc(left.map((e) => e.title).join(', '))}</span></span><span class="form-row"><button class="btn" type="button" data-left-open>Continue setup</button><button class="btn btn--quiet" type="button" data-left-hide>Hide</button></span></div></section>`;
   }
   return html;
 }
@@ -182,12 +201,12 @@ function todayCard() {
   const soon = next && next.start - now < 60 * 60e3 ? `in ${Math.max(1, Math.round((next.start - now) / 60e3))} min` : '';
   const item = (e) => {
     const on = !e.allDay && e.start <= now && e.end > now;
-    return `<li class="${on ? 'on' : ''}"><span class="ev-time">${e.allDay ? 'All day' : on ? 'Now' : clock(e.start)}</span><span class="tag" style="background:${esc(spaceOf(e.space).color)}"></span><span class="ev-title">${esc(e.title)}${e.location ? `<span class="ev-where">${esc(e.location.split('\n')[0])}</span>` : ''}</span>${e === next && soon ? `<span class="ev-soon">${soon}</span>` : ''}</li>`;
+    return `<li class="${on ? 'on' : ''}"><span class="ev-time">${e.allDay ? 'All day' : on ? 'Now' : clock(e.start)}</span><span class="tag" style="background:${safeColor(spaceOf(e.space).color)}"></span><span class="ev-title">${esc(e.title)}${e.location ? `<span class="ev-where">${esc(e.location.split('\n')[0])}</span>` : ''}</span>${e === next && soon ? `<span class="ev-soon">${soon}</span>` : ''}</li>`;
   };
   const hasCal = (S.calendars || []).length > 0;
-  const wx = w ? `<span class="wx" title="${esc(S.weather.place)}">${w.temp}° ${esc(w.text)} <span class="muted">· H ${w.high}° L ${w.low}°</span></span>` : '';
+  const wx = w ? `<span class="wx" title="${esc(S.weather.place)}">${Number(w.temp)}° ${esc(w.text)} <span class="muted">· H ${Number(w.high)}° L ${Number(w.low)}°</span></span>` : '';
   const warn = (S.weather?.alerts || []).map((a, i) => `<details class="wx-warn"><summary>${esc(a.event)}</summary><p>${esc(a.headline || '')}</p>${a.instruction ? `<p>${esc(a.instruction)}</p>` : ''}</details>`).join('');
-  const notes = (w?.notes || []).map((n) => `<span class="wx-note wx-${n.kind}">${esc(n.text)}</span>`).join('');
+  const notes = (w?.notes || []).map((n) => `<span class="pill pill--soft wx-note wx-${n.kind}">${esc(n.text)}</span>`).join('');
   return `<section class="card today"><div class="group-head"><h2>${label}</h2>${wx}</div>
     ${warn || notes ? `<div class="wx-notes">${warn}${notes}</div>` : ''}
     ${list.length ? `<ul class="ev-list">${[...allDay, ...timed].map(item).join('')}</ul>` : hasCal ? '<p class="empty">Nothing on the calendar.</p>' : ''}${ships}</section>`;

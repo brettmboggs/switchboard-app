@@ -8,8 +8,9 @@
 //       with /usr/bin/node.
 //   build/switchboard/
 //       the app's own files (server.js, lib, public, bin, scripts) with their
-//       production npm packages installed for this OS, and sidecar/start.mjs as
-//       bin/desktop.mjs. node-pty is trimmed to the one platform being built.
+//       production npm packages installed for this OS, sidecar/start.mjs as
+//       bin/desktop.mjs, and LICENSE with THIRD-PARTY-NOTICES.txt. node-pty is
+//       trimmed to the one platform being built.
 //
 // TAURI_ENV_TARGET_TRIPLE (set by the Tauri CLI) picks the target; without it, this machine.
 import { execFileSync } from 'node:child_process';
@@ -52,6 +53,8 @@ if (os !== 'win32') chmodSync(nodeOut, 0o755);
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const f of ['server.js', 'package.json', 'package-lock.json', 'lib', 'public', 'bin', 'scripts']) cpSync(join(REPO, f), join(OUT, f), { recursive: true });
+// The licences of everything bundled (npm run notices writes it; LICENSE is Switchboard's own).
+for (const f of ['THIRD-PARTY-NOTICES.txt', 'LICENSE']) if (existsSync(join(REPO, f))) copyFileSync(join(REPO, f), join(OUT, f));
 copyFileSync(join(DESKTOP, 'sidecar', 'start.mjs'), join(OUT, 'bin', 'desktop.mjs'));
 execFileSync(npm, ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: OUT, stdio: 'inherit', shell: process.platform === 'win32' });
 

@@ -18,6 +18,7 @@ import { route as connectionRoutes } from './lib/routes/connections.js';
 import { route as sessionRoutes } from './lib/routes/sessions.js';
 import { route as systemRoutes } from './lib/routes/system.js';
 import { route as webhookRoutes } from './lib/routes/webhooks.js';
+import { route as slashRoutes } from './lib/routes/slash.js';
 import { route as routineRoutes } from './lib/routes/routines.js';
 import { route as pageRoutes } from './lib/routes/pages.js';
 import { pageList } from './lib/pages.js';
@@ -28,12 +29,14 @@ import { route as inboxRoutes } from './lib/routes/inbox.js';
 import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
-const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, sessionViewRoutes, inboxRoutes];
+const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, sessionViewRoutes, inboxRoutes, slashRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)
-// chatView, devChips, termGpu: the Sessions extras in Settings, General.
-const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, chatView: false, devChips: false, termGpu: true };
+// sessionView: how Claude sessions open, 'chat' or 'term' (each session's
+// Chat | Terminal switch overrides it). devChips, termGpu: the Sessions extras.
+// All in Settings, Look. (The old chatView switch is dropped.)
+const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true };
 // Which coding agents are installed and signed in, checked at most once a minute.
 let agentCache = { at: 0, list: [] };
 const agentsNow = () => { if (Date.now() - agentCache.at > 60e3) agentCache = { at: Date.now(), list: installedAgents() }; return agentCache.list; };
@@ -109,7 +112,7 @@ async function boardState() {
     money: { mail: [...moneyFromMail(), ...microsoft().receipts].sort((a, b) => b.date - a.date), bills, paid, invoices },
     sendAs: sendAddresses(),
     windows,
-    version: (() => { const u = updateState(); return { build: BUILD, sha: u.sha, behind: u.behind, subjects: u.subjects, error: u.error, busy: u.busy }; })(),
+    version: (() => { const u = updateState(); return { build: BUILD, pkg: u.pkg, sha: u.sha, channel: u.channel, behind: u.behind, subjects: u.subjects, error: u.error, busy: u.busy }; })(),
     platform: process.platform, sessionMode: SESSION_MODE,
     account: syncStatus(),
     status: {
@@ -126,12 +129,15 @@ async function boardState() {
 // A fingerprint of the page's own files: an open page reloads itself when the
 // server comes back with different ones (an update, or a local change).
 const PAGE_JS = readdirSync(new URL('./public/js/', import.meta.url)).filter((f) => /^[a-z]+\.js$/.test(f)).sort();
-const BUILD = createHash('sha1').update(['index.html', 'app.css', 'setup.js', ...PAGE_JS.map((f) => 'js/' + f)].map((f) => { try { return readFileSync(new URL('./public/' + f, import.meta.url)); } catch { return ''; } }).join('\n')).digest('hex').slice(0, 12);
+// The stylesheets: public/css and one folder down (components/, pages/), by name.
+const PAGE_CSS = readdirSync(new URL('./public/css/', import.meta.url), { recursive: true }).map((f) => String(f).replaceAll('\\', '/')).filter((f) => /^[a-z-]+(\/[a-z-]+)?\.css$/.test(f)).sort();
+// The fonts ship with Switchboard (public/fonts, licences in LICENSES.md there); static, so not in BUILD.
+const FONTS = readdirSync(new URL('./public/fonts/', import.meta.url)).filter((f) => /^[a-z-]+\.woff2$/.test(f));
+const BUILD = createHash('sha1').update(['index.html', 'setup.js', ...PAGE_CSS.map((f) => 'css/' + f), ...PAGE_JS.map((f) => 'js/' + f)].map((f) => { try { return readFileSync(new URL('./public/' + f, import.meta.url)); } catch { return ''; } }).join('\n')).digest('hex').slice(0, 12);
 
 const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/setup.js': ['setup.js', 'text/javascript; charset=utf-8'],
-  '/app.css': ['app.css', 'text/css; charset=utf-8'],
   '/icon.svg': ['icon.svg', 'image/svg+xml'],
   '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
   '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
@@ -149,13 +155,23 @@ const server = createServer(async (req, res) => {
   // Only this machine, and only by its own name: stops other sites in the
   // browser from reaching the board through DNS tricks.
   if (!ALLOWED_HOSTS.has(req.headers.host || '')) return send(res, 403, { error: 'host' });
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  let url; try { url = new URL(req.url, `http://${req.headers.host}`); } catch { return send(res, 400, { error: 'url' }); }
   const path = url.pathname;
 
   // The page's scripts: only names in public/js, nothing else on disk.
   const js = path.match(/^\/js\/([a-z]+\.js)$/);
   if (req.method === 'GET' && js && PAGE_JS.includes(js[1])) {
     try { return send(res, 200, await readFile(join(HERE, 'public', 'js', js[1])), 'text/javascript; charset=utf-8'); }
+    catch { return send(res, 404, 'missing', 'text/plain'); }
+  }
+  const css = path.match(/^\/css\/([a-z-]+(?:\/[a-z-]+)?\.css)$/);
+  if (req.method === 'GET' && css && PAGE_CSS.includes(css[1])) {
+    try { return send(res, 200, await readFile(join(HERE, 'public', 'css', ...css[1].split('/'))), 'text/css; charset=utf-8'); }
+    catch { return send(res, 404, 'missing', 'text/plain'); }
+  }
+  const font = path.match(/^\/fonts\/([a-z-]+\.woff2)$/);
+  if (req.method === 'GET' && font && FONTS.includes(font[1])) {
+    try { return send(res, 200, await readFile(join(HERE, 'public', 'fonts', font[1])), 'font/woff2'); }
     catch { return send(res, 404, 'missing', 'text/plain'); }
   }
   if (req.method === 'GET' && STATIC[path]) {

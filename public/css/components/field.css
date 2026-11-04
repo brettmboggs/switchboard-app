@@ -1,0 +1,24 @@
+/* Fields: every input, select and textarea the page draws, through one rule.
+     .field          the box: raised paper, a border, radius --r-md
+     .field--sm      a compact select on a row (project, from, shows as)
+     .field--bare    no box (the page title in Notes, the search in the palette)
+   Forms that emit plain <input>s join the selector list here instead of styling
+   their own. Focus: the border turns ink; the global ring is kept for keyboards. */
+.field, .form-grid input, .form-grid select, .acct-form input, .acct-form select, .proj input, .proj select, .quiet-times input,
+.composer select, .composer textarea, .body-text, .sig-list textarea, .inline-add input, .unlock-way input, .weather-set input,
+.nb-tools input, .ls-add input, .rename-form input, .sheet textarea, .send-pal input, .cal-row select, .hook-ctl select, .ed-meta select, .cv-from select {
+  min-width: 0; border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 11px; background: var(--bg-raised); color: var(--fg); font: inherit;
+}
+.field:focus, .form-grid input:focus, .form-grid select:focus, .acct-form input:focus, .composer textarea:focus, .body-text:focus, .nb-tools input:focus, .unlock-way input:focus, .weather-set input:focus { border-color: var(--fg); outline: none; }
+.field--sm, .cal-row select, .hook-ctl select, .ed-meta select, .cv-from select { padding: 4px 8px; font-size: var(--fs-base); }
+.field--bare { border: 0; background: none; padding: 2px 0; outline: none; }
+.composer select, .composer textarea, .body-text, .sig-list textarea, .inline-add input, .nb-tools input, .unlock-way input, .rename-form input, .send-pal input { width: 100%; }
+.composer textarea { min-height: 110px; resize: vertical; }
+.sheet textarea, .sig-list textarea { font-family: var(--font-mono); font-size: var(--fs-sm); }
+::placeholder { color: var(--placeholder); opacity: 1; }
+textarea.drop, .composer textarea.drop { outline: 2px dashed var(--accent); }
+
+/* A labelled row of fields in a dialog: label column, then the field. */
+.form-grid { display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; align-items: center; margin-top: 8px; }
+.form-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.field-label { font-size: var(--fs-sm); color: var(--fg-muted); }
