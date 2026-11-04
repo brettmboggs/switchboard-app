@@ -1,0 +1,16 @@
+{
+  "name": "switchboard-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Switchboard app: its own window and icon around the local server, with updates from GitHub Releases. Tauri v2.",
+  "type": "module",
+  "scripts": {
+    "stage": "node scripts/stage.mjs",
+    "tauri": "tauri",
+    "build": "node scripts/stage.mjs && tauri build",
+    "dev": "node scripts/stage.mjs && tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

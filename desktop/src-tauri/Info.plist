@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Talk to type: Switchboard turns what you say into text on this computer.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Switchboard lists your open windows and brings the right one to the front.</string>
+</dict>
+</plist>

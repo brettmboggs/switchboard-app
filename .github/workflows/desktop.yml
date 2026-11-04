@@ -1,0 +1,169 @@
+# The Switchboard app (desktop/): builds the installers for Windows, macOS and
+# Linux and attaches them to a DRAFT GitHub Release. Nothing is published until
+# Brett opens the draft and clicks Publish; only then do installed apps see it
+# as an update (the updater reads releases/latest, which skips drafts).
+#
+#   Push a tag vX.Y.Z (the app's version becomes X.Y.Z), or run it by hand from
+#   the Actions tab (keeps the version in desktop/src-tauri/tauri.conf.json).
+#
+# Secrets (Settings, Secrets and variables, Actions):
+#   TAURI_SIGNING_PRIVATE_KEY            the updater key: the contents of
+#                                        ~/.config/switchboard-release/updater.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   its password (updater.key.password beside it)
+#   Without them the installers still build, but without update signatures, so
+#   installed apps will not update to that build.
+#
+# Mac signing and notarization: off until the repository VARIABLE MAC_SIGNING is
+# 'true'. Then it needs the secrets APPLE_CERTIFICATE (base64 of the Developer ID
+# Application .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY
+# ("Developer ID Application: Name (TEAMID)"), APPLE_ID, APPLE_PASSWORD (an
+# app-specific password) and APPLE_TEAM_ID. Windows builds are unsigned.
+name: Desktop app
+
+on:
+  push:
+    tags: ['v*']  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Draft release
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.draft.outputs.id }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            V="${GITHUB_REF_NAME#v}"; TAG="$GITHUB_REF_NAME"
+          else
+            V=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version"); TAG="app-v$V-build.$GITHUB_RUN_NUMBER"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Create the draft
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          V: ${{ steps.version.outputs.version }}
+        run: |
+          BODY=$(cat <<'EOF'
+          Download the one for your computer:
+
+          - **Windows:** `Switchboard_windows_x64-setup.exe` (or the `.msi`). Windows may say it protected your PC: More info, Run anyway (the app is not signed yet).
+          - **Mac with Apple silicon (M1 and later):** `Switchboard_darwin_aarch64.dmg`. **Intel Mac:** `Switchboard_darwin_x64.dmg`.
+          - **Linux:** `Switchboard_linux_amd64.deb` (Ubuntu, Mint, Debian) or `Switchboard_linux_amd64.AppImage`. Install `tmux` too so sessions survive restarts.
+
+          You also need Claude Code (or another coding agent) for sessions. Installed apps update themselves from here.
+          EOF
+          )
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" \
+            -f name="Switchboard $V" -F draft=true -f body="$BODY" --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04          # oldest glibc still built on, so the .deb and AppImage run on more systems
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest          # arm64 runner; builds both Mac architectures
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      # This Node is the one the app ships (desktop/scripts/stage.mjs copies it),
+      # and the one that installs node-pty for it.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Linux build libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev build-essential
+
+      - name: Version from the tag
+        if: github.ref_type == 'tag'
+        env:
+          V: ${{ needs.release.outputs.version }}
+        run: |
+          node -e "const f='desktop/src-tauri/tauri.conf.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.version=process.env.V;fs.writeFileSync(f,JSON.stringify(c,null,2))"
+
+      - name: Updater signing key
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: building without update signatures (installed apps will not update to this build)."
+            node -e "const f='desktop/src-tauri/tauri.conf.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.bundle.createUpdaterArtifacts=false;fs.writeFileSync(f,JSON.stringify(c,null,2))"
+          fi
+
+      # ---- Mac signing and notarization: Brett's later step (see the top of this file).
+      - name: Mac signing and notarization (off until vars.MAC_SIGNING is 'true')
+        if: runner.os == 'macOS' && vars.MAC_SIGNING == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            echo "APPLE_ID=$APPLE_ID"
+            echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          } >> "$GITHUB_ENV"
+          node -e "const f='desktop/src-tauri/tauri.conf.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.bundle.macOS.signingIdentity=process.env.APPLE_SIGNING_IDENTITY;fs.writeFileSync(f,JSON.stringify(c,null,2))"
+
+      - name: Tauri CLI
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: desktop
+          releaseId: ${{ needs.release.outputs.id }}
+          args: --target ${{ matrix.target }}
+          # Stable names, so a download page can link to releases/latest/download/<name>.
+          releaseAssetNamePattern: Switchboard_[platform]_[arch][setup][ext]
+          retryAttempts: 1

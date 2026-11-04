@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Switchboard</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; place-items: center; background: #E4E7EB; color: #15171C;
+         font: 15px/1.5 "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .card { background: #FCFCFA; border-radius: 10px; padding: 28px 32px; min-width: 280px; text-align: center; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #FF4F00;
+         margin-right: 8px; animation: pulse 1.2s ease-in-out infinite; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  p { margin: 0; color: #5C626C; }
+  .slow { display: none; margin-top: 12px; color: #B33300; }
+  @keyframes pulse { 50% { opacity: .3; } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="dot"></span>Switchboard</h1>
+    <p>Starting up…</p>
+    <p class="slow" id="slow">This is taking longer than usual. The server's log is in the app's log folder (server.log).</p>
+  </div>
+  <script>setTimeout(() => { document.getElementById('slow').style.display = 'block'; }, 30000);</script>
+</body>
+</html>

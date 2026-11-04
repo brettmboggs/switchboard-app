@@ -1,0 +1,27 @@
+{
+  "name": "switchboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One screen for everything Brett runs: Claude sessions, GitHub, Gmail, Google Voice, money, reminders and windows.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "open": "node bin/open.mjs",
+    "setup": "node scripts/setup.mjs install",
+    "uninstall": "node scripts/setup.mjs remove",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-webgl": "0.19.0",
+    "@xterm/xterm": "6.0.0",
+    "imapflow": "2.10.0",
+    "mailparser": "3.14.1",
+    "node-pty": "1.1.0",
+    "nodemailer": "10.3.1",
+    "ws": "8.22.1"
+  }
+}

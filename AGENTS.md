@@ -1,0 +1,54 @@
+<!-- The rules for every coding agent in this repo (Claude Code, Codex, Gemini, Cursor, Copilot…).
+     CLAUDE.md imports this file. Put rules here, not there. -->
+
+# Switchboard
+
+Brett's console for everything he runs, built for his own daily use first
+(Nov 3 2026). It now also has to install and run for others (Blake on a
+Windows work laptop, Brett's Mac): keep personal data out of the code (it
+lives in each person's settings), and keep every OS-specific call behind
+lib/desktop.js, lib/terminals.js (MODE tmux | direct) and scripts/setup.mjs.
+Only Linux can be tested from Brett's main machine; treat Mac and Windows
+changes as unverified until someone runs them.
+
+- Local only: Node 22 server on 127.0.0.1:4747, SQLite through node:sqlite,
+  plain HTML/CSS/JS page. Two npm dependencies (imapflow, mailparser). Keep it
+  that way unless a feature truly needs more.
+- On Brett's machine it runs as a systemd user service; after changing server
+  code, `systemctl --user restart switchboard`. Claude sessions in tmux survive
+  that; check `tmux ls` before anything that could kill tmux.
+- Brett's machine: Linux Mint Cinnamon on X11 (wmctrl/xdotool, notify-send).
+  macOS uses osascript, Windows uses PowerShell; see lib/desktop.js.
+- Updates: each install is a git checkout; lib/update.js pulls and exits 75,
+  and systemd / launchd / bin/run.mjs restarts it. Never break that path.
+- Claude Code hooks (installed by `npm run setup`) post to `/hook/claude`.
+  `bin/hook.sh` must never block or fail a Claude session.
+- Gmail started read only. Brett asked on Nov 3 for the board to do everything (reply, archive, send);
+  every send is an explicit click by Brett, never automatic.
+- No paid services yet (Brett's rule). Bank data comes from alert emails;
+  Teller's free tier is the next step if needed.
+- Datum is co-owned with Blake: Datum data stays in the Datum space; don't pull
+  Datum's Microsoft 365 data in without Blake's okay.
+- Design: the counter (grey #E4E7EB, paper #FCFCFA, ink #15171C, signal
+  #FF4F00, orange text #B33300, muted #5C626C). Anybody / Hanken Grotesk /
+  Martian Mono.
+- Every POST needs the `X-Switchboard: 1` header and the Host must be
+  127.0.0.1 or localhost: that keeps web pages in the browser from driving it.
+- Where code lives: server.js (setup, security checks, the board state,
+  background work) and lib/routes/*.js (one file per area of the API); lib/*.js
+  for each connection and service; public/js/*.js for the page, one file per
+  area, plain scripts loaded in order by index.html (no build step). Keep files
+  small: a new area gets its own file rather than growing an old one.
+- Every new feature or connection gets an entry in public/setup.js (the setup
+  registry). The welcome and "New in Switchboard" are built from it, so nothing
+  ships without people being shown it; test/setup.test.js enforces it for
+  connections. Plans and their status live in docs/ROADMAP.md.
+- Keep README.md current with every feature or connection you ship: what it
+  does, why, what it connects to and how, and its privacy story. It is written
+  for people and for their AI assistants to explain Switchboard from, so keep
+  its "For AI assistants" facts true (MCP tool names, install steps).
+- No AI attribution in commits.
+- Agents: this file is the one set of rules (AGENTS.md, the shared standard).
+  CLAUDE.md only imports it. Where it says Claude, read "any agent" unless it
+  is about the Claude Code integration itself. Never run two agents against
+  the same files at once without checking `git status` first.

@@ -1,0 +1,22 @@
+# Switchboard accounts and sync. Stores only encrypted blobs: every document is
+# encrypted on the user's own computer with a key made from their password, which
+# never reaches this service. Free tier: Workers + D1.
+name = "switchboard-sync"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "switchboard-sync"
+database_id = "377c0f04-6f55-4935-9563-bae64c4ff388"
+
+# The relay: one Durable Object per account that passes messages between that
+# account's computers (live terminals, queued messages). Messages are encrypted by
+# the computers; the relay only reads the "to" field to route them.
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "Relay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Relay"]

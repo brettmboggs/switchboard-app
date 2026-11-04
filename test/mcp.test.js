@@ -1,0 +1,93 @@
+// bin/mcp.mjs against a stand-in Switchboard: the MCP handshake, the tool list,
+// and that tools read the board and post with the page's header.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
+
+const now = Date.now();
+const STATE = {
+  spaces: [{ id: 'personal', name: 'Personal' }, { id: 'datum', name: 'Datum' }],
+  terms: [{ id: 'sb-app', name: 'app', state: 'waiting', agentName: 'Claude Code', queued: [], cwd: '/x/app', ci: { fullName: 'me/app', branch: 'main' } }],
+  remoteTerms: [],
+  actions: [{ fullName: 'me/app', name: 'app', runs: [{ state: 'failure', workflow: 'CI', number: 7, branch: 'main', title: 'Fix it', updatedAt: now, url: 'u', jobs: [{ name: 'test', state: 'failure' }] }] }],
+  reviews: [], items: [{ kind: 'reminder', text: 'Call the bank', due_at: now - 1000 }],
+  checks: [{ id: 3, name: 'Home page', kind: 'page', url: 'https://example.com/', expect: 'Welcome', every: 60,
+    runs: [{ state: 'failure', endedAt: now, summary: 'The text never showed', failures: [{ title: 'Home page shows Welcome', file: 'page', error: 'Timed out\nmore' }] }] }]
+};
+
+function fake() {
+  const posts = [];
+  const srv = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c)).on('end', () => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.method === 'GET' && req.url === '/api/state') return res.end(JSON.stringify(STATE));
+      if (req.method === 'POST') { posts.push({ url: req.url, header: req.headers['x-switchboard'], body: JSON.parse(body) }); return res.end(JSON.stringify({ ok: true, id: 9, kind: 'todo', space: 'datum', due_at: null })); }
+      res.statusCode = 404; res.end('{}');
+    });
+  });
+  return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({ srv, posts, port: srv.address().port })));
+}
+
+function mcp(port) {
+  const p = spawn(process.execPath, [new URL('../bin/mcp.mjs', import.meta.url).pathname], { env: { ...process.env, SWITCHBOARD_PORT: String(port) } });
+  let buf = ''; const waiting = new Map(); let next = 1;
+  p.stdout.on('data', (c) => { buf += c; let i; while ((i = buf.indexOf('\n')) >= 0) { const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1); waiting.get(m.id)?.(m); } });
+  const call = (method, params) => new Promise((r) => { const id = next++; waiting.set(id, r); p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'); });
+  return { call, end: () => p.kill() };
+}
+
+test('MCP: handshake, tools, reading and posting', async () => {
+  const { srv, posts, port } = await fake();
+  const c = mcp(port);
+  try {
+    const init = await c.call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test-agent', version: '1' } });
+    assert.equal(init.result.protocolVersion, '2025-06-18');
+    assert.equal(init.result.serverInfo.name, 'switchboard');
+    const list = await c.call('tools/list', {});
+    const names = list.result.tools.map((t) => t.name);
+    for (const n of ['switchboard_overview', 'switchboard_add', 'switchboard_sessions', 'switchboard_send_to_session', 'switchboard_actions', 'switchboard_projects', 'switchboard_checks', 'switchboard_add_check']) assert.ok(names.includes(n), n);
+    assert.ok(list.result.tools.every((t) => !('run' in t) && t.inputSchema.type === 'object'));
+
+    const ov = (await c.call('tools/call', { name: 'switchboard_overview', arguments: {} })).result.content[0].text;
+    assert.match(ov, /app \(Claude Code, this computer\): needs Brett/);
+    assert.match(ov, /me\/app · CI on main: failure/);
+    assert.match(ov, /reminder: Call the bank/);
+
+    const add = await c.call('tools/call', { name: 'switchboard_add', arguments: { text: 'Deploy needs your okay', project: 'Datum' } });
+    assert.ok(!add.result.isError);
+    assert.deepEqual(posts[0], { url: '/api/agent/item', header: '1', body: { text: 'Deploy needs your okay', kind: 'needs', project: 'Datum', from: 'test-agent' } });
+
+    await c.call('tools/call', { name: 'switchboard_send_to_session', arguments: { session: 'app', text: 'run the tests' } });
+    assert.equal(posts[1].url, '/api/terms/sb-app/queue');
+    assert.equal(posts[1].body.source, 'test-agent (agent)');
+    const miss = await c.call('tools/call', { name: 'switchboard_send_to_session', arguments: { session: 'nope', text: 'x' } });
+    assert.ok(miss.result.isError);
+
+    const runs = (await c.call('tools/call', { name: 'switchboard_actions', arguments: { repo: 'me/app' } })).result.content[0].text;
+    assert.match(runs, /failure · CI #7 on main · Fix it .* jobs: test=failure/);
+
+    const checks = (await c.call('tools/call', { name: 'switchboard_checks', arguments: {} })).result.content[0].text;
+    assert.match(checks, /Home page \[3\] · page https:\/\/example.com\/ must show "Welcome" · every hour · failure .*The text never showed/);
+    assert.match(checks, /failed: Home page shows Welcome \(page\) · Timed out$/m);
+    const added = await c.call('tools/call', { name: 'switchboard_add_check', arguments: { kind: 'page', url: 'https://example.com', expect: 'Sign in', project: 'Datum', every: 1440 } });
+    assert.ok(!added.result.isError);
+    assert.match(added.result.content[0].text, /\[9\] and started a run/);
+    assert.deepEqual(posts[2], { url: '/api/checks', header: '1', body: { kind: 'page', url: 'https://example.com', expect: 'Sign in', space: 'datum', every: 1440 } });
+    assert.deepEqual(posts[3], { url: '/api/checks/run', header: '1', body: { id: 9 } });
+    const bad = await c.call('tools/call', { name: 'switchboard_add_check', arguments: { kind: 'page', url: 'https://x.com', project: 'Nope' } });
+    assert.ok(bad.result.isError);
+    assert.equal((await c.call('nope/method', {})).error.code, -32601);
+  } finally { c.end(); srv.close(); }
+});
+
+test('MCP: says so plainly when Switchboard is not running', async () => {
+  const c = mcp(1);
+  try {
+    await c.call('initialize', { protocolVersion: '2099-01-01', capabilities: {}, clientInfo: { name: 'x' } });
+    const r = await c.call('tools/call', { name: 'switchboard_overview', arguments: {} });
+    assert.ok(r.result.isError);
+    assert.match(r.result.content[0].text, /isn't running/);
+  } finally { c.end(); }
+});

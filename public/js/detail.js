@@ -1,0 +1,147 @@
+// The detail panel on the right, and render(), which draws the current page.
+// One of the page's scripts in public/js, loaded in order by index.html; they
+// share one scope, so names defined in an earlier file are usable here.
+// ---------- detail panel
+function find(type, key) {
+  if (type === 'session') return S.sessions.find((s) => s.id === key);
+  if (type === 'run') return S.runs.find((r) => String(r.id) === key);
+  if (type === 'ci') return ciRun(key);
+  if (type === 'review') return S.reviews.find((r) => String(r.id) === key);
+  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent].find((t) => t.key === key) || convoThread(key);
+  if (type === 'awaiting') return S.awaiting.find((t) => t.key === key);
+  if (type === 'invoice') return S.money.invoices.find((i) => String(i.id) === key);
+  if (type === 'item') return [...S.items, ...S.money.bills, ...S.money.paid].find((i) => String(i.id) === key);
+  if (type === 'done') return S.recentDone.find((i) => String(i.id) === key);
+  if (type === 'money') return S.money.mail.find((m) => m.msg_id === key);
+  if (type === 'window') return S.windows.find((w) => String(w.id) === key);
+  if (type === 'delivery') return findDelivery(key);
+  if (type === 'routine') return findRoutine(key);
+  if (type === 'check') return findCheck(key);
+  return null;
+}
+
+let extra = { key: null, html: '' };
+const loadingExtra = new Set();
+function loadExtra(key, url, fmt) {
+  if (extra.key === key || loadingExtra.has(key)) return;
+  loadingExtra.add(key);
+  api(url).then((d) => { extra = { key, html: fmt(d) }; renderDetail(); }).catch((e) => { extra = { key, html: `<p class="note-line">${esc(e.message)}</p>` }; renderDetail(); }).finally(() => loadingExtra.delete(key));
+}
+const msgsHtml = (d) => { if (selected) lastThread[selected.key] = (d.messages.find((m) => !m.from_me) || {}).snippet; return msgsHtmlInner(d); };
+const msgsHtmlInner = (d) => `<div class="thread-msgs">${d.messages.slice().reverse().map((m) => `<div class="msg ${m.from_me ? 'me' : ''}"><span class="who">${esc(m.from_me ? 'You' : m.from_name)} · ${when(m.date)}</span>${esc(m.snippet || '')}</div>`).join('') || '<p class="note-line">No messages in the last 14 days.</p>'}</div>`;
+
+// Reply from the address set on the project (Settings, Projects, fifth column).
+function guessFrom(t) {
+  const mine = S.sendAs.map((a) => a.address);
+  const from = spaceOf(t.space).from;
+  return (from && mine.includes(from)) ? from : mine[0];
+}
+
+function renderDetail() {
+  const el = $('detail');
+  if (page === 'sessions') {
+    // Keep the box being typed in (the message bar, or a session's new name) through redraws.
+    const fid = ['q-text', 'rename-input'].includes(document.activeElement?.id) ? document.activeElement.id : null;
+    const pos = fid ? document.activeElement.selectionStart : null;
+    el.innerHTML = termDetail();
+    if (fid && $(fid)) { $(fid).focus(); $(fid).selectionStart = $(fid).selectionEnd = pos; }
+    return;
+  }
+  // An open conversation has the whole width (convo.js); the panel steps aside.
+  if (CV) { if (el.innerHTML) el.innerHTML = ''; return; }
+  const x = selected && find(selected.type, selected.key);
+  if (!x) {
+    const label = project === 'all' ? 'Everything' : spaceOf(project).name;
+    const hints = { now: 'Click a card to see it here and act on it. Session cards also jump straight to their window.', inbox: 'Pick a conversation to read it and reply without leaving.', money: 'Log money with Ctrl+K: invoice, paid, bill.', notes: 'Ctrl+K works from any page.', builds: 'Runs update by themselves while they go. Click one for its jobs, to re-run what failed, or to cancel it.', checks: 'Click a check for its last runs, what failed and screenshots.' };
+    const n = page === 'inbox' ? inboxCount(project) : needsCount(project);
+    const head = page === 'builds' ? `${ciActiveCount()} running` : page === 'checks' ? (n => n ? `${n} check${n === 1 ? '' : 's'}` : 'No checks yet')((S.checks || []).filter(inProject).length) : page === 'inbox' ? `${n} waiting on a reply` : `${n} need${n === 1 ? 's' : ''} you`;
+    el.innerHTML = `<div class="kicker">${esc(label)}</div><h2>${head}</h2><p class="muted">${hints[page]}</p>`;
+    return;
+  }
+  const t = selected.type;
+  const kick = (label) => `<div class="kicker">${tag(x.space)}${esc(spaceOf(x.space).name)} · ${esc(label)}</div>`;
+  let html = '';
+  if (t === 'session') {
+    html = kick('Claude session') + `<h2>${esc(x.repo || 'Claude')}</h2>
+      <dl class="facts"><dt>State</dt><dd>${esc({ waiting: 'Needs you', finished: 'Your turn', running: 'Working', idle: 'Idle' }[x.state] || x.state)}${x.detail ? ' · ' + esc(x.detail) : ''}</dd>
+      <dt>Folder</dt><dd class="mono">${esc(x.cwd || '')}</dd><dt>Window</dt><dd>${esc(x.windowTitle || 'Not found yet. Send it a prompt and it is remembered.')}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      ${x.prompt ? `<div class="mono muted">You asked</div><div class="quote">${esc(x.prompt)}</div>` : ''}
+      ${x.lastMessage ? `<div class="mono muted" style="margin-top:10px">Claude's last words</div><div class="quote">${esc(x.lastMessage)}</div>` : ''}
+      <div class="actions">${x.termId ? `<button class="btn go" data-act="open-term" type="button">Open in Sessions</button>` : x.windowId ? `<button class="btn go" data-act="focus" type="button">Jump to window</button>` : ''}${x.state === 'finished' ? `<button class="btn" data-act="seen" type="button">Got it</button>` : ''}
+      ${!x.termId && x.cwd ? `<button class="btn" data-act="move" type="button">Move into Switchboard</button>` : ''}</div>
+      ${!x.termId && x.cwd ? `<p class="note-line">Move: close this session in VS Code first, then it reopens here with the same conversation.</p>` : ''}
+      ${extra.key === x.id ? extra.html : ''}`;
+    loadExtra(x.id, `/api/session/${encodeURIComponent(x.id)}`, (d) => `<ul class="tl">${d.events.map((e) => `<li><span class="when">${when(e.at)}</span> ${esc(e.event)}${e.info ? ' · ' + esc(e.info) : ''}</li>`).join('')}</ul>`);
+  } else if (t === 'run') {
+    const sib = S.runs.filter((r) => r.repo === x.repo && r.title === x.title);
+    const failed = sib.filter((r) => r.state === 'failed');
+    html = kick('GitHub Actions') + `<h2>${esc(x.title)}</h2>
+      <ul class="tl">${sib.map((r) => `<li><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.workflow)}</a> · ${esc(r.conclusion || 'running')}</li>`).join('')}</ul>
+      <dl class="facts"><dt>Repo</dt><dd>${esc(x.fullName)}</dd><dt>Branch</dt><dd>${esc(x.branch)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      <div class="actions">${failed.length ? `<button class="btn go" data-act="rerun" type="button">Re-run failed</button>` : ''}<a class="btn" href="${esc(x.url)}" target="_blank" rel="noopener">Open on GitHub</a><button class="btn" data-act="clear" type="button">Clear</button></div>`;
+  } else if (t === 'ci') {
+    html = ciDetail(x, kick);
+  } else if (t === 'review') {
+    html = kick('Pull request') + `<h2>${esc(x.title)}</h2>
+      <dl class="facts"><dt>Repo</dt><dd>${esc(x.repo)} #${x.number}</dd><dt>By</dt><dd>${esc(x.author)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      <div class="actions"><a class="btn" href="${esc(x.url)}" target="_blank" rel="noopener">Read it on GitHub</a><button class="btn go" data-act="approve" type="button">Approve</button>
+      <button class="btn ${mergeArmed === x.id ? 'danger' : ''}" data-act="merge" type="button">${mergeArmed === x.id ? 'Click again to squash and merge' : 'Merge'}</button><button class="btn" data-act="clear" type="button">Clear</button></div>`;
+  } else if (t === 'awaiting') {
+    html = kick('Waiting on them') + `<h2>${esc(x.subject)}</h2>
+      <dl class="facts"><dt>To</dt><dd>${esc(x.who)}</dd><dt>Sent</dt><dd>${when(x.date)} · ${since(x.date)}</dd></dl>
+      ${extra.key === x.key ? extra.html : ''}
+      <div class="composer"><label for="r-from" class="sr">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>From ${esc(a.address)}</option>`).join('')}</select>
+      <label for="r-text" class="sr">Follow up</label><textarea id="r-text" placeholder="Follow up…">${esc(draft[x.key] || '')}</textarea>
+      <div class="row"><button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn go" type="button" data-act="send">Send follow-up</button><span class="note-line">Goes in the same thread. Ctrl+Enter sends.</span></div></div>
+      <div class="actions"><button class="btn" data-act="stop-waiting" type="button">Stop waiting</button>${x.link ? `<a class="btn" href="${esc(x.link)}" target="_blank" rel="noopener">Open in Gmail</a>` : ''}</div>`;
+    loadExtra(x.key, `/api/thread?key=${encodeURIComponent(x.key)}`, msgsHtml);
+  } else if (t === 'invoice') {
+    html = kick('Invoice out') + `<h2>${esc(x.text)}</h2>
+      <dl class="facts"><dt>Amount</dt><dd>${$$(x.amount)}</dd><dt>Sent</dt><dd>${when(x.created_at)}</dd>${x.due_at ? `<dt>Due</dt><dd>${dayOnly(x.due_at)}</dd>` : ''}</dl>
+      <div class="actions"><button class="btn go" data-act="paid" type="button">Mark paid</button><button class="btn" data-act="delete" type="button">Delete</button></div>`;
+  } else if (t === 'item' || t === 'done') {
+    const label = { note: 'Note', todo: 'To-do', reminder: 'Reminder', paid: 'Payment', bill: 'Bill' }[x.kind] || 'Item';
+    html = kick(label) + `<h2>${esc(x.text)}</h2>
+      <dl class="facts">${x.due_at && x.kind !== 'bill' ? `<dt>Due</dt><dd>${when(x.due_at)}</dd>` : ''}${x.kind === 'bill' ? `<dt>Next</dt><dd>${x.next ? dayOnly(x.next) : 'no date'} · ${esc(x.cadence)}</dd>` : ''}${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Added</dt><dd>${when(x.created_at)}</dd></dl>
+      <div class="actions">${t === 'done' ? `<button class="btn" data-act="undo" type="button">Not done</button>` : (x.kind === 'reminder' || x.kind === 'todo') ? `<button class="btn go" data-act="done" type="button">Done</button><button class="btn" data-act="snooze" data-hours="1" type="button">1 hour</button><button class="btn" data-act="snooze" data-hours="tomorrow" type="button">Tomorrow 9am</button>` : ''}<button class="btn" data-act="delete" type="button">Delete</button></div>`;
+  } else if (t === 'routine') {
+    html = routineDetail(x, kick);
+  } else if (t === 'delivery') {
+    html = deliveryDetail(x, kick);
+  } else if (t === 'check') {
+    html = checkDetail(x, kick);
+  } else if (t === 'money') {
+    html = kick(x.kind === 'charge' ? 'Card or bank alert' : 'Receipt') + `<h2>${esc(x.merchant || x.from_name)}</h2>
+      <dl class="facts">${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Subject</dt><dd>${esc(x.subject)}</dd><dt>From</dt><dd>${esc(x.from_addr)}</dd><dt>Date</dt><dd>${when(x.date)}</dd></dl>
+      <div class="quote">${esc(x.snippet || '')}</div><div class="actions">${x.link ? `<a class="btn" href="${esc(x.link)}" target="_blank" rel="noopener">Open</a>` : ''}</div>`;
+  }
+  // Keep a half-written reply, and the cursor, when the board refreshes underneath.
+  const focused = document.activeElement?.id === 'r-text';
+  const pos = focused ? document.activeElement.selectionStart : null;
+  const fromVal = $('r-from')?.value;
+  el.innerHTML = html;
+  if (fromVal && $('r-from')) $('r-from').value = fromVal;
+  if (focused && $('r-text')) { $('r-text').focus(); $('r-text').selectionStart = $('r-text').selectionEnd = pos; }
+}
+
+// ---------- render everything
+function render() {
+  if (!S) return;
+  renderShell();
+  ({ now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, inbox: renderInbox, money: renderMoney, notes: renderNotes })[page]();
+  document.body.dataset.page = page;
+  syncConvo();
+  $('term-host').hidden = page !== 'sessions' || !currentTerm;
+  $('term-bar').hidden = page !== 'sessions' || !currentTerm;
+  $('term-compose').hidden = page !== 'sessions' || !currentTerm;
+  renderImages();
+  renderAccountPrompts();
+  if (page === 'sessions') { syncTerminal(); renderTermCompose(); } else closeTerminal();
+  renderDetail();
+  renderWindows();
+}
+
+function renderWindows() {
+  const wins = S.windows.filter((w) => project === 'all' || w.space === project);
+  $('windows').innerHTML = wins.map((w) => row({ type: 'window', key: String(w.id), space: w.space || 'personal', title: w.folder || w.app, sub: w.title, via: w.app, cls: w.active ? 'active-win' : '' })).join('') || empty('No windows for this project.');
+}

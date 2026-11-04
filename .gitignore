@@ -1,0 +1,7 @@
+node_modules/
+*.db
+*.db-*
+.wrangler/
+
+# private working copies of helper agents (git worktrees)
+.claude/worktrees/
