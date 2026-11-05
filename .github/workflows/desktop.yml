@@ -96,7 +96,7 @@ jobs:
 
       # This Node is the one the app ships (desktop/scripts/stage.mjs copies it),
       # and the one that installs node-pty for it.
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
