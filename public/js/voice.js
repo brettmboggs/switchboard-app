@@ -71,16 +71,34 @@ function startBrowserSpeech(btn, target) {
   const sink = dictSink(target); if (!sink) return false;
   const r = new Speech();
   r.continuous = true; r.interimResults = true; r.lang = navigator.language || 'en-US';
-  let finals = '';
+  let finals = '', heard = false, done = false;
+  // Stopping never waits on the browser: some never send "ended" after an
+  // error, which left the button orange with no way to turn it off.
+  const finish = () => {
+    if (done) return; done = true;
+    clearTimeout(watchdog);
+    btn.classList.remove('on'); if (rec?.r === r) rec = null; sink.end();
+  };
+  const refused = (msg) => { try { r.abort(); } catch {} finish(); toast(msg, { kind: 'error' }); };
+  r.onstart = r.onaudiostart = () => { heard = true; };
   r.onresult = (e) => {
+    heard = true;
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finals += t; else interim += t; }
     sink.set((finals + interim).replace(/\s+([,.?!])/g, '$1'));
   };
-  r.onerror = (e) => { if (e.error === 'not-allowed') toast('Allow the microphone for Switchboard to talk to type.'); else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('This browser could not do talk to type. Set it up in Settings, General.'); };
-  r.onend = () => { btn.classList.remove('on'); if (rec?.r === r) rec = null; sink.end(); };
-  try { r.start(); } catch { sink.end(); return false; }
-  rec = { btn, r, target, stop() { try { r.stop(); } catch {} } };
+  r.onerror = (e) => {
+    if (e.error === 'aborted' || e.error === 'no-speech') return;
+    if (e.error === 'not-allowed' || e.error === 'audio-capture') { try { r.abort(); } catch {} finish(); toast('Switchboard could not use the microphone. Allow it for Switchboard (on a Mac: System Settings, Privacy & Security, Microphone), then click the mic again.', { kind: 'error' }); return; }
+    if (e.error === 'network') { try { r.abort(); } catch {} finish(); toast('Live talk to type needs the internet and could not reach its speech service. Check the connection and click the mic again.', { kind: 'error' }); return; }
+    refused(`Live talk to type was turned down by this window's speech service (${e.error}). On a Mac, check System Settings, Privacy & Security, Speech Recognition, then click the mic again.`);
+  };
+  r.onend = finish;
+  // Nothing started within a few seconds: the speech service is not answering.
+  const watchdog = setTimeout(() => { if (!heard) refused('Live talk to type did not start: this window\'s speech service did not answer. Click the mic to try again.'); }, 4000);
+  try { r.start(); } catch { clearTimeout(watchdog); sink.end(); return false; }
+  // The last words still arrive after stop(): give them a moment, then finish anyway.
+  rec = { btn, r, target, stop() { try { r.stop(); } catch {} btn.classList.remove('on'); if (rec?.r === r) rec = null; setTimeout(finish, 1500); } };
   btn.classList.add('on'); target.focus();
   return true;
 }

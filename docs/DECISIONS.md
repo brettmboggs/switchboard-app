@@ -546,3 +546,12 @@ staged server when APPLE_SIGNING_IDENTITY is set; for that the workflow puts
 the certificate in its own keychain before tauri build and stops handing
 APPLE_CERTIFICATE to Tauri, since an identity found in two keychains is
 refused as ambiguous.
+
+Live talk to type no longer trusts the browser to say it has stopped (Nov 5
+2026). In the Mac app the webview has the speech object but refused to run it,
+and never sent "ended", so the mic stayed orange and could not be turned off.
+The button now turns off on click whatever the browser does; a refusal, or
+nothing starting within 4 seconds, ends it with a plain message; it does not
+switch to Whisper on its own (Brett's call: that is a 500 MB download). The app's
+Info.plist now asks for speech recognition permission, which Apple's speech
+service needs inside an app.

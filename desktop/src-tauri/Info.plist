@@ -4,6 +4,8 @@
 <dict>
   <key>NSMicrophoneUsageDescription</key>
   <string>Talk to type: Switchboard turns what you say into text on this computer.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Talk to type: live mode uses Apple's speech recognition to turn what you say into text.</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>Switchboard lists your open windows and brings the right one to the front.</string>
 </dict>
