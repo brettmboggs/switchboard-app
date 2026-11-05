@@ -537,3 +537,12 @@ then the draft goes to Trash; Discard moves it to Trash, never deletes it. A
 read that fails while drafts change is tried once more; until a read works the
 list is the last one read, so a draft deleted in Gmail can stay up to a
 couple of minutes.
+
+Mac signing signs node-pty's native files itself (Nov 5 2026): Apple's
+notarization refused the first signed build because pty.node and spawn-helper,
+which ride among the app's resources, were unsigned, and Tauri signs only the
+app and its sidecar. desktop/scripts/stage.mjs signs every Mach-O file in the
+staged server when APPLE_SIGNING_IDENTITY is set; for that the workflow puts
+the certificate in its own keychain before tauri build and stops handing
+APPLE_CERTIFICATE to Tauri, since an identity found in two keychains is
+refused as ambiguous.

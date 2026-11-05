@@ -14,7 +14,7 @@
 //
 // TAURI_ENV_TARGET_TRIPLE (set by the Tauri CLI) picks the target; without it, this machine.
 import { execFileSync } from 'node:child_process';
-import { cpSync, rmSync, mkdirSync, copyFileSync, chmodSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, rmSync, mkdirSync, copyFileSync, chmodSync, existsSync, readdirSync, writeFileSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +70,27 @@ const build = join(pty, 'build');
 if (existsSync(build)) for (const d of readdirSync(build)) if (d !== 'Release') rmSync(join(build, d), { recursive: true, force: true });
 const release = join(build, 'Release');
 if (existsSync(release)) for (const f of readdirSync(release)) if (!/\.node$|^spawn-helper$/.test(f)) rmSync(join(release, f), { recursive: true, force: true });
+
+// ---- 3. Mac: sign the native files inside the server (node-pty's addon and its
+// spawn-helper). Tauri signs the app and Node, but not files among the resources,
+// and Apple's notarization refuses an app with any unsigned Mach-O file in it.
+// Runs only on a Mac build with APPLE_SIGNING_IDENTITY set (CI, with the
+// certificate already in a keychain: see .github/workflows/desktop.yml).
+const identity = process.env.APPLE_SIGNING_IDENTITY;
+if (os === 'darwin' && process.platform === 'darwin' && identity && identity !== '-') {
+  const MACHO = new Set(['feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', 'cafebabe', 'bebafeca']);
+  const isMachO = (f) => {
+    const b = Buffer.alloc(4), fd = openSync(f, 'r');
+    try { return readSync(fd, b, 0, 4, 0) === 4 && MACHO.has(b.toString('hex')); } finally { closeSync(fd); }
+  };
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+    const p = join(d, e.name);
+    return e.isDirectory() ? walk(p) : e.isFile() && isMachO(p) ? [p] : [];
+  });
+  const files = walk(OUT);
+  for (const f of files) execFileSync('codesign', ['--force', '--options', 'runtime', '--timestamp', '--sign', identity, f], { stdio: 'inherit' });
+  console.log(`Signed ${files.length} native file(s) in the server for notarization.`);
+}
 
 writeFileSync(join(OUT, 'STAGED'), `${target}\n`);
 console.log(`Staged in ${OUT}`);
