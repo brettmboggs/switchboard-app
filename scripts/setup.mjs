@@ -1,5 +1,6 @@
 // npm run setup     makes Switchboard part of this computer
-// npm run uninstall takes it all out again
+// npm run uninstall takes it all out again (Settings, General, Remove Switchboard
+// runs the same: `parts` then `service`, see lib/uninstall.js)
 //
 //   1. Claude Code hooks in ~/.claude/settings.json (the first run keeps a backup)
 //   2. start at login, and restart if it stops:
@@ -317,6 +318,11 @@ if (mode === 'hooks') { hooks(true); process.exit(0); }
 if (mode === 'browser') { try { browser(process.argv[3] !== 'remove'); process.exit(0); } catch (err) { console.error('error ' + err.message); process.exit(1); } }
 // The installed app (desktop/sidecar/start.mjs): hooks and MCP only; the app is its own launcher and login item.
 if (mode === 'app') { hooks(true); mcp(true); process.exit(0); }
+// Remove Switchboard (lib/uninstall.js): everything but the login service first,
+// while the server is still there to say how it went; the service, which stops
+// the server, goes last.
+if (mode === 'remove-parts') { hooks(false); mcp(false); browser(false); if (process.argv[3] !== 'app') ({ linux: linuxLauncher, darwin: macLauncher, win32: winLauncher }[OS])?.(false); process.exit(0); }
+if (mode === 'remove-service') { ({ linux: linuxService, darwin: macService, win32: winService }[OS])?.(false); process.exit(0); }
 if (mode === 'voice') {
   voice().then(() => process.exit(0), (err) => { console.error('error ' + err.message); process.exit(1); });
 } else {
@@ -325,6 +331,6 @@ const launcher = { linux: linuxLauncher, darwin: macLauncher, win32: winLauncher
 if (!service) { console.log(`Switchboard has no installer for ${OS} yet. Run it with: npm start`); process.exit(1); }
 
 if (mode === 'install') { hooks(true); upstream(); service(true); launcher(true); mcp(true); console.log('\nOpen Switchboard from your apps, or go to http://127.0.0.1:4747'); }
-else if (mode === 'remove') { hooks(false); service(false); launcher(false); mcp(false); browser(false); }
+else if (mode === 'remove') { hooks(false); launcher(false); mcp(false); browser(false); service(false); }
 else console.log('Usage: node scripts/setup.mjs install|remove|hooks|voice|mcp|browser [remove]');
 }

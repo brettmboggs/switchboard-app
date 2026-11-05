@@ -50,7 +50,7 @@ test('MCP: handshake, tools, reading and posting', async () => {
     assert.equal(init.result.serverInfo.name, 'switchboard');
     const list = await c.call('tools/list', {});
     const names = list.result.tools.map((t) => t.name);
-    for (const n of ['switchboard_overview', 'switchboard_add', 'switchboard_sessions', 'switchboard_send_to_session', 'switchboard_actions', 'switchboard_projects', 'switchboard_checks', 'switchboard_add_check']) assert.ok(names.includes(n), n);
+    for (const n of ['switchboard_overview', 'switchboard_add', 'switchboard_sessions', 'switchboard_send_to_session', 'switchboard_actions', 'switchboard_projects', 'switchboard_checks', 'switchboard_add_check', 'switchboard_notes']) assert.ok(names.includes(n), n);
     assert.ok(list.result.tools.every((t) => !('run' in t) && t.inputSchema.type === 'object'));
 
     const ov = (await c.call('tools/call', { name: 'switchboard_overview', arguments: {} })).result.content[0].text;

@@ -246,7 +246,7 @@ document.addEventListener('click', (e) => {
     if (same && tv.ws && tv.ws.readyState !== 1) closeTerminal();
     render(); return;
   }
-  if (e.target.closest('[data-new-term]')) { openNewTerm(); return; }
+  if (e.target.closest('[data-new-term]')) { ntDraft = null; openNewTerm(); return; }
   const qa = e.target.closest('[data-qact]');
   if (qa) { queueAct(qa.dataset.qact, qa); return; }
   const qi = e.target.closest('[data-qa]');

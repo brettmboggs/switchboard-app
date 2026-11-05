@@ -149,7 +149,7 @@ async function bcOpen(c) {
   bcSetKind(c?.kind || bcKind);
   openDialog('bc-scrim');
   (bcKind === 'tests' ? $('bc-folder') : $('bc-url')).focus();
-  api('/api/folders').then((list) => { $('bc-folders').innerHTML = list.filter((f) => !f.copyOf).map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join(''); }).catch(() => {});
+  api('/api/folders').then((list) => { $('bc-folders').innerHTML = list.filter((f) => !f.copyOf && !f.hidden).map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join(''); }).catch(() => {});
 }
 
 document.addEventListener('click', async (e) => {

@@ -569,3 +569,23 @@ until no session is open), because a restart there would cut it off. Tagged
 releases are published by the workflow once every installer is built, instead
 of waiting as a draft for someone to press Publish: CI and the build already
 gate them, and the wait only held updates back.
+
+Removing Switchboard is a button (Settings, General, Nov 5 2026), not an
+uninstaller package. A Mac app is removed by dragging it to the Trash, and Windows
+already lists the app in Add or remove programs; what neither of those undoes is
+what Switchboard added outside itself (Claude hooks, agents' MCP entries, start at
+login, the data folder). The button undoes those through the same
+scripts/setup.mjs that put them in, the login service last because it stops the
+server. Exit code 76 means "removed, stay stopped" to every supervisor. A copy on
+another port refuses, so a test copy can never strip the real setup.
+
+What belongs to a project is two layers (Nov 5 2026). Each thing keeps one
+main project from the rules (lib/spaces.js), because every server-side list,
+the stored mail rows and sync already sort by it. On top, lib/belongs.js holds
+"also belongs" rows (repo, person, domain, chat, page, section of a page), and
+the page counts a thing in a project when either says so (core.js inSpace).
+Filing something from Unsorted or Add that has no project yet writes a rule, so
+it is sorted everywhere at once; anything else becomes an also-belongs row.
+Hide is a list of keys (lib/hidden.js): nothing is deleted from the computer or
+the mail. Ctrl K's note and sesh list their targets in the search results
+instead of opening a second dialog, so arrows, Enter and clicks work as before.

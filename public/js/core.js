@@ -157,7 +157,32 @@ const plainLine = (t) => String(t || '')
   .replace(/<(task-id|tool-use-id|output-file|status)>[^<]*<\/\1>/g, '')   // a background task's ids
   .replace(/<\/?(pasted_content|task-notification|summary|result|system-reminder|command-[a-z]+)\b[^>]*>/g, ' ')
   .replace(/\s+/g, ' ').trim();
-const inProject = (x) => project === 'all' || x.space === project;
+// A thing is in a project when that is its main project (x.space, from the
+// rules) or it also belongs there (S.belongs, lib/belongs.js). keysOf says what
+// a thing answers to: its repo, the person or domain it is from, its chat, its page.
+function keysOf(x) {
+  const k = [];
+  if (!x || typeof x !== 'object') return k;
+  if (x.uid && 'title' in x) k.push('page:' + x.uid);
+  if (x.cwd) k.push('repo:' + String(x.cwd).split(/[\\/]/).filter(Boolean).pop());
+  if (typeof x.repo === 'string' && x.repo) k.push('repo:' + x.repo.split('/').pop());
+  if (typeof x.key === 'string' && x.key.startsWith('teams:')) k.push('chat:' + x.key);
+  for (const a of [x.from, x.who]) {
+    const m = String(a || '').toLowerCase().match(/[^\s<>"',]+@([^\s<>"',]+)/);
+    if (m) { k.push('person:' + m[0], 'domain:@' + m[1]); break; }
+  }
+  return k;
+}
+let belongsMap = null, belongsFrom = null;
+function alsoIn(x) {
+  if (!S?.belongs?.length) return null;
+  if (belongsFrom !== S.belongs) { belongsMap = new Map(); for (const b of S.belongs) { if (!belongsMap.has(b.key)) belongsMap.set(b.key, new Set()); belongsMap.get(b.key).add(b.space); } belongsFrom = S.belongs; }
+  let out = null;
+  for (const k of keysOf(x)) for (const sp of belongsMap.get(k) || []) (out ||= new Set()).add(sp);
+  return out;
+}
+const inSpace = (x, id) => x.space === id || !!alsoIn(x)?.has(id);
+const inProject = (x) => project === 'all' || inSpace(x, project);
 // Lists are filtered from their own page's head, not the rail: one small
 // picker, "All projects" unless one is picked (it is remembered).
 const projectPicker = () => `<label class="proj-filter${project === 'all' ? '' : ' on'}"><span class="sr">Show project</span><select class="field field--sm" data-filter-project>
@@ -242,7 +267,7 @@ function inboxCount(space = 'all') {
 // [id, name, parent]: a page with a parent is one of that page's tabs, not on
 // the rail. Sessions has tabs for builds and browser checks; more kinds of
 // session (a plain chat with your account, a desktop worker) slot in here later.
-const PAGES = [['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes']];
+const PAGES = [['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes'], ['unsorted', 'Unsorted', 'unsorted']];
 const PAGE_MOVED = { actions: 'builds' };   // old links keep working
 // Pages with no place on the rail: opened from another page, which stays lit
 // on the rail while they show. Calendar opens from Now's Today line (Nov 4).
@@ -271,6 +296,8 @@ function renderShell() {
       html += `<a class="space" href="#project/${esc(s.id)}" ${page === 'project' && openProject === s.id ? 'aria-current="page"' : ''}><span class="dot" style="background:${safeColor(s.color)}"></span>${esc(s.name)}<span class="n">${needsCount(s.id) || ''}</span></a>`;
     }
   }
+  // Unsorted: what has no project yet (public/js/unsorted.js); the count is how many.
+  html += `<a class="space space--unsorted" href="#unsorted" ${page === 'unsorted' ? 'aria-current="page"' : ''}>Unsorted<span class="n">${S.unsorted || ''}</span></a>`;
   $('projects').innerHTML = html;
   updateWhatsNew();
 

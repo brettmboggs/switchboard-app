@@ -58,6 +58,9 @@
 .toggles + .toggles { margin-top: 8px; }
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px; font-size: var(--fs-md); cursor: pointer; }
 .toggle + .toggle { border-top: 1px solid var(--border-faint); }
+/* Text and button rows inside a toggle group (About, Remove) sit in the same rhythm as the toggles. */
+.toggles > .form-row, .toggles > .acct-line { padding: var(--sp-3) var(--sp-4); margin: 0; }
+.toggles > * + * { border-top: 1px solid var(--border-faint); }
 .toggle input { appearance: none; width: 40px; height: 24px; border-radius: var(--r-pill); background: var(--border); position: relative; cursor: pointer; transition: background .15s; flex: none; margin: 0; }
 .toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--knob); transition: transform .15s; box-shadow: var(--shadow-1); }
 .toggle input:checked { background: var(--accent); }

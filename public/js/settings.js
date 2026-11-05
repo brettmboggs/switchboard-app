@@ -315,7 +315,7 @@ function renderVoice() {
     : `<button class="btn" type="button" id="voice-setup">Set up</button><span class="acct-line ${v.error ? 'bad-text' : ''}">${v.error ? esc(v.error) : 'One-time download, about 500 MB. Speech stays on this computer.'}</span>`;
 }
 function renderLook() {
-  renderVoice(); renderWeatherSet(); renderAbout();
+  renderVoice(); renderWeatherSet(); renderAbout(); if (!$('remove-row')?.childElementCount) renderRemove();
   document.querySelectorAll('.seg[data-pref]').forEach((g) => {
     const v = String(SET.prefs[g.dataset.pref]);
     g.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.value === v));

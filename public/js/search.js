@@ -56,12 +56,13 @@ function cmdLoadEvents() {
 function drawCmdResults() {
   const host = $('cmd-results');
   if (!host) return;
-  host.innerHTML = cmdHits.map((r, i) => `<li><button type="button" class="cmd-hit ${i === cmdSel ? 'sel' : ''}" data-cmd-hit="${i}">${r.space ? tag(r.space) : '<span></span>'}<span class="k">${r.type === 'convo' ? convoLabel(r.kind) : CMD_LABEL[r.type] || ''}</span><span class="t">${esc(r.title)}${r.line && r.line !== r.title ? `<span class="muted"> · ${esc(r.line)}</span>` : ''}</span></button></li>`).join('');
+  host.innerHTML = cmdHits.map((r, i) => `<li><button type="button" class="cmd-hit ${i === cmdSel ? 'sel' : ''}" data-cmd-hit="${i}">${r.space ? tag(r.space) : '<span></span>'}<span class="k">${r.type === 'convo' ? convoLabel(r.kind) : r.type === 'target' ? (r.act === 'sesh' ? 'Send to' : r.act === 'note-page' ? 'Add to' : '') : CMD_LABEL[r.type] || ''}</span><span class="t">${esc(r.title)}${r.line && r.line !== r.title ? `<span class="muted"> · ${esc(r.line)}</span>` : ''}</span></button></li>`).join('');
   host.hidden = !cmdHits.length;
 }
 
 function cmdOpen(r) {
   closeDialog('cmd-scrim');
+  if (r.type === 'target') return runTarget(r);
   if (r.type === 'term') return openTerm(r.key);
   if (r.type === 'event') {
     const day = new Date(r.start); day.setHours(0, 0, 0, 0);
@@ -93,6 +94,9 @@ function cmdPick() { if (cmdSel < 0 || !cmdHits[cmdSel]) return false; cmdOpen(c
 $('cmd-input').addEventListener('input', (e) => {
   const q = e.target.value.trim();
   clearTimeout(cmdTimer);
+  // "note …" and "sesh …" list where it can go instead (cmdtarget.js).
+  if (cmdTargets(q)) return;
+  const to = captureSpace(); $('cmd-hint').textContent = to === 'all' ? '' : `Goes to ${spaceOf(to).name} unless you add @project`;
   if (q.length < 2) { cmdHits = []; cmdSel = -1; drawCmdResults(); return; }
   cmdTimer = setTimeout(async () => {
     const r = await api('/api/search?all=1&q=' + encodeURIComponent(q)).catch(() => ({ results: [], convos: [] }));

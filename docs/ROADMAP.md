@@ -318,6 +318,14 @@ Open, in order:
   links stay links, no stored client passwords.
   Filtering a list by project moved to a picker in the head of Now, Sessions,
   Builds, Inbox, Money and Notes. Ctrl K files into the open project's page.
+- What belongs to a project (Nov 5, Brett): In this project on each project's
+  page (repos, people, addresses, chats, pages and sections; Add searches
+  everything; many projects per thing; a note tied to one repo), Unsorted with
+  Hide (folders that are not repos, forks and agents' copies told apart in the
+  folder picker), notes beside sessions and switchboard_notes for agents, and
+  Ctrl K note / sesh with a picked target. Next, when wanted: the same target
+  pattern for mail, event and bill; drag from Unsorted onto a project on the
+  rail; Brett to tweak the look once his real data is in it.
 - Sessions (Nov 4): End is on the bar and asks once in place, with no timer;
   Stop says what it does and is grey when there is nothing to stop. A session
   stays Working while its helpers (sub-agents) run and says so, and is Your

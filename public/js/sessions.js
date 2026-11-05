@@ -318,7 +318,7 @@ function termDetail() {
   const t = termByKey(currentTerm);
   if (!t) return `${allTerms().length ? sessionLines() : ''}<div class="lines-empty"><h2>Claude, inside Switchboard</h2><p class="muted">Start a session and it shows here: type in the terminal like always, or queue messages so they go in when Claude is free.</p></div>`;
   const rename = renaming === t.key ? `<form class="rename-form" id="rename-form"><label for="rename-input" class="sr">Session name</label><input id="rename-input" type="text" maxlength="60" value="${esc(renameVal ?? (t.named ? t.name : ''))}" placeholder="${esc(termLabel(t))}" autocomplete="off"><button class="btn btn--primary" type="submit">Save</button><button class="btn" type="button" data-rename-cancel>Cancel</button></form>` : '';
-  return rename + sessionLines() + sessionMessages(t);
+  return rename + sessionLines() + sessionMessages(t) + sessionNotes(t);
 }
 
 // End session: End on the bar, then "End it" in the same place. The question
@@ -576,10 +576,14 @@ const ntAgent = () => ntAgents.find((a) => a.id === $('nt-agent').value) || {};
 async function openNewTerm() {
   const [list, agents] = await Promise.all([api('/api/folders'), api('/api/agents')]);
   ntAgents = agents;
-  // Your folders first; the agents' side copies of a repo (git worktrees) in a group of their own at the end.
-  const mains = list.filter((f) => !f.copyOf), copies = list.filter((f) => f.copyOf);
-  $('nt-folder').innerHTML = mains.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join('')
-    + (copies.length ? `<optgroup label="Agents' work copies (${copies.length})">${copies.map((f) => `<option value="${esc(f.path)}">${esc(f.name)} · copy of ${esc(f.copyOf)}</option>`).join('')}</optgroup>` : '');
+  // Your repos first; folders that are not repos, then the agents' side copies of a repo (git worktrees),
+  // each in a group of their own. Hidden ones (Unsorted, Hide) are left out.
+  const shown = list.filter((f) => !f.hidden);
+  const mains = shown.filter((f) => f.kind === 'repo' || (!f.kind && !f.copyOf)), plain = shown.filter((f) => f.kind === 'none'), copies = shown.filter((f) => f.copyOf);
+  const opt = (f, note) => `<option value="${esc(f.path)}">${esc(f.name)}${note ? ' · ' + esc(note) : ''}</option>`;
+  $('nt-folder').innerHTML = mains.map((f) => opt(f, f.fork ? 'fork' : f.others ? 'from ' + f.owner : '')).join('')
+    + (plain.length ? `<optgroup label="Folders that are not repos (${plain.length})">${plain.map((f) => opt(f)).join('')}</optgroup>` : '')
+    + (copies.length ? `<optgroup label="Agents' work copies (${copies.length})">${copies.map((f) => opt(f, 'copy of ' + f.copyOf)).join('')}</optgroup>` : '');
   $('nt-agent').innerHTML = agents.map((a) => `<option value="${esc(a.id)}" ${a.installed ? '' : 'disabled'}>${esc(a.name)}${a.installed ? '' : ' (not installed)'}</option>`).join('');
   $('nt-agent').value = store.get('lastAgent', 'claude');
   if ($('nt-agent').selectedOptions[0]?.disabled) $('nt-agent').value = 'claude';
@@ -628,6 +632,8 @@ $('newterm-form').addEventListener('submit', async (e) => {
     mem[ntKey()] = { model: picked, long, effort };
     store.set('ntChoices', mem);
     const r = await api('/api/terms', { cwd: $('nt-folder').value, agent, command: $('nt-command').value, model: picked + (long ? a.long : ''), effort });
+    // A message from Ctrl K "sesh … → New session" waits in its box (cmdtarget.js).
+    if (ntDraft) { draft['term:' + r.id] = ntDraft; ntDraft = null; }
     closeDialog('newterm-scrim'); openTerm(r.id); await load();
   } catch (err) { $('nt-msg').textContent = err.message; }
 });

@@ -349,6 +349,21 @@ everywhere. The page builds its skeleton once and updates it in place, so a
 refresh never interrupts a hover, a scroll or typing. `prefers-reduced-motion`
 turns the transitions and the live dot's pulse off.
 
+**In this project and Unsorted** (`members.css`, `public/js/members.js`,
+`public/js/unsorted.js`). A project's page opens with `.mb-card`: three
+columns of kinds (Repos and folders · People and mail · Notes), each a stack
+of `.mb-tile`s on white with a mono icon square (`.mb-ico`: gh, @, initials, ¶
+for a page, § for a section). The name is 600 and the line under it says what
+the thing is and what it brings. A dashed `.mb-add` sits at the foot of each
+column. × to take a thing out shows on hover (always on touch). A note's tile
+has a small select for which repo's sessions it shows in. Add opens the Ctrl K
+palette's box with its own results, so finding things looks the same
+everywhere. Unsorted is one card of `.us-row`s: icon, name and line, the likely
+project as a bold pill (`.us-target.sug`), the two most used as plain pills,
+Other… and a quiet Hide. The "folders that are not repos" offer is an info-blue
+`.us-tip`: blue, never orange, since sorting never needs you. The rail's
+Unsorted count is muted for the same reason.
+
 **File links and the reader** (`fileview.css`, `public/js/fileview.js`). A
 file name an agent writes in the chat that exists on this computer is
 `.file-link`: console blue (`--con-info-2`) with a dotted underline that goes

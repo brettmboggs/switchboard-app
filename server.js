@@ -30,6 +30,9 @@ import { route as calendarRoutes } from './lib/routes/calendar.js';
 import { route as googleRoutes } from './lib/routes/google.js';
 import { route as inboxRoutes } from './lib/routes/inbox.js';
 import { route as projectRoutes } from './lib/routes/projects.js';
+import { route as sortingRoutes } from './lib/routes/sorting.js';
+import { belongsAll } from './lib/belongs.js';
+import { unsortedCount } from './lib/sorting.js';
 import { route as costRoutes } from './lib/routes/costs.js';
 import { recurringGuesses } from './lib/costs.js';
 import { pollLocalAI } from './lib/localai.js';
@@ -44,7 +47,7 @@ import { pollFeeds, reading, feeds } from './lib/feeds.js';
 import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
-const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, costRoutes, feedRoutes, taskRoutes, fileRoutes, localFileRoutes, draftRoutes];
+const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, costRoutes, feedRoutes, taskRoutes, fileRoutes, localFileRoutes, draftRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)
@@ -115,7 +118,7 @@ async function boardState() {
   const windows = await listWindows();
   return {
     now,
-    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, voice: voiceState(), agents: agentsNow(),
+    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, belongs: belongsAll(), unsorted: unsortedCount(), voice: voiceState(), agents: agentsNow(),
     webhooks: webhookList().length,
     deliveries: deliveriesForBoard(),
     routines: routines(),

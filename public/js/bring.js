@@ -85,7 +85,7 @@ function bringList(t) {
   const q = bringQ.trim().toLowerCase();
   if (q) list = list.filter((x) => bringHay(x).includes(q));
   const everything = t.space === 'personal';
-  const mine = everything ? list : list.filter((x) => x.space === t.space);
+  const mine = everything ? list : list.filter((x) => inSpace(x, t.space));
   const rest = everything ? [] : list.filter((x) => x.space !== t.space);
   const name = esc(spaceOf(t.space).name);
   const top = mine.length ? mine.slice(0, q ? 30 : 15).map((x) => bringRow(x, t)).join('')
@@ -146,7 +146,7 @@ function sessionMessages(t) {
   if (!t || t.remote) return '';
   const name = spaceOf(t.space).name;
   const hidden = msgHidden();
-  const all = bringAllThreads().filter((x) => t.space === 'personal' || x.space === t.space);
+  const all = bringAllThreads().filter((x) => t.space === 'personal' || inSpace(x, t.space));
   const list = all.filter((x) => !(hidden[x.key] >= x.date)).sort((a, b) => b.date - a.date).slice(0, 6);
   const gone = all.length - all.filter((x) => !(hidden[x.key] >= x.date)).length;
   return `<section class="ses-msgs" aria-label="Messages for ${esc(name)}"><div class="ses-msgs-head"><h3 class="kicker">Messages · ${esc(name)}</h3><span>${list.length ? `<button class="btn btn--ghost btn--sm" type="button" data-msg-clear title="Hide all of these until someone writes again">Clear all</button>` : ''}<button class="btn btn--ghost btn--sm" type="button" data-bring-open>All</button></span></div>

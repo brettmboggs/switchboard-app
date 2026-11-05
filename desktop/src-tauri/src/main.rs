@@ -119,6 +119,8 @@ fn supervise(app: AppHandle) {
                 return;
             }
             if code == Some(75) { fails = 0; continue; }
+            // 76: removed from this computer (lib/uninstall.js): stay stopped.
+            if code == Some(76) { return; }
             fails = if began.elapsed() > Duration::from_secs(60) { 0 } else { fails + 1 };
             sleep(Duration::from_secs((2 * fails as u64).min(30)));
         }
@@ -242,6 +244,22 @@ fn watch_updates(app: AppHandle) {
     });
 }
 
+// Remove Switchboard, in the app: the server has already taken its hooks and
+// tools out of the coding agents. Turn off start at login, stop the server,
+// delete the data folder (and the app's own window and login notes) if asked,
+// and quit. The app itself goes to the Trash by hand.
+fn finish_removal(app: &AppHandle, data: bool) {
+    let _ = app.autolaunch().disable();
+    stop_server(app);
+    if data {
+        let dir = std::env::var_os("SWITCHBOARD_DATA").map(PathBuf::from)
+            .or_else(|| app.path().home_dir().ok().map(|h| h.join(".local").join("share").join("switchboard")));
+        if let Some(dir) = dir { let _ = fs::remove_dir_all(dir); }
+        if let Ok(dir) = app.path().app_config_dir() { let _ = fs::remove_dir_all(dir); }
+    }
+    app.exit(0);
+}
+
 fn first_run_marker(app: &AppHandle) -> Option<PathBuf> {
     let dir = app.path().app_config_dir().ok()?;
     fs::create_dir_all(&dir).ok()?;
@@ -281,6 +299,8 @@ fn main() {
                 .on_navigation(move |url| {
                     // Ctrl+Q on the page: the same as Quit in the tray.
                     if ours(url) && url.path() == "/app/quit" { stop_server(&quitter); quitter.exit(0); return false; }
+                    // Remove Switchboard's last step (public/js/remove.js, lib/uninstall.js).
+                    if ours(url) && url.path() == "/app/remove" { finish_removal(&quitter, url.query() == Some("data=1")); return false; }
                     if ours(url) { return true; }
                     let _ = opener.opener().open_url(url.as_str(), None::<&str>);
                     false

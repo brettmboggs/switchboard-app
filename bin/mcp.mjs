@@ -91,6 +91,23 @@ const TOOLS = [
     async run() { const s = await sb('/api/state'); return s.spaces.map((x) => `- ${x.name}${x.group ? ` (${x.group})` : ''}`).join('\n'); }
   },
   {
+    name: 'switchboard_notes',
+    title: 'The user\'s notes for this work',
+    description: 'The notes the user keeps for a project or repo in Switchboard (pages and sections of pages, with their checkboxes as - [ ] and - [x]): plans, to-dos, decisions. Give folder (the folder you work in) or project (a project name). Read-only.',
+    inputSchema: { type: 'object', properties: { folder: { type: 'string', description: 'The folder you are working in (your current directory)' }, project: { type: 'string', description: 'A project name from switchboard_projects' } }, additionalProperties: false },
+    annotations: { readOnlyHint: true },
+    async run({ folder = '', project = '' } = {}) {
+      const q = new URLSearchParams({ ...(folder ? { cwd: folder } : {}), ...(project ? { project } : {}) });
+      const list = await sb('/api/notes-for?' + q);
+      if (!list.length) return 'No notes are tied to this project or repo. The user ties them on the project\'s page in Switchboard (In this project).';
+      const out = [];
+      for (const n of list.slice(0, 6)) {
+        try { const t = await sb(`/api/note-text?uid=${encodeURIComponent(n.uid)}${n.section ? '&section=' + encodeURIComponent(n.section) : ''}`); out.push(`# ${t.title}${t.section ? ' → ' + t.section : ''}\n${t.text.slice(0, 8000)}`); } catch {}
+      }
+      return out.join('\n\n') + (list.length > 6 ? `\n\n(${list.length - 6} more notes not shown.)` : '');
+    }
+  },
+  {
     name: 'switchboard_sessions',
     title: 'Agent sessions',
     description: 'Every agent session Switchboard runs, on this computer and the user\'s other computers: name, agent, state, repo and branch, queued messages. Read-only.',

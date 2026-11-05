@@ -22,14 +22,14 @@ function renderProject() {
   const id = openProject, sp = S.spaces.find((s) => s.id === id);
   if (!sp) { $('page').innerHTML = `<div class="page-head"><h1>Project</h1></div><section class="card">${empty('That project is gone. Projects are made and named in Settings, Projects.')}</section>`; return; }
   loadProjFiles(id);
-  const mine = (x) => x.space === id;
+  const mine = (x) => inSpace(x, id);
   const cards = flight().filter(mine).sort((a, b) => ((a.st === 'needs') ? 0 : 1) - ((b.st === 'needs') ? 0 : 1) || b.at - a.at);
   const threads = [...S.threads.filter(mine), ...S.email.filter(mine), ...S.recent.filter(mine)].filter((t, i, a) => a.findIndex((x) => x.key === t.key) === i).sort((a, b) => b.date - a.date).slice(0, 12);
   const terms = allTerms().filter(mine);
   const notes = (S.pages || []).filter(mine).sort((a, b) => b.updated_at - a.updated_at).slice(0, 8);
   const n = cards.filter((c) => c.st === 'needs').length;
   const section = (title, body, extra = '') => `<section class="card"><div class="group-head"><h2>${title}</h2>${extra}</div>${body}</section>`;
-  let left = section('In flight', cards.length ? nowRows(cards, { showProject: false }) : empty('Nothing in flight for this project.'), n ? `<span class="sum proj-needs">${n} need${n === 1 ? 's' : ''} you</span>` : '');
+  let left = membersCard(id) + section('In flight', cards.length ? nowRows(cards, { showProject: false }) : empty('Nothing in flight for this project.'), n ? `<span class="sum proj-needs">${n} need${n === 1 ? 's' : ''} you</span>` : '');
   left += section('Conversations', threads.length ? `<div class="list">${threads.map((t) => `<button class="item ${t.unread ? 'bold' : ''}" type="button" data-proj-thread="${esc(t.key)}"><span class="tag" style="background:${safeColor(sp.color)}"></span>
       <span><span class="t">${esc(t.who || t.from_name || t.from || '')}</span><br><span class="s">${esc(t.subject || t.snippet || '')}</span></span><span class="r"><span class="mono muted">${ago(t.date)}</span></span></button>`).join('')}</div>`
     : empty('Mail and chats sorted into this project show here. Sorting is set in Settings, Projects (rules such as an address or a domain).'));

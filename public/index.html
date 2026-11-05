@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="/css/components/keys.css">
 <link rel="stylesheet" href="/css/components/chart.css">
 <link rel="stylesheet" href="/css/components/fileview.css">
+<link rel="stylesheet" href="/css/components/members.css">
 <link rel="stylesheet" href="/css/pages/now.css">
 <link rel="stylesheet" href="/css/pages/rundown.css">
 <link rel="stylesheet" href="/css/pages/sessions.css">
@@ -97,12 +98,25 @@
     <ul class="cmd-results" id="cmd-results" hidden></ul>
     <ul class="examples">
       <li><span class="k">remind</span>fri 9am call the bank · in 2h check the deploy</li>
+      <li><span class="k">note</span>call Sam · pick the page, it goes at the bottom as a checkbox</li>
+      <li><span class="k">sesh</span>add a test · pick the session it goes to</li>
       <li><span class="k">todo</span>send the proposal by thu</li>
       <li><span class="k">invoice</span>Acme 1500 due fri</li>
       <li><span class="k">paid</span>Acme 1500 check</li>
       <li><span class="k">bill</span>Google Workspace 14 monthly on 6</li>
       <li><span class="k">anything</span>else is a note · add @work or any project to file it there</li>
     </ul>
+  </div>
+</div>
+
+<!-- Add to a project (public/js/members.js) -->
+<div class="scrim" id="mb-scrim" role="dialog" aria-modal="true" aria-labelledby="mb-title">
+  <div class="palette">
+    <h2 class="sr" id="mb-title">Add to this project</h2>
+    <label for="mb-q" class="sr">Search</label>
+    <input id="mb-q" type="text" placeholder="Search repos, people, chats, pages and sections" autocomplete="off" spellcheck="false">
+    <p class="hint" id="mb-hint"></p>
+    <ul class="cmd-results" id="mb-hits" hidden></ul>
   </div>
 </div>
 
@@ -333,6 +347,7 @@
         <div class="pref"><span class="field-label">Setup guide</span><div class="form-row"><button class="btn" type="button" id="open-welcome">Open the guide</button></div></div>
         <div class="pref"><span class="field-label">Opens on</span><div class="seg" data-pref="startPage"><button type="button" value="now">Now</button><button type="button" value="sessions">Sessions</button><button type="button" value="inbox">Inbox</button><button type="button" value="money">Money</button><button type="button" value="notes">Notes</button></div></div>
         <div class="pref" id="about-field"><span class="field-label">About</span><div class="toggles" id="about"></div></div>
+        <div class="pref" id="remove-field"><span class="field-label">Remove</span><div class="toggles" id="remove-row"></div></div>
       </section>
       <section class="pane" id="pane-system" hidden>
         <div class="sys-open">
@@ -388,6 +403,10 @@
 <script src="/js/googlecal.js"></script>
 <script src="/js/calendarform.js"></script>
 <script src="/js/project.js"></script>
+<script src="/js/members.js"></script>
+<script src="/js/unsorted.js"></script>
+<script src="/js/sessnotes.js"></script>
+<script src="/js/cmdtarget.js"></script>
 <script src="/js/costs.js"></script>
 <script src="/js/feeds.js"></script>
 <script src="/js/bring.js"></script>
@@ -399,6 +418,7 @@
 <script src="/js/nav.js"></script>
 <script src="/js/keys.js"></script>
 <script src="/js/settings.js"></script>
+<script src="/js/remove.js"></script>
 <script src="/js/connections.js"></script>
 <script src="/js/connlist.js"></script>
 <script src="/js/sysmon.js"></script>
