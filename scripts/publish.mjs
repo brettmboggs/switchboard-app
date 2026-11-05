@@ -20,8 +20,9 @@
 //   --message "..."                      the commit message (default: "Switchboard <version>")
 //   --help
 //
-// A release, start to end:  --version patch, commit, then --push --tag, then publish
-// the draft that .github/workflows/desktop.yml builds from the tag.
+// A release, start to end:  --version patch, commit, then --push --tag. The
+// desktop build (.github/workflows/desktop.yml) publishes the release itself once
+// every installer is built; installed apps then offer it.
 //
 // SWITCHBOARD_PUBLIC points at the public checkout (default ~/dev/switchboard-app).
 import { execFileSync } from 'node:child_process';
@@ -164,6 +165,6 @@ if (tag) {
   if (!existing) sh('git', ['-c', `user.name=${AUTHOR_NAME}`, '-c', `user.email=${AUTHOR_EMAIL}`, 'tag', '-a', tagName, '-m', `Switchboard ${version}`, head], { cwd: PUBLIC });
   sh('git', ['branch', '-f', STABLE, tagName], { cwd: PUBLIC });
   say(`${existing ? 'Kept' : 'Tagged'} ${tagName} and moved ${STABLE} to it.`);
-  if (push) { execFileSync('git', ['push', 'origin', `refs/tags/${tagName}`, `refs/heads/${STABLE}:refs/heads/${STABLE}`], { cwd: PUBLIC, stdio: 'inherit' }); say(`Pushed ${tagName} and ${STABLE}. The desktop build starts from the tag; publish its draft release when it is done.`); }
+  if (push) { execFileSync('git', ['push', 'origin', `refs/tags/${tagName}`, `refs/heads/${STABLE}:refs/heads/${STABLE}`], { cwd: PUBLIC, stdio: 'inherit' }); say(`Pushed ${tagName} and ${STABLE}. The desktop build starts from the tag and publishes the release when every installer is built (about 15 minutes).`); }
   else say(`Not pushed (add --push): git -C ${PUBLIC} push origin ${tagName} ${STABLE}`);
 }

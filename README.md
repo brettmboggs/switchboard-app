@@ -135,9 +135,15 @@ Each connection runs from your computer, straight to the service.
   (`sb-<folder>`, so `tmux attach -t sb-<folder>` works from any terminal),
   shown in the page through xterm.js over a WebSocket. On Windows they run
   directly in a pty.
-- **Updates:** every install is a git checkout. Switchboard checks every half
-  hour. **Update ready** pulls, installs, restarts (exit code 75 tells the
+- **Updates:** a git-checkout install checks GitHub every half hour.
+  **Update ready** pulls, installs, restarts (exit code 75 tells the
   supervisor to start it again) and reloads the page. tmux sessions keep running.
+  In the app, the app asks GitHub Releases every half hour and tells the server
+  what it found, so the same **Update ready** button shows; a click downloads
+  the new version, then the app restarts on it. Settings, About has **Check for
+  updates** and an optional switch to install updates on their own when no agent
+  is working (and, without tmux, when no session is open). Each tagged release is
+  published by itself once every installer has built.
 - **OS-specific code** lives only in `lib/desktop.js`, `lib/terminals.js`,
   `lib/sysprobe.js` (the System monitor) and `scripts/setup.mjs`. Everything else is the same on Linux, macOS and Windows.
 
@@ -271,7 +277,8 @@ Or download the installer for your computer from the
 [Releases page](https://github.com/brettmboggs/switchboard-app/releases) (Windows
 `.exe` or `.msi`, Mac `.dmg`, Linux `.deb` or `.AppImage`) and double-click it.
 The app brings its own Node and opens Switchboard in its own window. Closed, it
-sits in the tray. It starts at login and updates itself from GitHub Releases.
+sits in the tray. It starts at login and updates from GitHub Releases: the
+page's **Update ready** button shows when there is a new version, one click.
 If a git-checkout Switchboard is already running, the app just shows that one.
 How it's built and released: [desktop/README.md](desktop/README.md).
 

@@ -51,7 +51,7 @@ const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, se
 // sessionView: how Claude sessions open, 'chat' or 'term' (each session's
 // Chat | Terminal switch overrides it). devChips, termGpu: the Sessions extras.
 // All in Settings, Look. (The old chatView switch is dropped.)
-const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true, rundown: true, msgHidden: {}, connections: null };
+const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true, autoUpdate: false, rundown: true, msgHidden: {}, connections: null };
 // Which coding agents are installed and signed in, checked at most once a minute.
 let agentCache = { at: 0, list: [] };
 const agentsNow = () => { if (Date.now() - agentCache.at > 60e3) agentCache = { at: Date.now(), list: installedAgents() }; return agentCache.list; };
@@ -66,7 +66,8 @@ import { alert } from './lib/notify.js';
 import { voiceState } from './lib/voice.js';
 import { nextDue } from './lib/capture.js';
 import { WebSocketServer } from 'ws';
-import { updateState, checkForUpdate, currentSha } from './lib/update.js';
+import { updateState, checkForUpdate, currentSha, applyUpdate } from './lib/update.js';
+import { autoUpdateOk } from './lib/routes/system.js';
 import { MODE as SESSION_MODE } from './lib/terminals.js';
 import { syncStatus, signIn, startSync, onUnlocked } from './lib/sync.js';
 
@@ -128,7 +129,7 @@ async function boardState() {
     money: { mail: [...moneyFromMail(), ...microsoft().receipts].sort((a, b) => b.date - a.date), bills, paid, invoices, guesses: recurringGuesses(now) },
     sendAs: sendAddresses(),
     windows,
-    version: (() => { const u = updateState(); return { build: BUILD, pkg: u.pkg, sha: u.sha, channel: u.channel, behind: u.behind, subjects: u.subjects, error: u.error, busy: u.busy }; })(),
+    version: (() => { const u = updateState(); return { build: BUILD, pkg: u.pkg, sha: u.sha, channel: u.channel, behind: u.behind, subjects: u.subjects, error: u.error, busy: u.busy, app: u.app }; })(),
     platform: process.platform, sessionMode: SESSION_MODE,
     account: syncStatus(),
     status: {
@@ -306,7 +307,9 @@ function startAll() {
   startRelay(changed);
   startWebhooks(changed);
   setInterval(publishTerms, 30e3);
-  setInterval(() => checkForUpdate().then(changed), 30 * 60e3);
+  // A checkout with automatic updates on (Settings, About) updates itself when it is safe;
+  // the app does the same through its reports (lib/routes/system.js).
+  setInterval(() => checkForUpdate().then((u) => { changed(); if (u.behind && !u.app && autoUpdateOk(PREFS)) applyUpdate().catch(() => {}); }), 30 * 60e3);
   setInterval(() => deliver().then((n) => n && changed()).catch(() => {}), 5e3);
   // Agents without hooks: watch their screens, and tell the page when one goes busy or quiet.
   let lastStates = '';

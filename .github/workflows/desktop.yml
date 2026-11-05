@@ -1,7 +1,9 @@
 # The Switchboard app (desktop/): builds the installers for Windows, macOS and
-# Linux and attaches them to a DRAFT GitHub Release. Nothing is published until
-# the user opens the draft and clicks Publish; only then do installed apps see it
-# as an update (the updater reads releases/latest, which skips drafts).
+# Linux and attaches them to a draft GitHub Release. For a tag, the release is
+# published by itself once every build has passed (the Publish job), and
+# installed apps then offer it on the page's Update ready button (the updater
+# reads releases/latest, which skips drafts). If any build fails it stays a
+# draft and nobody gets it. A run started by hand always stays a draft.
 #
 #   Push a tag vX.Y.Z (the app's version becomes X.Y.Z), or run it by hand from
 #   the Actions tab (keeps the version in desktop/src-tauri/tauri.conf.json).
@@ -176,10 +178,21 @@ jobs:
         with:
           projectPath: desktop
           releaseId: ${{ needs.release.outputs.id }}
-          # Stay a draft: the build tool publishes a release by itself unless told not to, and a person
-          # is meant to try an installer first and press Publish.
+          # Stay a draft until every build is in: the Publish job below publishes it.
           releaseDraft: true
           args: --target ${{ matrix.target }}
           # Stable names, so a download page can link to releases/latest/download/<name>.
           releaseAssetNamePattern: Switchboard_[platform]_[arch][setup][ext]
           retryAttempts: 1
+
+  publish:
+    name: Publish
+    needs: [release, build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ needs.release.outputs.id }}
+        run: gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=true --jq .html_url

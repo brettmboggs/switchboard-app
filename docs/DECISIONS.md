@@ -555,3 +555,17 @@ nothing starting within 4 seconds, ends it with a plain message; it does not
 switch to Whisper on its own (Brett's call: that is a 500 MB download). The app's
 Info.plist now asks for speech recognition permission, which Apple's speech
 service needs inside an app.
+
+The app's updates show on the page, like a checkout's (Nov 5 2026). The app's
+own updater asked in a dialog at start and every six hours, which was easy to
+miss, and the page's Update ready button never showed in the app. Now the app
+reports what GitHub Releases has to the server every 5 seconds over plain HTTP
+on 127.0.0.1 (no Tauri IPC is opened to the page, which is a web origin), and a
+click on Update ready, or Check for updates, is handed back in the answer. A
+local program could fake a report, but the updater only installs a build signed
+with the release key, so the worst it could do is show the button. Automatic
+updates are off by default and wait until no agent is working (without tmux,
+until no session is open), because a restart there would cut it off. Tagged
+releases are published by the workflow once every installer is built, instead
+of waiting as a draft for someone to press Publish: CI and the build already
+gate them, and the wait only held updates back.

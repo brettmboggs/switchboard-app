@@ -157,7 +157,7 @@ document.addEventListener('click', (e) => {
     // Changes committed on this computer and not on GitHub: the first click says
     // so and the button becomes Update anyway (they are kept on a backup branch).
     const b = $('update-btn'), force = b.dataset.force === '1'; b.disabled = true; b.textContent = 'Updating…';
-    api('/api/update', { force }).then(() => toast('Updated. Restarting, the page reloads in a moment.')).catch((err) => {
+    api('/api/update', { force }).then(() => toast(S.version?.app ? 'Downloading the update. Switchboard restarts by itself when it is in.' : 'Updated. Restarting, the page reloads in a moment.')).catch((err) => {
       const mine = err.data?.localCommits;
       toast(err.message, { kind: 'error', ms: mine ? 12000 : undefined }); b.disabled = false;
       if (mine) { b.dataset.force = '1'; b.textContent = 'Update anyway'; } else { delete b.dataset.force; b.textContent = 'Update ready'; }

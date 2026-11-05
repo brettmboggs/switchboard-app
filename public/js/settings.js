@@ -330,6 +330,7 @@ function renderLook() {
 // -- About: which Switchboard this is, and where its updates come from.
 // version comes from server.js (package.json's version, the git SHA, the update
 // channel from lib/update.js); a copy that is not a git checkout has no channel.
+// In the app (v.app) the app's own updater does the checking and installing.
 let aboutNote = '';
 function renderAbout() {
   const el = $('about'), v = S?.version || {};
@@ -337,8 +338,11 @@ function renderAbout() {
   const os = { linux: 'Linux', darwin: 'macOS', win32: 'Windows' }[S?.platform] || S?.platform || '';
   const line = ['Switchboard ' + (v.pkg || ''), v.sha, os].filter((x) => x && x !== 'Switchboard ').join(' · ');
   const note = aboutNote || (v.error ? v.error : v.behind ? `${v.behind} update${v.behind > 1 ? 's' : ''} ready: ${(v.subjects || [])[0] || ''}` : '');
-  el.innerHTML = `<div class="form-row"><span class="mono">${esc(line)}</span>${v.sha ? `<button class="btn" type="button" id="about-check" ${v.busy ? 'disabled' : ''}>Check for updates</button>` : ''}<span class="acct-line ${v.error ? 'bad-text' : ''}">${esc(note)}</span></div>`
-    + (v.channel ? `<div class="form-row"><span class="acct-line">Updates</span><div class="seg" id="about-channel"><button type="button" value="stable" aria-pressed="${v.channel === 'stable'}">Stable</button><button type="button" value="latest" aria-pressed="${v.channel === 'latest'}">Latest</button></div><span class="acct-line">${v.channel === 'stable' ? 'Releases only.' : 'Every change as it lands.'}</span></div>` : '');
+  const canUpdate = !!(v.sha || v.app);
+  el.innerHTML = `<div class="form-row"><span class="mono">${esc(line)}</span>${canUpdate ? `<button class="btn" type="button" id="about-check" ${v.busy ? 'disabled' : ''}>Check for updates</button>` : ''}<span class="acct-line ${v.error ? 'bad-text' : ''}">${esc(note)}</span></div>`
+    + (v.channel ? `<div class="form-row"><span class="acct-line">Updates</span><div class="seg" id="about-channel"><button type="button" value="stable" aria-pressed="${v.channel === 'stable'}">Stable</button><button type="button" value="latest" aria-pressed="${v.channel === 'latest'}">Latest</button></div><span class="acct-line">${v.channel === 'stable' ? 'Releases only.' : 'Every change as it lands.'}</span></div>` : '')
+    // Off by default: the Update ready button always shows; this only saves the click.
+    + (canUpdate ? `<label class="toggle"><span>Install updates on their own when no agent is working</span><input type="checkbox" data-pref-bool="autoUpdate" ${S?.prefs?.autoUpdate ? 'checked' : ''}></label>` : '');
 }
 document.addEventListener('click', async (e) => {
   if (e.target.closest('#about-check')) {

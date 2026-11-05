@@ -10,7 +10,7 @@
 //     Quit in the tray menu, or Ctrl+Q in the window, stops the server it
 //     started and exits (the page asks for /app/quit; see public/js/keys.js);
 //   - one copy at a time, window size remembered, start at login, updates from
-//     GitHub Releases (signed; asks before restarting).
+//     GitHub Releases (signed), offered on the page's Update ready button.
 // See desktop/README.md for why it is built this way.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -151,29 +151,93 @@ fn ours(url: &Url) -> bool {
     }
 }
 
-// Updates: at start and every six hours. Asks before restarting.
+// Updates. The app asks GitHub Releases at start, every 30 minutes, and when the
+// page's Check for updates is clicked, and tells the server what it found every
+// few seconds (POST /api/app/update; lib/update.js). The page then shows its
+// Update ready button; the click (or automatic updates, when the server says it
+// is safe) comes back in the answer, and the app downloads, installs and restarts.
+// If the server answering is not this app's (a git checkout's own service), it
+// does not take reports, and the app asks with a dialog instead, once per version.
+fn report(available: Option<&str>, error: Option<&str>) -> Option<serde_json::Value> {
+    use std::io::{Read, Write};
+    let body = serde_json::json!({ "available": available, "error": error }).to_string();
+    let addr = SocketAddr::from(([127, 0, 0, 1], PORT));
+    let mut conn = TcpStream::connect_timeout(&addr, Duration::from_secs(2)).ok()?;
+    let _ = conn.set_read_timeout(Some(Duration::from_secs(10)));
+    let req = format!(
+        "POST /api/app/update HTTP/1.1\r\nHost: 127.0.0.1:{PORT}\r\nX-Switchboard: 1\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    conn.write_all(req.as_bytes()).ok()?;
+    let mut out = String::new();
+    conn.read_to_string(&mut out).ok()?;
+    if !out.starts_with("HTTP/1.1 200") { return None; }
+    let rest = &out[out.find("\r\n\r\n")? + 4..];
+    let json = &rest[rest.find('{')?..=rest.rfind('}')?];
+    serde_json::from_str(json).ok()
+}
+
+fn install(app: &AppHandle, update: &tauri_plugin_updater::Update) -> Result<(), String> {
+    // Download first, while Switchboard keeps running; only then stop the server and swap.
+    let bytes = tauri::async_runtime::block_on(update.download(|_, _| {}, || {})).map_err(|e| e.to_string())?;
+    stop_server(app);
+    match update.install(bytes) {
+        Ok(()) => { app.restart(); }
+        Err(e) => {
+            // Could not swap: carry on with the server as it was.
+            app.state::<Server>().quitting.store(false, SeqCst);
+            supervise(app.clone());
+            Err(e.to_string())
+        }
+    }
+}
+
 fn watch_updates(app: AppHandle) {
     std::thread::spawn(move || {
-        sleep(Duration::from_secs(30));
+        sleep(Duration::from_secs(20));
+        let mut found: Option<tauri_plugin_updater::Update> = None;
+        let mut error: Option<String> = None;
+        let mut last_check: Option<Instant> = None;
+        let mut check_now = true;
+        let mut asked_for: Option<String> = None;
+        let mut misses = 0u32;
         loop {
-            let found = app.updater().ok().and_then(|u| tauri::async_runtime::block_on(u.check()).ok().flatten());
-            if let Some(update) = found {
-                let yes = app.dialog()
-                    .message(format!("Switchboard {} is ready. Restart now to update? Sessions in tmux keep running.", update.version))
-                    .title("Update Switchboard")
-                    .buttons(MessageDialogButtons::OkCancelCustom("Restart now".into(), "Later".into()))
-                    .blocking_show();
-                if yes {
-                    stop_server(&app);
-                    if tauri::async_runtime::block_on(update.download_and_install(|_, _| {}, || {})).is_ok() {
-                        app.restart();
-                    }
-                    // The download failed: carry on with the server as it was.
-                    app.state::<Server>().quitting.store(false, SeqCst);
-                    supervise(app.clone());
+            if check_now || last_check.map_or(true, |t| t.elapsed() > Duration::from_secs(30 * 60)) {
+                check_now = false;
+                last_check = Some(Instant::now());
+                match app.updater().map_err(|e| e.to_string()).and_then(|u| tauri::async_runtime::block_on(u.check()).map_err(|e| e.to_string())) {
+                    Ok(u) => { found = u; error = None; }
+                    Err(e) => { error = Some(e); }
                 }
             }
-            sleep(Duration::from_secs(6 * 3600));
+            let version = found.as_ref().map(|u| u.version.clone());
+            match report(version.as_deref(), error.as_deref()) {
+                Some(answer) => {
+                    misses = 0;
+                    if answer["check"].as_bool() == Some(true) { check_now = true; continue; }
+                    if answer["install"].as_bool() == Some(true) {
+                        if let Some(u) = found.as_ref() {
+                            if let Err(e) = install(&app, u) { error = Some(format!("the update did not install ({e})")); }
+                        }
+                    }
+                }
+                None => {
+                    // Not this app's server (it answers, but never takes a report): ask the old way, once per version.
+                    misses = if answering() { misses + 1 } else { 0 };
+                    if let (Some(u), true) = (found.as_ref(), misses >= 6) {
+                        if asked_for.as_deref() != Some(u.version.as_str()) {
+                            asked_for = Some(u.version.clone());
+                            let yes = app.dialog()
+                                .message(format!("Switchboard {} is ready. Restart now to update? Sessions in tmux keep running.", u.version))
+                                .title("Update Switchboard")
+                                .buttons(MessageDialogButtons::OkCancelCustom("Restart now".into(), "Later".into()))
+                                .blocking_show();
+                            if yes { let _ = install(&app, u); }
+                        }
+                    }
+                }
+            }
+            sleep(Duration::from_secs(5));
         }
     });
 }
