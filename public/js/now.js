@@ -2,32 +2,37 @@
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 // ---------- Now
+// The rows of things in flight (Now, a project's page): its project's dot,
+// what it is, where from, its state as a word, and how long ago.
+function nowRows(cards, { showProject = project === 'all' } = {}) {
+  return `<div class="now-rows">${cards.map((c) => `
+    <button class="job now-row st-${c.st === 'others' ? 'waiting-others' : c.st === 'working' ? 'running' : c.st} ${isSel(c.type, c.key) ? 'sel' : ''}" type="button" data-type="${esc(c.type)}" data-key="${esc(c.key)}">
+      <span class="dot" style="background:${safeColor(spaceOf(c.space).color)}" title="${esc(spaceOf(c.space).name)}"></span>
+      <span class="now-w"><b class="what">${esc(plainLine(c.what))}</b><span class="where">${esc(c.where)}${showProject ? ` · ${esc(spaceOf(c.space).name)}` : ''}</span></span>
+      <span class="now-st ${c.st === 'working' ? 'run-dots' : ''}">${esc(c.label)}</span>
+      <span class="now-ago mono">${ago(c.at)}</span>
+    </button>`).join('')}</div>`;
+}
 function renderNow() {
   const all = flight().filter(inProject);
   const counts = { all: all.length, needs: all.filter((c) => c.st === 'needs').length, others: all.filter((c) => c.st === 'others').length };
   const shown = all.filter((c) => nowFilter === 'all' || c.st === nowFilter);
-  const order = { needs: 0, working: 1, others: 2, done: 3, idle: 4 };
-  let html = `<div class="page-head"><h1>Now</h1><div class="chips">
+  let html = `<div class="page-head"><h1>Now</h1><div class="chips tabs">
     <button class="chip" type="button" data-now="all" aria-pressed="${nowFilter === 'all'}">Everything in flight <span class="c">${counts.all}</span></button>
     <button class="chip ${counts.needs ? 'hot' : ''}" type="button" data-now="needs" aria-pressed="${nowFilter === 'needs'}">Needs you <span class="c">${counts.needs}</span></button>
     <button class="chip" type="button" data-now="others" aria-pressed="${nowFilter === 'others'}">Waiting on others <span class="c">${counts.others}</span></button>
-  </div></div>`;
+  </div><span class="grow"></span>${projectPicker()}</div>`;
   html += setupCards();
-  html += todayCard();
-  const spaceIds = [...S.spaces.map((s) => s.id), 'personal', ...new Set(shown.map((c) => c.space))].filter((v, i, a) => a.indexOf(v) === i);
+  html += rundownShows() ? rundownCard() : todayCard();
+  // One list per state, most urgent first: a row each, its project as a dot.
+  const GROUPS = [['needs', 'Needs you'], ['working', 'Working'], ['others', 'Waiting on others'], ['done', 'Done'], ['idle', 'Open, nothing happening']];
   let any = false;
-  for (const id of spaceIds) {
-    const cards = shown.filter((c) => c.space === id).sort((a, b) => (order[a.st] - order[b.st]) || (b.at - a.at));
+  for (const [st, title] of GROUPS) {
+    const cards = shown.filter((c) => c.st === st).sort((a, b) => b.at - a.at);
     if (!cards.length) continue;
     any = true;
-    const n = cards.filter((c) => c.st === 'needs').length;
-    html += `<section class="card"><div class="group-head">${tag(id)}<h2>${esc(spaceOf(id).name)}</h2><span class="sum">${n ? `${n} need${n === 1 ? 's' : ''} you · ` : ''}${cards.length} in flight</span></div>
-      <div class="flight">${cards.map((c) => `
-        <button class="job st-${c.st === 'others' ? 'waiting-others' : c.st === 'working' ? 'running' : c.st} ${isSel(c.type, c.key) ? 'sel' : ''}" type="button" data-type="${c.type}" data-key="${esc(c.key)}">
-          <span class="where"><span class="mono">${esc(c.where)}</span></span>
-          <span class="what">${esc(c.what)}</span>
-          <span class="meta"><span class="pill ${c.st === 'working' ? 'run-dots' : ''}">${esc(c.label)}</span><span class="mono muted">${ago(c.at)}</span></span>
-        </button>`).join('')}</div></section>`;
+    html += `<section class="now-group ${st === 'needs' ? 'hot' : ''}"><div class="now-gh"><h2>${title}</h2><span class="c">${cards.length}</span></div>
+      ${nowRows(cards)}</section>`;
   }
   if (!any) html += `<section class="card">${empty(nowFilter === 'needs' ? 'Nothing needs you right now.' : nowFilter === 'others' ? 'Nobody owes you a reply or a payment that Switchboard knows of. Log an invoice with Ctrl+K: "invoice Acme 1500 due fri".' : 'Nothing in flight. Claude sessions appear when you send them a prompt.')}</section>`;
   $('page').innerHTML = html;
@@ -75,7 +80,7 @@ function openSetup(e) {
     else { location.hash = o.go; setTimeout(point, 80); }   // the hashchange draws the page first
     return;
   }
-  openSettings(o.pane || 'accounts').then(() => {
+  Promise.resolve(connEnsureFor(e.id)).then(() => openSettings(o.pane || 'accounts')).then(() => {
     const el = o.focus && $(o.focus);
     if (el) flash(el); else if (o.hint) toast(o.hint);
   });
@@ -154,6 +159,7 @@ document.addEventListener('click', (e) => {
   const st = e.target.closest('[data-w-setup], [data-new-setup], [data-left-setup], [data-setup-link]');
   if (st) {
     const id = st.dataset.wSetup || st.dataset.newSetup || st.dataset.leftSetup || st.dataset.setupLink;
+    if (topDialog() === 'new-scrim') closeDialog('new-scrim');
     openSetup(SETUP.find((x) => x.id === id));
     // "Show me" on a new feature counts as seen: the card should not wait for a second click.
     if (st.dataset.newSetup) { const ws = welcomeState() || {}; saveWelcome({ ...ws, seen: [...new Set([...(ws.seen || []), id])] }); }
@@ -165,19 +171,35 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-left-hide]')) { saveWelcome({ ...(welcomeState() || {}), hideLeft: true }).then(render); return; }
 });
 
-// On Now: features added since this person last looked, and what is left to connect.
+// What's new: features added since this person last looked. A small blue
+// "What's new" at the top of the rail while there are any (like Claude's own
+// app); it opens a short list with Show me / Set up, and opening it counts as
+// checked, so the word goes away.
+function freshEntries() {
+  const w = welcomeState();
+  if (!w?.done) return [];
+  const fresh = SETUP.filter((e) => !(w.seen || []).includes(e.id) && forUse(e, w.uses));
+  // Something new that is already set up needs no mention.
+  const show = fresh.filter((e) => !(e.kind === 'connect' && e.done(S)));
+  if (fresh.length && !show.length) saveWelcome({ ...w, seen: [...new Set([...(w.seen || []), ...fresh.map((e) => e.id)])] });
+  return show;
+}
+function updateWhatsNew() { const b = $('whatsnew'); if (b) b.hidden = !freshEntries().length; }
+function openWhatsNew() {
+  const show = freshEntries();
+  $('new-list').innerHTML = show.length ? show.map((e) => `<div class="w-conn"><div><b>${esc(e.title)}</b><span>${esc(e.why)}</span></div><div class="form-row">${e.kind === 'connect' ? `<button class="btn" type="button" data-new-setup="${e.id}">Set up</button>` : e.open?.pane || e.open?.go || e.open?.cmd ? `<button class="btn" type="button" data-new-setup="${e.id}">Show me</button>` : ''}</div></div>`).join('') : '<p class="muted">Nothing new since you last looked.</p>';
+  openDialog('new-scrim');
+  const w = welcomeState() || {};
+  saveWelcome({ ...w, seen: [...new Set([...(w.seen || []), ...show.map((e) => e.id)])] });
+  updateWhatsNew();
+}
+document.addEventListener('click', (e) => { if (e.target.closest('#whatsnew')) openWhatsNew(); });
+
+// On Now: what is left to connect.
 function setupCards() {
   const w = welcomeState();
   if (!w?.done) return '';
   let html = '';
-  const fresh = SETUP.filter((e) => !(w.seen || []).includes(e.id) && forUse(e, w.uses));
-  // Something new that is already set up needs no card.
-  const show = fresh.filter((e) => !(e.kind === 'connect' && e.done(S)));
-  if (fresh.length && !show.length) saveWelcome({ ...w, seen: [...new Set([...(w.seen || []), ...fresh.map((e) => e.id)])] });
-  if (show.length) {
-    html += `<section class="card new-card" data-new><div class="group-head"><h2>New in Switchboard</h2></div>
-      <div class="w-conns">${show.map((e) => `<div class="w-conn"><div><b>${esc(e.title)}</b><span>${esc(e.why)}</span></div><div class="form-row">${e.kind === 'connect' ? `<button class="btn" type="button" data-new-setup="${e.id}">Set up</button>` : e.open?.pane || e.open?.go || e.open?.cmd ? `<button class="btn" type="button" data-new-setup="${e.id}">Show me</button>` : ''}<button class="btn btn--quiet" type="button" data-new-seen="${e.id}">Got it</button></div></div>`).join('')}</div></section>`;
-  }
   if (!w.hideLeft && w.uses?.length) {
     const left = SETUP.filter((e) => e.kind === 'connect' && forUse(e, w.uses) && !e.done(S) && (w.seen || []).includes(e.id));
     if (left.length) html += `<section class="card left-card" data-left><div class="left-row"><span><b>${left.length} left to connect</b> <span class="muted">${esc(left.map((e) => e.title).join(', '))}</span></span><span class="form-row"><button class="btn" type="button" data-left-open>Continue setup</button><button class="btn btn--quiet" type="button" data-left-hide>Hide</button></span></div></section>`;
@@ -186,6 +208,8 @@ function setupCards() {
 }
 
 // ---------- Today: the rest of today's events (tomorrow's once the evening is clear)
+let todayOpen = store.get('todayOpen', false);
+document.addEventListener('click', (e) => { if (!e.target.closest('[data-today-open]')) return; todayOpen = !todayOpen; store.set('todayOpen', todayOpen); renderNow(); });
 const clock = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 function todayCard() {
   const evs = (S.events || []).filter((e) => project === 'all' || e.space === project);
@@ -207,7 +231,20 @@ function todayCard() {
   const wx = w ? `<span class="wx" title="${esc(S.weather.place)}">${Number(w.temp)}° ${esc(w.text)} <span class="muted">· H ${Number(w.high)}° L ${Number(w.low)}°</span></span>` : '';
   const warn = (S.weather?.alerts || []).map((a, i) => `<details class="wx-warn"><summary>${esc(a.event)}</summary><p>${esc(a.headline || '')}</p>${a.instruction ? `<p>${esc(a.instruction)}</p>` : ''}</details>`).join('');
   const notes = (w?.notes || []).map((n) => `<span class="pill pill--soft wx-note wx-${n.kind}">${esc(n.text)}</span>`).join('');
-  return `<section class="card today"><div class="group-head"><h2>${label}</h2>${wx}</div>
+  // Folded (the usual): one line with the weather, what is next, packages, and
+  // Show the day to open it all. Open: the whole list as before.
+  if (!todayOpen) {
+    const nextEv = next || timed.find((e) => e.start <= now && e.end > now);
+    const coming = shipList().filter((p) => p.status !== 'delivered').length;
+    const bits = [
+      w ? `<span><b>${Number(w.temp)}°</b> ${esc(String(w.text).toLowerCase())}${(w.notes || []).length ? ', ' + esc(w.notes.map((n) => n.text.toLowerCase()).join(', ')) : ''}</span>` : '',
+      hasCal ? (nextEv ? `<span>${nextEv.start <= now ? 'Now' : 'Next'}: <b>${esc(nextEv.title)}</b> ${nextEv.start > now ? esc(clock(nextEv.start)) : ''}${soon && nextEv === next ? ` <span class="ev-soon">${soon}</span>` : ''}</span>` : `<span>${list.length ? `${list.length} all-day` : 'Nothing on the calendar'}</span>`) : '',
+      coming ? `<span><b>${coming}</b> package${coming === 1 ? '' : 's'} on the way</span>` : ''
+    ].filter(Boolean).join('');
+    return `<section class="card today today-strip"><h2>${label}</h2>${bits}${warn ? `<span class="bad-text"><b>${(S.weather?.alerts || []).length} weather warning${(S.weather?.alerts || []).length === 1 ? '' : 's'}</b></span>` : ''}
+      <span class="today-acts"><button class="btn btn--ghost btn--sm" type="button" data-today-open>Show the day</button><a class="btn btn--ghost btn--sm" href="#calendar">Calendar</a><button class="btn btn--ghost btn--sm rd-open" type="button" data-rundown="open">Rundown</button></span></section>`;
+  }
+  return `<section class="card today"><div class="group-head"><h2>${label}</h2>${wx}<button class="btn btn--ghost btn--sm" type="button" data-today-open>Fold</button><a class="btn btn--ghost btn--sm" href="#calendar">Calendar</a><button class="btn btn--ghost btn--sm rd-open" type="button" data-rundown="open">Rundown</button></div>
     ${warn || notes ? `<div class="wx-notes">${warn}${notes}</div>` : ''}
     ${list.length ? `<ul class="ev-list">${[...allDay, ...timed].map(item).join('')}</ul>` : hasCal ? '<p class="empty">Nothing on the calendar.</p>' : ''}${ships}</section>`;
 }

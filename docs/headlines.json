@@ -1,0 +1,72 @@
+{
+  "reviewed": "2026-11-05",
+  "oneLine": "One screen for everything that wants your attention: your AI coding agents, builds, email, Teams, calendar, bills and packages.",
+  "pitch": "Anything that needs you turns orange, and you can answer it right there without opening the other app. It runs on your own computer: your passwords and mail never pass through anyone else's server, and nothing is ever sent without your click.",
+  "headlines": [
+    {
+      "title": "Orange means it needs you",
+      "cool": "An agent waiting for an answer, a build that failed, a reply you owe, a bill due, a late package, the chickens to feed: one board, one colour for \"you\". Everything else stays quiet, so a glance tells you whether you can keep working.",
+      "show": [
+        "Open Now with a few cards on it: one agent waiting, one red build, one email to answer.",
+        "Click the waiting agent and answer it; the card leaves and the lamp in the wordmark goes from orange to green.",
+        "Before noon: the morning rundown reads the day aloud in one sentence."
+      ],
+      "ids": ["rundown", "deliveries", "routines", "actions"]
+    },
+    {
+      "title": "Your AI agents live inside it",
+      "cool": "Claude Code, Codex, Gemini and local models run inside Switchboard, and a Claude session reads like a clean chat: its permission prompts and multiple-choice questions are buttons, messages queue while they work, any file they mention opens with a click, and the bar shows the model, how much context is used and what it has cost so far.",
+      "show": [
+        "Start a Claude session from New session, picking the model and effort.",
+        "Claude asks permission: click Yes in the chat. Claude asks a question with choices: tick two and Submit.",
+        "Type a second message while it works; it waits and goes in when the agent is free."
+      ],
+      "ids": ["session-chat", "chat-questions", "model-effort", "localai", "helpers-turn", "file-links"]
+    },
+    {
+      "title": "Your agents can talk back",
+      "cool": "Switchboard is an MCP server, so the agents themselves can read your board: what needs you, how the builds are doing. A stuck agent puts a card on your board instead of sitting silently in a terminal, and one session can hand work to another.",
+      "show": [
+        "Ask an agent \"what needs me on Switchboard?\" and it answers from the board.",
+        "An agent that is blocked adds a Needs-you card; it shows on Now at once."
+      ],
+      "ids": ["mcp"]
+    },
+    {
+      "title": "Work finds the session it is about",
+      "cool": "A Teams message or email about a project shows up beside the coding session for that project. One click puts it into what you send the agent, with who sent it and when. A notes page goes in the same way.",
+      "show": [
+        "A teammate's Teams message arrives; it appears under the session list with an orange dot.",
+        "Add to message, then Send: the agent gets the message and starts on it."
+      ],
+      "ids": ["session-messages", "bring-message", "notes-send"]
+    },
+    {
+      "title": "Reply without opening the other app",
+      "cool": "Gmail, any other mail account, Teams, Outlook and Google Voice texts in one Inbox that reads like a chat app. Reply, archive or snooze from there, and close the dozen tabs: you still see everything.",
+      "show": [
+        "Pick a Teams chat in Inbox; it opens large beside the list.",
+        "Write a reply and send it; it shows at once and is confirmed when it has gone."
+      ],
+      "ids": ["conversations", "gmail", "email", "microsoft"]
+    },
+    {
+      "title": "Every computer, one board",
+      "cool": "Sign in on each computer and every session shows on all of them. Open a session running on your desktop from your laptop and it is a chat there too, questions and all. Settings and notes follow you, end-to-end encrypted.",
+      "show": [
+        "On the laptop, open a session that runs on the desktop.",
+        "Answer its question from the laptop; the desktop session carries on."
+      ],
+      "ids": ["everywhere", "other-computer-session", "account"]
+    },
+    {
+      "title": "Private, light and yours",
+      "cool": "One small local server, one SQLite file and a plain web page, using far less memory than the browser tabs and apps it replaces. No middleman server, no subscription, and nothing sent on your behalf: every email and message goes when you click.",
+      "show": [
+        "Close the browser tabs for mail, Teams, GitHub and the calendar; Switchboard still shows all of it.",
+        "Open the System monitor to show how little it uses."
+      ],
+      "ids": ["system-monitor"]
+    }
+  ]
+}

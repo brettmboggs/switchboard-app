@@ -38,8 +38,14 @@
   --z-bar: 5; --z-overlay: 10; --z-popover: 20; --z-toast: 30; --z-prompt: 40;
 
   /* ---- the page frame */
-  --top-h: 64px;
+  --top-h: 20px;   /* the space above a page (the top bar moved into the rail) */
+  --rail-w: 244px;
   --zoom: 1;
+  /* ---- a dialog never grows past the window: its frame (title, sections,
+     Done) stays put and only its contents scroll. Divided by the text size
+     because the box itself is zoomed. */
+  --dialog-max-h: calc((100dvh - 10vh - 32px) / var(--zoom));
+  --prefs-h: min(820px, var(--dialog-max-h));
 }
 
 /* ---- colour, light: the counter (grey top, paper cards, ink, one signal orange) */
@@ -62,7 +68,7 @@
   --accent-tint: rgba(255, 79, 0, .08);
   --accent-ring: rgba(255, 79, 0, .12);
   --accent-half: rgba(255, 79, 0, .5);   /* the edge of a thing that asks */
-  --ok: #1F7A4D;   --ok-tint: #DDEFE5;
+  --ok: #1F7A4D;   --ok-tint: #E6F4EC;   /* ok on its tint 4.7:1 */
   --bad: #B42318;  --bad-tint: #F6DEDB;
   --info: #2F5D8A; --info-tint: #DCE6F0;
   --warn: #6A520F; --warn-tint: #F3E9CC;
@@ -131,6 +137,7 @@
   --con-thumb: rgba(255, 255, 255, .12);
   --con-fg-dim: #AEB3BB;       /* tool buttons and the bar's words: 7:1 on --con-bg-2 */
   --con-inline: rgba(255, 255, 255, .07);
+  --con-lit: rgba(120, 165, 222, .20);   /* the line a file link points at (fileview.css); blue, as orange means "needs you" */
   --con-shadow: 0 0 40px rgba(0, 0, 0, .45);
 }
 

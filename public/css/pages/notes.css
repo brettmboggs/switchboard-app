@@ -87,7 +87,7 @@
 
 @media (max-width: 900px) { .nb { grid-template-columns: 1fr; } .nb-side { position: static; max-height: none; } }
 /* Writing a page: the page gets the room the detail panel would take. */
-@media (min-width: 1281px) { body.nb-writing .frame { grid-template-columns: 200px minmax(0, 1fr); } }
+@media (min-width: 1281px) { body.nb-writing .frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); } }
 body.nb-writing .panel { display: none; }
 
 /* Talk to type: the mic sits at the bar's right; the separators give up a pixel so it still fits one row at 1400 px. */
@@ -112,3 +112,16 @@ body.nb-writing .panel { display: none; }
 .send-term .s { grid-column: 2; color: var(--fg-muted); font-size: var(--fs-base); }
 .send-pal input#send-prompt { padding: 9px 11px; font-size: var(--fs-md); }
 .send-pal .actions { margin-top: 2px; }
+/* Send to session: which part goes, and the text itself, editable before it goes. */
+.send-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.send-label { font-size: var(--fs-sm); font-weight: 600; color: var(--fg); margin-bottom: -6px; }
+.send-label .muted { font-weight: 400; }
+.send-pal .send-text { width: 100%; min-height: 96px; max-height: 40vh; resize: vertical; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-raised); color: var(--fg); font: var(--fs-sm)/1.5 var(--font-mono); }
+.send-pal .send-text:focus { border-color: var(--fg); outline: none; }
+
+/* Pictures and files in a page (editor.js): a picture fits the page's width and
+   keeps its shape; a file is a link with a paperclip that downloads it. */
+.ed-doc img { display: block; max-width: 100%; height: auto; border-radius: var(--r-md); border: 1px solid var(--border-soft); margin: var(--sp-2) 0; }
+.ed-doc a.file-link { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-raised); color: var(--fg); font-weight: 600; text-decoration: none; cursor: pointer; }
+.ed-doc a.file-link::before { content: "📎"; font-weight: 400; }
+.ed-doc a.file-link:hover { border-color: var(--fg-muted); }

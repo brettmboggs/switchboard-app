@@ -63,7 +63,7 @@ jobs:
 
           - **Windows:** `Switchboard_windows_x64-setup.exe` (or the `.msi`). Windows may say it protected your PC: More info, Run anyway (the app is not signed yet).
           - **Mac with Apple silicon (M1 and later):** `Switchboard_darwin_aarch64.dmg`. **Intel Mac:** `Switchboard_darwin_x64.dmg`.
-          - **Linux:** `Switchboard_linux_amd64.deb` (Ubuntu, Mint, Debian) or `Switchboard_linux_amd64.AppImage`. Install `tmux` too so sessions survive restarts.
+          - **Linux:** `Switchboard_linux_amd64.deb` (Ubuntu, Mint, Debian: open it, or `sudo apt install ./Switchboard_linux_amd64.deb`) or `Switchboard_linux_amd64.AppImage` (first make it runnable: right-click it, Properties, Permissions, tick "Allow executing file as program", or `chmod +x` it). Install `tmux` too so sessions survive restarts.
 
           You also need Claude Code (or another coding agent) for sessions. Installed apps update themselves from here.
           EOF
@@ -164,6 +164,9 @@ jobs:
         with:
           projectPath: desktop
           releaseId: ${{ needs.release.outputs.id }}
+          # Stay a draft: the build tool publishes a release by itself unless told not to, and a person
+          # is meant to try an installer first and press Publish.
+          releaseDraft: true
           args: --target ${{ matrix.target }}
           # Stable names, so a download page can link to releases/latest/download/<name>.
           releaseAssetNamePattern: Switchboard_[platform]_[arch][setup][ext]

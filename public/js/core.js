@@ -27,6 +27,7 @@ let selected = null;                            // { type, key }
 let draft = store.get('drafts', {});            // unsent replies and messages, by thread or session key; kept in the browser so a reload never loses them
 let mergeArmed = null;
 let bootSha = null;
+let newPageSaid = null;   // the build the "was updated" line was shown for
 let currentTerm = store.get('term', null);   // Switchboard session shown on the Sessions page
 
 // Drafts are saved as they are typed, so nothing written is lost when the page
@@ -48,13 +49,38 @@ function busyTyping() {
   return !!(a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(a.type)) || a.isContentEditable) && (a.value ?? a.textContent ?? '').trim());
 }
 
+// Errors come back in words a person can act on: the server writes them (see
+// lib/friendly.js); when it cannot answer at all, this says so.
 async function api(path, body) {
   const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Switchboard': '1' }, body: JSON.stringify(body) };
-  const res = await fetch(path, opts);
+  let res;
+  try { res = await fetch(path, opts); }
+  catch { throw Object.assign(new Error('Switchboard\'s server is not answering. It may be restarting after an update: wait a few seconds and try again. If it stays like this, restart Switchboard.'), { data: { offline: true } }); }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || res.statusText);
+  if (!res.ok) throw Object.assign(new Error(json.error || HTTP_WORDS[res.status] || `Switchboard answered ${res.status} with no explanation. Copy the details from the next error, or try again.`), { data: json });
   return json;
 }
+// A file from the computer into Switchboard (lib/attachments.js): the file is
+// the body, its name in a header. Gives { id, name, size, path, image }.
+async function uploadFile(file) {
+  if (file.size > 1024 ** 3) throw new Error(`${file.name} is over 1 GB. Share a link to it instead, or make it smaller.`);
+  let res;
+  try { res = await fetch('/api/files', { method: 'POST', headers: { 'X-Switchboard': '1', 'X-Filename': encodeURIComponent(file.name || 'pasted'), 'Content-Type': 'application/octet-stream' }, body: file }); }
+  catch { throw new Error('Switchboard\'s server is not answering, so the file was not added. Try again in a few seconds.'); }
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error || HTTP_WORDS[res.status] || 'The file was not added.');
+  return j;
+}
+const fileUrl = (id) => '/api/files/' + encodeURIComponent(id);
+const HTTP_WORDS = {
+  400: 'Switchboard could not use what was sent. Check what you typed and try again.',
+  403: 'Switchboard refused that because it did not come from its own page. Reload this page and try again.',
+  404: 'That is not there any more. It may have been removed on another computer; the page refreshes by itself.',
+  413: 'That is too big to send in one go.',
+  500: 'Switchboard hit a problem doing that. Try once more; if it happens again, restart Switchboard.',
+  502: 'A service Switchboard uses is having trouble. It tries again on its own.',
+  503: 'Switchboard is starting up. Give it a few seconds.'
+};
 
 // ---------- dialogs
 // Every dialog is a .scrim with role="dialog". openDialog remembers what had
@@ -71,7 +97,7 @@ function openDialog(id) {
   if (!d.classList.contains('open')) d._opener = document.activeElement;
   if (!dialogStack.includes(id)) dialogStack.push(id);
   d.classList.add('open');
-  for (const el of document.querySelectorAll('.top, .frame')) el.inert = true;
+  for (const el of document.querySelectorAll('.frame')) el.inert = true;
   for (const el of document.querySelectorAll('.scrim.open')) el.inert = el !== d;
   focusInto(d);
 }
@@ -86,7 +112,7 @@ function closeDialog(id) {
   const i = dialogStack.indexOf(id); if (i >= 0) dialogStack.splice(i, 1);
   const top = topDialog() && $(topDialog());
   if (top) top.inert = false;
-  else for (const el of document.querySelectorAll('.top, .frame')) el.inert = false;
+  else for (const el of document.querySelectorAll('.frame')) el.inert = false;
   const back = d._opener; d._opener = null;
   if (back?.isConnected && !back.closest('[inert]') && typeof back.focus === 'function') back.focus({ preventScroll: true });
   else if (top) focusInto(top);
@@ -125,7 +151,23 @@ const $$ = (n) => '$' + (Math.round((n || 0) * 100) / 100).toLocaleString('en-US
 // ---------- projects
 const spaceOf = (id) => S.spaces.find((s) => s.id === id) || { id, name: id === 'personal' ? 'Personal' : (id || 'Unsorted'), color: '#B9BEC6' };
 const tag = (space) => `<span class="tag" style="background:${safeColor(spaceOf(space).color)}" title="${esc(spaceOf(space).name)}"></span>`;
+// Text an agent was given can carry the wrapper Claude Code puts round pasted
+// text; it means nothing on a card.
+const plainLine = (t) => String(t || '')
+  .replace(/<(task-id|tool-use-id|output-file|status)>[^<]*<\/\1>/g, '')   // a background task's ids
+  .replace(/<\/?(pasted_content|task-notification|summary|result|system-reminder|command-[a-z]+)\b[^>]*>/g, ' ')
+  .replace(/\s+/g, ' ').trim();
 const inProject = (x) => project === 'all' || x.space === project;
+// Lists are filtered from their own page's head, not the rail: one small
+// picker, "All projects" unless one is picked (it is remembered).
+const projectPicker = () => `<label class="proj-filter${project === 'all' ? '' : ' on'}"><span class="sr">Show project</span><select class="field field--sm" data-filter-project>
+    <option value="all">All projects</option>${S.spaces.map((s) => `<option value="${esc(s.id)}" ${project === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>`;
+// Where Ctrl K puts things: the project whose page is open, else the picked one.
+const captureSpace = () => page === 'project' && openProject ? openProject : project;
+document.addEventListener('change', (e) => {
+  if (!e.target.matches?.('[data-filter-project]')) return;
+  project = e.target.value; store.set('space', project); selected = null; render();
+});
 
 // ---------- the model: everything in flight, as cards with one state each
 //   needs     blocked on the user
@@ -183,7 +225,7 @@ function flight() {
       cards.push({ type: 'item', key: String(i.id), space: i.space, st: 'needs', label: i.kind === 'reminder' ? 'Reminder' : 'To-do', where: 'Due ' + when(i.due_at), what: i.text, at: i.due_at });
     }
   }
-  cards.push(...deliveryCards(), ...routineCards(), ...checkCards());
+  cards.push(...deliveryCards(), ...routineCards(), ...checkCards(), ...taskCards());
   for (const v of S.money.invoices) cards.push({ type: 'invoice', key: String(v.id), space: v.space, st: 'others', label: 'Invoice out', where: `${$$(v.amount)} · sent ${since(v.created_at)}`, what: v.text, at: v.created_at });
   for (const a of S.awaiting) cards.push({ type: 'awaiting', key: a.key, space: a.space, st: 'others', label: 'No reply yet', where: `Emailed ${a.who} · ${since(a.date)}`, what: a.subject, at: a.date });
   return cards;
@@ -200,33 +242,37 @@ function inboxCount(space = 'all') {
 // [id, name, parent]: a page with a parent is one of that page's tabs, not on
 // the rail. Sessions has tabs for builds and browser checks; more kinds of
 // session (a plain chat with your account, a desktop worker) slot in here later.
-const PAGES = [['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes']];
+const PAGES = [['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes']];
 const PAGE_MOVED = { actions: 'builds' };   // old links keep working
+// Pages with no place on the rail: opened from another page, which stays lit
+// on the rail while they show. Calendar opens from Now's Today line (Nov 4).
+const OFF_RAIL = { calendar: 'now' };
 if (PAGE_MOVED[location.hash.slice(1)]) history.replaceState(null, '', '#' + PAGE_MOVED[location.hash.slice(1)]);
-const railOf = (id) => PAGES.find((p) => p[0] === id)?.[2] || id;
+const railOf = (id) => PAGES.find((p) => p[0] === id)?.[2] || OFF_RAIL[id] || id;
 // The tabs along the top of a page that has them (Sessions · Builds · Browser checks).
 function subTabs() {
   const top = railOf(page), tabs = PAGES.filter((p) => p[0] === top || p[2] === top);
   const repos = (S.actions || []).filter(inProject);
   const buildLight = repos.some((a) => a.runs.some((r) => CI_ACTIVE(r.state))) ? 'running' : repos.some((a) => a.runs[0]?.state === 'failure' && Date.now() - a.runs[0].updatedAt < 2 * 86400e3) ? 'failure' : '';
   const light = { builds: buildLight, checks: checksLight() }, count = { builds: ciActiveCount() };
-  return `<nav class="chips sub-tabs" aria-label="${esc(PAGES.find((p) => p[0] === top)[1])}">${tabs.map(([id, name]) => `<a class="chip" href="#${id}" ${page === id ? 'aria-current="page"' : ''}>${esc(name)}${count[id] ? ` <span class="c">${count[id]} running</span>` : light[id] === 'failure' ? ` <span class="c bad">failed</span>` : ''}</a>`).join('')}</nav>`;
+  return `<nav class="chips tabs sub-tabs" aria-label="${esc(PAGES.find((p) => p[0] === top)[1])}">${tabs.map(([id, name]) => `<a class="chip" href="#${id}" ${page === id ? 'aria-current="page"' : ''}>${esc(name)}${count[id] ? ` <span class="c">${count[id]} running</span>` : light[id] === 'failure' ? ` <span class="c bad">failed</span>` : ''}</a>`).join('')}</nav>`;
 }
 
 function renderShell() {
   const counts = { now: needsCount(project), sessions: (S.terms || []).filter((t) => t.state === 'waiting' || t.state === 'finished').length, inbox: inboxCount(project), money: '', notes: '' };
   const light = { sessions: ciLight() };   // builds and browser checks live under Sessions
-  $('pages').innerHTML = PAGES.filter((p) => !p[2]).map(([id, name]) => `<a class="page-link" href="#${id}" ${railOf(page) === id ? 'aria-current="page"' : ''}>${name}${light[id] ? ciDot(light[id]) : ''}<span class="n">${counts[id] || ''}</span></a>`).join('');
-  const per = (id) => page === 'inbox' ? inboxCount(id) : needsCount(id);
+  $('pages').innerHTML = PAGES.filter((p) => !p[2] && !OFF_RAIL[p[0]]).map(([id, name]) => `<a class="page-link" href="#${id}" ${railOf(page) === id ? 'aria-current="page"' : ''}>${name}${light[id] ? ciDot(light[id]) : ''}<span class="n">${counts[id] || ''}</span></a>`).join('');
+  // Projects open their own page; the count is what needs you there.
   const groups = [...new Set(S.spaces.map((s) => s.group || 'Mine'))];
-  let html = `<h3>Projects</h3><button class="space" type="button" data-space="all" aria-pressed="${project === 'all'}"><span class="dot" style="background:var(--ink)"></span>Everything<span class="n">${per('all') || ''}</span></button>`;
+  let html = groups.length > 1 ? '' : '<h3>Projects</h3>';
   for (const g of groups) {
     if (groups.length > 1) html += `<h3>${esc(g)}</h3>`;
     for (const s of S.spaces.filter((x) => (x.group || 'Mine') === g)) {
-      html += `<button class="space" type="button" data-space="${esc(s.id)}" aria-pressed="${project === s.id}"><span class="dot" style="background:${safeColor(s.color)}"></span>${esc(s.name)}<span class="n">${per(s.id) || ''}</span></button>`;
+      html += `<a class="space" href="#project/${esc(s.id)}" ${page === 'project' && openProject === s.id ? 'aria-current="page"' : ''}><span class="dot" style="background:${safeColor(s.color)}"></span>${esc(s.name)}<span class="n">${needsCount(s.id) || ''}</span></a>`;
     }
   }
   $('projects').innerHTML = html;
+  updateWhatsNew();
 
   // Connections stay out of sight while they work; only a broken one is named.
   const st = S.status, broken = [];
@@ -245,7 +291,11 @@ function renderShell() {
   $('update-btn').hidden = !v.behind;
   if (v.behind) $('update-btn').title = 'New: ' + (v.subjects || []).join(' · ');
   // The server has a new page: load it, but never in the middle of a thought.
-  if (v.build && bootSha && v.build !== bootSha && !busyTyping()) { saveDrafts(); location.reload(); }
+  // While you type it waits, and says so once, with a button to load it now (drafts are kept either way).
+  if (v.build && bootSha && v.build !== bootSha) {
+    if (!busyTyping()) { saveDrafts(); location.reload(); }
+    else if (newPageSaid !== v.build) { newPageSaid = v.build; toast('Switchboard was updated. The new version loads when you stop typing.', { action: { label: 'Load it now', run: () => { saveDrafts(); location.reload(); } }, ms: 20000 }); }
+  }
   if (v.build && !bootSha) bootSha = v.build;
   const n = needsCount();
   $('needs-n').textContent = n;

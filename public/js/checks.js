@@ -26,7 +26,8 @@ function checkCards() {
   const cards = [];
   for (const c of S.checks || []) {
     const live = bcLive(c), last = bcLast(c);
-    if (live?.state === 'running') cards.push({ type: 'check', key: String(c.id), space: c.space, st: 'working', label: 'Running', where: `Browser check · ${bcWhat(c)}`, what: c.name, at: live.startedAt });
+    if (c.signin && (c.signin.state === 'expired' || c.signin.state === 'none')) cards.push({ type: 'check', key: String(c.id), space: c.space, st: 'needs', label: 'Sign in', where: `Browser check · ${c.name}`, what: c.signin.state === 'expired' ? 'The saved sign-in ran out. Open it and press Sign in.' : 'Needs you to sign in once before it can run.', at: c.signin.since });
+    else if (live?.state === 'running') cards.push({ type: 'check', key: String(c.id), space: c.space, st: 'working', label: 'Running', where: `Browser check · ${bcWhat(c)}`, what: c.name, at: live.startedAt });
     else if (last?.state === 'failure' && !c.cleared) cards.push({ type: 'check', key: String(c.id), space: c.space, st: 'needs', label: 'Failed', where: `Browser check · ${c.name}`, what: last.summary || 'Failed', at: last.endedAt });
   }
   return cards;
@@ -88,10 +89,11 @@ function checkDetail(x, kick) {
     ${pageShot}
     ${fails ? `<div class="section-label">Failed</div><ul class="bc-flist">${fails}</ul>` : ''}
     <dl class="facts">${facts.filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
-    <div class="actions">${bcLive(x) ? `<button class="btn btn--danger" type="button" data-bc="cancel" data-id="${x.id}">Cancel run</button>` : `<button class="btn btn--primary" type="button" data-bc="run" data-id="${x.id}">Run now</button>`}
+    <div class="actions">${bcLive(x) ? `<button class="btn btn--danger" type="button" data-bc="cancel" data-id="${x.id}">Cancel run</button>` : `<button class="btn btn--primary" type="button" data-bc="run" data-id="${x.id}" ${x.signin && x.signin.state !== 'ok' ? 'disabled title="Sign in first"' : ''}>Run now</button>`}
       ${bcLast(x)?.state === 'failure' && !x.cleared ? '<button class="btn" data-act="clear" type="button">Clear</button>' : ''}
       <button class="btn" type="button" data-bc="edit" data-id="${x.id}">Change</button>
       <button class="btn ${bcSure === x.id ? 'btn--danger' : ''}" type="button" data-bc="remove" data-id="${x.id}">${bcSure === x.id ? 'Click again to remove' : 'Remove'}</button></div>
+    ${bcSigninBlock(x)}
     ${out}`;
 }
 
@@ -106,6 +108,7 @@ function bcSheet() {
       <label for="bc-url" class="bc-fpage">Address</label><input id="bc-url" class="bc-fpage" type="url" placeholder="https://example.com">
       <label for="bc-expect" class="bc-fpage">Must show</label><input id="bc-expect" class="bc-fpage" type="text" maxlength="200" placeholder="optional: words that prove it loaded">
       <label for="bc-folder" class="bc-ftests" hidden>Folder</label><input id="bc-folder" class="bc-ftests" type="text" list="bc-folders" placeholder="the project folder" hidden>
+      <label for="bc-signin" class="bc-ftests" hidden>Sign-in page</label><input id="bc-signin" class="bc-ftests" type="url" placeholder="optional: only if the site needs you to sign in" hidden>
       <label for="bc-every">How often</label><select id="bc-every">${Object.entries(BC_EVERY).map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
     </div>
     <details class="bc-more"><summary class="muted small">More</summary><div class="form-grid">
@@ -125,7 +128,7 @@ function bcSetKind(kind) {
   document.querySelectorAll('.bc-ftests').forEach((el) => { el.hidden = kind !== 'tests'; });
   document.querySelectorAll('.bc-fpage').forEach((el) => { el.hidden = kind !== 'page'; });
   $('bc-note').textContent = kind === 'tests'
-    ? 'Runs the project\'s own Playwright tests and shows which failed, with screenshots.'
+    ? 'Runs the project\'s own Playwright tests and shows which failed, with screenshots. For a site that needs sign-in, add its sign-in page: you sign in yourself in a window on this computer, and your password never goes through Switchboard.'
     : 'Fails if the page won\'t load or the words never show. First time: node scripts/setup.mjs browser.';
 }
 async function bcOpen(c) {
@@ -139,13 +142,14 @@ async function bcOpen(c) {
   $('bc-folder').value = c?.folder || '';
   $('bc-command').value = c?.command || 'npx playwright test';
   $('bc-url').value = c?.url || '';
+  $('bc-signin').value = c?.signin?.url || '';
   $('bc-expect').value = c?.expect || '';
   $('bc-every').value = String(c?.every || 0);
   $('bc-msg').textContent = '';
   bcSetKind(c?.kind || bcKind);
   openDialog('bc-scrim');
   (bcKind === 'tests' ? $('bc-folder') : $('bc-url')).focus();
-  api('/api/folders').then((list) => { $('bc-folders').innerHTML = list.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join(''); }).catch(() => {});
+  api('/api/folders').then((list) => { $('bc-folders').innerHTML = list.filter((f) => !f.copyOf).map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join(''); }).catch(() => {});
 }
 
 document.addEventListener('click', async (e) => {
@@ -181,7 +185,7 @@ document.addEventListener('change', async (e) => {
 document.addEventListener('submit', async (e) => {
   if (e.target.id !== 'bc-form') return;
   e.preventDefault();
-  const body = { id: bcEditing, kind: bcKind, name: $('bc-name').value, folder: $('bc-folder').value, command: $('bc-command').value, url: $('bc-url').value, expect: $('bc-expect').value, space: $('bc-space').value, every: Number($('bc-every').value) };
+  const body = { id: bcEditing, kind: bcKind, name: $('bc-name').value, folder: $('bc-folder').value, command: $('bc-command').value, url: $('bc-url').value, signin_url: $('bc-signin').value, expect: $('bc-expect').value, space: $('bc-space').value, every: Number($('bc-every').value) };
   $('bc-save').disabled = true;
   try {
     const r = await api('/api/checks', body);

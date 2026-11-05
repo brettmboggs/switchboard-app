@@ -1,0 +1,13 @@
+/* Keyboard shortcuts (keys.js): the ? sheet. Keys are small paper caps in the
+   mono face; what they do is plain body text. */
+.keys-sheet { width: min(640px, 100%); }
+.keys-grid { display: grid; gap: var(--sp-5); }
+.keys-grid section { display: grid; gap: var(--sp-2); }
+.keys-grid h3 { margin: 0; }
+.keys-grid dl { margin: 0; display: grid; }
+.keys-grid dl > div { display: grid; grid-template-columns: minmax(150px, auto) minmax(0, 1fr); gap: var(--sp-4); align-items: baseline; padding: var(--sp-2) 0; border-top: 1px solid var(--border-faint); }
+.keys-grid dl > div:first-child { border-top: 0; }
+.keys-grid dt { white-space: nowrap; }
+.keys-grid dd { margin: 0; }
+kbd { display: inline-block; min-width: 1.6em; text-align: center; font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-tight); padding: 2px var(--sp-1); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--r-xs); background: var(--bg-raised); color: var(--fg); }
+.keys-then { margin: 0 var(--sp-1); font-size: var(--fs-sm); color: var(--fg-muted); }

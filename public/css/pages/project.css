@@ -1,0 +1,47 @@
+/* A project's own page (#project/<id>, js/project.js): its work on the left
+   (in flight, conversations, sessions, notes, files), who it is for on the
+   right (about, people, links). And the project picker that each list page
+   carries in its head, now that the rail opens projects instead of filtering. */
+.proj-head .proj-dot { width: var(--sp-3); height: var(--sp-3); border-radius: var(--r-xs); flex: none; }
+.proj-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: var(--sp-4); align-items: start; }
+.proj-work, .proj-side { display: grid; gap: var(--sp-4); align-content: start; min-width: 0; }
+.proj-side { position: sticky; top: var(--top-h); }
+.proj-needs { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--accent-text); }
+.proj-profile { display: grid; gap: var(--sp-2); }
+.proj-profile .group-head { margin: var(--sp-2) 0 0; }
+.proj-profile .group-head:first-child { margin-top: 0; }
+.proj-profile .group-head .btn { margin-left: auto; }
+.pf-about { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pf-show { display: grid; gap: 2px; padding: var(--sp-1) 0; font-size: var(--fs-base); }
+.pf-show a, .pf-linkout { color: var(--fg); text-decoration: none; overflow-wrap: anywhere; }
+.pf-show a:hover, .pf-linkout:hover { text-decoration: underline; }
+.pf-links { display: grid; gap: var(--sp-1); }
+.pf-linkout { display: grid; gap: 1px; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-soft); border-radius: var(--r-md); font-weight: 600; }
+.pf-linkout .mono { font-size: var(--fs-xs); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-list { display: grid; gap: var(--sp-2); }
+.pf-person, .pf-link { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border-faint); }
+.pf-link { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.proj-profile textarea { width: 100%; resize: vertical; }
+/* Files: the whole page takes a drop; this card shows where it lands. */
+.proj-drop { border: 1px dashed transparent; transition: border-color .15s; }
+.proj-drop.over { border-color: var(--fg); }
+.proj-drop .group-head .btn { margin-left: auto; }
+.drop-hint { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
+.file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-3); }
+.file-row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); text-decoration: none; font-weight: 600; }
+.file-row .t:hover { text-decoration: underline; }
+/* The picker in a page's head. Ink edge when a project is picked, so a
+   filtered list never looks like the whole list. */
+.proj-filter select { cursor: pointer; }
+.proj-filter.on select { border-color: var(--fg); font-weight: 600; }
+.sessions-head .proj-filter { margin-left: var(--sp-2); }
+@media (max-width: 1100px) { .proj-grid { grid-template-columns: minmax(0, 1fr); } .proj-side { position: static; } }
+/* With no card picked, the detail panel steps aside and the page takes its width. */
+body[data-page="project"] .panel:has(#detail:empty) { display: none; }
+@media (min-width: 1281px) { body[data-page="project"] .frame:has(#detail:empty) { grid-template-columns: var(--rail-w) minmax(0, 1fr); } }
+/* People found in the project's mail: one line each, Add or Hide. */
+.pf-found-lead { margin: 0; font-size: var(--fs-sm); }
+.pf-found { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; font-size: var(--fs-base); }
+.pf-found-who { display: grid; min-width: 0; }
+.pf-found-who > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-found-who .muted { font-size: var(--fs-sm); }

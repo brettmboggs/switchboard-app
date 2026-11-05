@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 process.env.SWITCHBOARD_DATA = mkdtempSync(join(tmpdir(), 'sb-secrets-'));   // its own database
 const { db, getSetting, setSetting, setCipher, lockSecrets, hasLockedSecrets } = await import('../lib/db.js');
-const { makeCipher } = await import('../lib/secrets.js');
+const { makeCipher, keyName } = await import('../lib/secrets.js');
 const raw = (k) => db.prepare('SELECT value FROM settings WHERE key = ?').get(k)?.value;
 
 test('plain secrets already on disk get locked; other settings stay as they are', () => {
@@ -35,4 +35,13 @@ test('without the key, or with the wrong one, a secret reads as not there', () =
   assert.equal(getSetting('gmail', 'none'), 'none');
   setCipher(makeCipher(randomBytes(32).toString('hex')));
   assert.equal(getSetting('gmail', 'none'), 'none');
+});
+
+test('the usual data folder keeps its keychain name; any other folder gets its own', async () => {
+  const { homedir } = await import('node:os');
+  assert.equal(keyName(join(homedir(), '.local/share/switchboard')), 'local-key');
+  assert.equal(keyName(join(homedir(), '.local/share/switchboard/')), 'local-key');
+  const other = keyName(process.env.SWITCHBOARD_DATA);
+  assert.match(other, /^local-key-[0-9a-f]{16}$/);
+  assert.notEqual(other, keyName(mkdtempSync(join(tmpdir(), 'sb-other-'))));
 });

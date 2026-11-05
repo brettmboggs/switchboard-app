@@ -55,10 +55,33 @@ changes as unverified until someone runs them.
   for each connection and service; public/js/*.js for the page, one file per
   area, plain scripts loaded in order by index.html (no build step). Keep files
   small: a new area gets its own file rather than growing an old one.
+- Everything in Switchboard that has to be set up, connected, signed in to,
+  installed or repaired is a button on the page, with the result in plain words
+  beside it; the page never tells anyone to open a terminal. Scripts and
+  commands stay as the fallback in README.md, and a button runs the same thing
+  on the server. A new connection or setup step ships with its button, or says
+  in docs/DECISIONS.md why it can't have one.
+- Sign-ins are one click and easy to finish, never a terminal errand. When a
+  sign-in can't be done in a terminal or by a token pasted in Settings, it
+  follows browser checks' pattern (lib/checkauth.js): a Sign in button where the
+  need arises, and a Needs-you card on Now when it is required; the service's own
+  page opens in a real window and the person signs in there, MFA included; one
+  Done button that saves only once they are back on the site; Switchboard never
+  sees a password or code, keeps only the session in a file private to their
+  account, and has Sign out; when it runs out the item pauses and asks again,
+  never a retry loop. A new sign-in that doesn't do this says why in
+  docs/DECISIONS.md.
+- Error messages say what happened and what to do about it, in plain words
+  ("Todoist did not accept that token. Copy it again from …"); raw system
+  errors go through lib/friendly.js, never straight to the page.
 - Every new feature or connection gets an entry in public/setup.js (the setup
-  registry). The welcome and "New in Switchboard" are built from it, so nothing
+  registry). The welcome and What's new are built from it, so nothing
   ships without people being shown it; test/setup.test.js enforces it for
   connections. Plans and their status live in docs/ROADMAP.md.
+- The pitch (top of README.md and docs/PITCH.md) is made by `npm run pitch`
+  from docs/headlines.json and the setup registry; run it after changing
+  either. When a feature changes what makes Switchboard worth trying, update
+  its headline (or add one, with a 20-second "show it") and the reviewed date.
 - Keep README.md current with every feature or connection you ship: what it
   does, why, what it connects to and how, and its privacy story. It is written
   for people and for their AI assistants to explain Switchboard from, so keep

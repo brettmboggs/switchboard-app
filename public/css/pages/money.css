@@ -5,3 +5,12 @@
 .amt { font-family: var(--font-mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .amt.in { color: var(--ok); }
 .facts dd { font-variant-numeric: tabular-nums; }
+
+/* Recurring costs: the total a month in the head, a line of each project's
+   share, one row per cost (the amount, and per month when it is not monthly),
+   and charges from the email that look recurring, with Add and Not recurring. */
+.costs .r { display: grid; justify-items: end; gap: 2px; }
+.cost-split { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin: 0 0 var(--sp-2); font-size: var(--fs-sm); }
+.cost-share { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.cost-guess .r { display: flex; gap: var(--sp-1); }
+.cost-form { margin-top: var(--sp-3); }

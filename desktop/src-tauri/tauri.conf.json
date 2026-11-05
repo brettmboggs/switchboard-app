@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Switchboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "dev.switchboard.desktop",
   "build": {
     "frontendDist": "../frontend",
@@ -16,7 +16,14 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage", "nsis", "msi", "app", "dmg"],
+    "targets": [
+      "deb",
+      "appimage",
+      "nsis",
+      "msi",
+      "app",
+      "dmg"
+    ],
     "createUpdaterArtifacts": true,
     "publisher": "Brett Boggs",
     "homepage": "https://brettboggs.dev",
@@ -30,13 +37,19 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/switchboard-node"],
+    "externalBin": [
+      "binaries/switchboard-node"
+    ],
     "resources": {
       "../build/switchboard/": "server/"
     },
     "linux": {
       "deb": {
-        "recommends": ["tmux", "curl", "git"]
+        "recommends": [
+          "tmux",
+          "curl",
+          "git"
+        ]
       }
     },
     "macOS": {

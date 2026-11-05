@@ -196,6 +196,16 @@ while listening, dims while thinking). The session bar's own small controls
 rail (`.space`, `.page-link`) and a few page-specific pressables keep their
 own rules, on tokens.
 
+**Tabs** (`chip.css`, `.chips.tabs`). A page's own tabs (Now's filters,
+Inbox's Business · Personal · Reading, Notes' four, Sessions' three) are one
+style everywhere: words in 600, muted, with a 2 px line under the one you are
+on and its count in mono beside it. Pills (plain `.chips`) are only for the
+smaller filters inside a tab (Inbox's All · Email · Teams).
+
+The rail's current page is paper with a hairline, not a solid ink block, and
+the need-you count is an orange-tinted bar with the number in `--accent-text`
+(paper when nothing needs you): the loudest thing on screen is what needs you.
+
 **Chip and pill** (`chip.css`). `.chip` is a filter or tab you press (the
 Now filters, Inbox's projects, Notes' tabs) with its count in `.c`; pressed
 is solid ink. `.pill` is a state word on a card or row, mono uppercase
@@ -231,11 +241,22 @@ has no box (the page title in Notes). `.form-grid` is a label column and a
 field column; `.form-row` a row of them; `.field-label` the small muted label
 above one. Placeholders are `--placeholder` everywhere.
 
+**The side panel lines up** (`detail.js`, `alignPanel`). The detail panel on
+the right starts level with the first block under the page's title (its first
+card, Money's tiles, Inbox's list below its chips), not with the title, so the
+top edges of the two columns meet. Measured after each draw; Sessions places
+its own panel, and in a narrow window the panel sits underneath.
+
 **Dialog** (`dialog.css`). Every dialog is a `.scrim` (fixed, the whole
 window, `--z-overlay`, shown with `.open`) holding one box: `.palette`
 (Ctrl K), `.sheet` (a form with `.sheet-head`), `.drawer` (from the right),
 `.prefs` (Settings) or `.welcome`. The boxes share one surface: paper,
-`--r-xl`, `--shadow-3`. Open them only through `openDialog(id)` /
+`--r-xl`, `--shadow-3`. A dialog never grows past the window
+(`--dialog-max-h`): its frame stays put and only its contents scroll. The
+head (title, Close or Done, and in Settings the sections down the left) is
+sticky; the page behind never scrolls with it (`overscroll-behavior:
+contain`). Every new dialog, panel or drawer does the same: the frame is
+fixed, the contents move. Open them only through `openDialog(id)` /
 `closeDialog(id)` in `core.js`: it remembers the opener, puts focus on the
 first `[autofocus]`, field or heading inside, makes `.top` and `.frame`
 `inert`, keeps Tab inside, and on close restores focus and the page. A
@@ -243,7 +264,77 @@ first `[autofocus]`, field or heading inside, makes `.top` and `.frame`
 topmost only. The account prompts (`.prompt-card`, `.acct-prompts`) sit over
 everything at `--z-prompt`. The toast (`.toast`) is in this file too: one
 line at the bottom, `--z-toast`; `toast(msg, { kind: 'error' })` gives it a
-red edge and six seconds instead of three.
+red edge and six seconds instead of three; `{ undo }` adds an underlined
+Undo (`.toast-undo`, Ctrl+Z too) and keeps it up while the undo can be taken.
+Done, Delete and archive use it through `doLater()` in actions.js: hidden at
+once, sent six seconds later, sent at once if the page is left.
+`{ action: { label, run } }` puts any other button there the same way:
+`oops()` (actions.js) uses it for "Something went wrong on this page" with
+Copy details, on any uncaught error or rejected promise on the page (one per
+ten seconds; network drops while the server restarts and extension errors are
+left out).
+
+**Files** (`pages/sessions.css` `.q-file`, `pages/notes.css`). In the
+message bar a picture is a 72 px square thumbnail and any other file a card of
+the same height with its name (600) and size (mono); both have the round ×.
+In a note a picture fits the page's width with a soft edge, and a file is a
+bordered chip with a paperclip that downloads it. Nothing from outside is
+ever shown inline except PNG, JPEG, GIF, WebP, AVIF and BMP.
+
+**Messages beside a session** (`pages/sessions.css` `.ses-msgs`,
+`public/js/bring.js`). Under the session list on Sessions, a kicker
+"Messages · <project>" with All, then the project's six newest
+conversations: who (600, an orange dot when unread), when, three lines of the
+newest message, and Add to message, Earlier and Hide, always visible; Clear
+all in the head. Hidden is for this list only (Inbox is untouched) and lasts
+until someone writes again (`prefs.msgHidden`, this computer's settings).
+
+**Keys** (`keys.css`, `public/js/keys.js`). `kbd` is a small paper key cap
+in the mono face with a heavier bottom edge; two keys pressed together are
+joined by a muted +, a sequence by "then". The ? sheet lists every shortcut
+in groups (a kicker each), the keys on the left, what they do on the right.
+
+**Project page** (`pages/project.css`, `public/js/project.js`). A project's
+own page: a head with its colour square and name, then two columns, the work
+(In flight with the same `.job` cards as Now, Conversations, Sessions, Notes,
+Files) and a sticky side card (About, People, Links; Edit turns it into a
+form in place). Links are bordered blocks with the label over the address in
+mono. Found in your mail is one line per person (name, then address,
+messages and when, muted) with Add and Hide. The Files card is where drops land: a dashed ink edge while a file is
+dragged over the page, never orange. `.proj-filter` is the project picker in a
+list page's head (a `.field--sm` select); with a project picked its edge turns
+ink, so a narrowed list never passes for the whole list.
+
+**Reading** (`pages/inbox.css`, `public/js/feeds.js`). The third tab on Inbox:
+one row per post, the feed's name as the `via` label, unread in bold and read
+ones muted. Unread has no dot: the orange dot on Inbox means a person is
+waiting on you, and a blog post never is.
+
+**Recurring costs** (`pages/money.css`, `public/js/costs.js`). One card: the
+month and year totals in mono in its head, a line of each project's share
+with its colour square, one row per cost (the amount, and per month under it
+when it is not monthly), then Looks recurring with Add and Not recurring.
+Adding and editing are a form in the side panel that is not redrawn while it
+is open.
+
+**Morning rundown** (`pages/rundown.css`, `public/js/rundown.js`). Takes
+the Today card's place on Now until noon (or when Rundown is pressed on it).
+A kicker with the date, the greeting in Fraunces at `--fs-3xl`, one lead
+paragraph of plain sentences at `--fs-lg`, then up to four figures between two
+hairlines (a big display number, a 600 label, a mono note; the needs-you one is
+`--accent-text`), then two columns: the schedule (the Today card's `.ev-list`)
+and the lists (needs you, bills, routines, packages) as `.rd-row`s with a mono
+time or day on the left. One column under 760 px. Read aloud and Done for
+today are quiet small buttons; nothing else on it is orange.
+
+**Connections** (Settings, `pages/settings.css`, `public/js/connections.js`,
+`public/js/connlist.js`). Two parts under one search box. Your connections:
+the cards you use (connected, or added and not finished), in groups with a
+small mono label (Messages, Calendars, Money, Coding and sessions, Automation);
+an unconnected one has a ghost "Remove from list". Add a connection: category
+chips over a grid of `.conn-tile`s, each a name, one line and an Add button;
+Coming soon tiles are dashed with no button, since a button only appears once
+it does something.
 
 **Chart** (`chart.css`). Live numbers drawn as pictures, used by the System
 monitor (`pages/system.css`, `public/js/sysmon.js`). `.chart` is an SVG that
@@ -258,20 +349,63 @@ everywhere. The page builds its skeleton once and updates it in place, so a
 refresh never interrupts a hover, a scroll or typing. `prefers-reduced-motion`
 turns the transitions and the live dot's pulse off.
 
+**File links and the reader** (`fileview.css`, `public/js/fileview.js`). A
+file name an agent writes in the chat that exists on this computer is
+`.file-link`: console blue (`--con-info-2`) with a dotted underline that goes
+solid on hover; blue, never orange, since a file is not something that needs
+you. Files the agent sends are `.cf-card`s (a picture shown, then the name and
+its folder in mono). The reader is a `.sheet.file-sheet`: the paper head holds
+the name, where it is, and Open · Show in folder · Copy where it is · Close as
+quiet buttons; the page under it is console ink (`.fv-body`), so markdown reads
+exactly as in the chat, code has line numbers and the named line is lit
+(`--con-lit`, blue).
+
+**Draft** (`pages/inbox.css`, `public/js/drafts.js`). An email draft is a
+dashed card, so it never reads as sent: a small blue Draft tag (blue, since
+orange means needs you), who it is to and when, then the subject and text.
+Edit turns it into labelled fields and a tall text box in place, with Send
+(primary), Save draft, Cancel and, set apart, Discard, which asks once in place.
+
 **Kicker** (`base.css`). The small mono uppercase label over a group or
 beside a value: `.kicker`, with the older names a script still emits
 (`.section-label .ship-label .ls-k .rail h3 .facts dt .cv-sub .cv-day …`)
 in the same selector list. One rule; do not restyle it locally.
 
+## Signing in
+
+Every sign-in is a click away and easy to finish. The block is one section in
+the item's panel: a sentence saying where things stand, then the button that
+moves it on (**Sign in**, then **Done, I'm signed in** and **Cancel** while the
+window is up, **Sign in again** and **Sign out** once saved), and a muted
+line saying what is kept and where. When one is required it is also a Needs-you
+card on Now with the label "Sign in". Built in public/js/checksauth.js; copy it
+for the next one rather than inventing a new flow. The rules behind it are in
+AGENTS.md.
+
 ## Layout and z-order
 
-`layout.css`: the top bar (`.top`, sticky, `--top-h` tall, `--z-bar`), the
-frame (`.frame`: a grid of rail 200 px, main, panel 360 px, 16 px gaps; 1280
-px drops the panel under the main, 860 px stacks everything), the rail
-(`.rail`, sticky under the bar: page links then projects), the page head
-(`.page-head h1` and its chips), the detail panel (`.panel .detail`, sticky)
-and the text-size `zoom`. Sessions and the Inbox conversation view override
-the frame in their own files to fill one screen.
+`layout.css`: there is no top bar. The frame (`.frame`) is a grid of the
+rail (`--rail-w`, 244 px), the page, and the detail panel (360 px), which is
+there only when it has something to show: a picked item, or the session list
+on Sessions (`renderDetail` sets `body[data-panel]`); otherwise the page takes
+the width. 1280 px drops the panel under the page; 860 px stacks everything
+and the rail becomes a block that scrolls away. `--top-h` is now only the
+space above a page.
+
+The rail (`.rail`, as tall as the window, stays put) holds everything the top
+bar did, each with a fixed place: at the top the wordmark with **What's new**
+beside it (a small `--info` word, only while something is new; it opens the
+list and counts as checked), Search or add (Ctrl K), and the need-you count
+(jumps to Needs you); then the pages and projects; and at its foot a broken
+connection in red, **Update ready** (orange: it needs you), Install app, and
+Windows, Check now (↻) and Settings. Nothing in it moves between pages.
+
+Now is rows, not cards: one group per state (Needs you, Working, Waiting on
+others, Done, Open), a row each with the project's dot, what it is (600),
+where from (muted), the state as a word in its colour and how long ago
+(`.now-row`, `pages/now.css`). Today folds to one line (`.today-strip`) with
+Show the day and Rundown; unfolded it is the full card. Sessions and the Inbox
+conversation view override the frame in their own files to fill one screen.
 
 Layers, from the tokens: the sticky bars at 5, a dialog's scrim at 10, a
 popover (the session menu, the weather results, a swatch picker) at 20, the
@@ -332,7 +466,7 @@ and dark.
 3. A heading uses `.page-head h1` (or joins the display list); lists use
    `.list` and `.row`; anything that opens over the page goes through
    `openDialog`.
-4. An entry in `public/setup.js` so the welcome and "New in Switchboard"
+4. An entry in `public/setup.js` so the welcome and What's new
    show it, a line in `CHANGELOG.md`, and the README section that explains
    it.
 5. Screenshots light and dark before it ships; the orange rule holds: if it

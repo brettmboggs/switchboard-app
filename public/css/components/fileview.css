@@ -1,0 +1,34 @@
+/* Files named in a session's chat (public/js/fileview.js).
+   .file-link   a file name Claude wrote that exists on this computer: blue with a
+                dotted underline (blue, not orange: orange means "needs you")
+   .cm-files    files Claude sent: a card each, pictures previewed
+   .file-sheet  the reader: a paper dialog whose page is the console's ink, so
+                markdown reads exactly as it does in the chat */
+.file-link { cursor: pointer; color: var(--con-info-2); text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-thickness: 1px; border-radius: var(--r-xs); }
+.file-link:hover { text-decoration-style: solid; }
+.file-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code.file-link { color: var(--con-info-2); }
+
+.cm-files { display: grid; gap: 8px; margin: 10px 0; }
+.cf-caption { margin: 0; color: var(--con-fg-soft); }
+.cf-card { display: grid; gap: 0; max-width: 520px; overflow: hidden; border: 1px solid var(--con-border); border-radius: var(--r-lg); background: var(--con-bg-2); color: var(--con-fg-dim); }
+.cf-card.file-link { color: var(--con-fg); text-decoration: none; }
+.cf-card.file-link:hover { border-color: var(--con-border-2); background: var(--con-bg-3); }
+.cf-img { display: block; width: 100%; max-height: 320px; object-fit: contain; background: var(--con-code-bg); }
+.cf-row { display: flex; align-items: baseline; gap: 10px; min-width: 0; padding: 9px 12px; }
+.cf-name { font-weight: 600; white-space: nowrap; }
+.cf-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-xs) var(--font-mono); color: var(--con-muted); }
+
+.file-sheet { width: min(1000px, 100%); gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.file-sheet .sheet-head { gap: 16px; }
+.fv-title { flex: 1; min-width: 0; }
+.fv-title h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fv-where { margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-xs) var(--font-mono); color: var(--fg-muted); }
+.fv-actions { display: flex; flex: none; gap: 8px; }
+.fv-body { min-width: 0; overflow-x: auto; min-height: 120px; padding: 18px 22px; border-radius: var(--r-lg); background: var(--con-bg); color: var(--con-fg); font-size: var(--fs-md); line-height: 1.6; }
+.fv-md { max-width: 76ch; }
+.fv-text { margin: 0; overflow-x: auto; font: var(--fs-sm)/1.55 var(--font-mono); color: var(--con-fg-soft); tab-size: 2; counter-reset: ln; }
+.fv-line::before { content: attr(data-n); display: inline-block; width: 4.5ch; margin-right: 1.5ch; text-align: right; color: var(--con-faint); user-select: none; }
+.fv-line.lit { background: var(--con-lit); }
+.fv-img { display: block; max-width: 100%; margin: 0 auto; border-radius: var(--r-md); }
+.fv-note { margin: 0; color: var(--con-fg-soft); }

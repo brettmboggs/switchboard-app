@@ -19,35 +19,46 @@
 <link rel="stylesheet" href="/css/components/row.css">
 <link rel="stylesheet" href="/css/components/field.css">
 <link rel="stylesheet" href="/css/components/dialog.css">
+<link rel="stylesheet" href="/css/components/keys.css">
 <link rel="stylesheet" href="/css/components/chart.css">
+<link rel="stylesheet" href="/css/components/fileview.css">
 <link rel="stylesheet" href="/css/pages/now.css">
+<link rel="stylesheet" href="/css/pages/rundown.css">
 <link rel="stylesheet" href="/css/pages/sessions.css">
 <link rel="stylesheet" href="/css/pages/inbox.css">
+<link rel="stylesheet" href="/css/pages/calendar.css">
 <link rel="stylesheet" href="/css/pages/money.css">
 <link rel="stylesheet" href="/css/pages/notes.css">
 <link rel="stylesheet" href="/css/pages/settings.css">
 <link rel="stylesheet" href="/css/pages/builds.css">
 <link rel="stylesheet" href="/css/pages/system.css">
+<link rel="stylesheet" href="/css/pages/project.css">
 <link rel="stylesheet" href="/css/brand.css">
 </head>
 <body>
 
-<header class="top">
-  <div class="mark"><svg class="mark-sym" viewBox="2 6 45 36" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10H11.5C15.75 10 15.75 24 20 24"/><path d="M6 38H11.5C15.75 38 15.75 24 20 24"/><path d="M6 24H20"/><path d="M36 24H44"/></g><circle cx="28" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="4.2"/><circle cx="6" cy="10" r="3.4" class="mk-dot"/><circle cx="6" cy="24" r="3.4" class="mk-dot"/><circle cx="6" cy="38" r="3.4" class="mk-dot"/><circle cx="28" cy="24" r="3.6" class="mk-lamp"/></svg>switchboard</div>
-  <button class="cmd" id="open-cmd" type="button"><kbd>Ctrl K</kbd><span>Log, remind, to-do, invoice, bill…</span></button>
-  <button class="status" id="status" type="button" hidden></button>
-  <button class="btn" id="install-btn" type="button" hidden title="Make Switchboard its own app, with its own icon">Install app</button>
-  <button class="btn btn--primary" id="update-btn" type="button" hidden>Update ready</button>
-  <button class="btn btn--quiet" id="open-windows" type="button" title="Open windows">Windows</button>
-  <button class="btn btn--quiet" id="refresh" type="button" title="Check everything now" aria-label="Check everything now">↻</button>
-  <button class="btn btn--quiet" id="open-settings" type="button">Settings</button>
-  <button class="needs" id="needs" type="button"><i></i><span id="needs-n">0</span>&nbsp;need you</button>
-</header>
+
 
 <div class="frame">
   <nav class="rail" aria-label="Pages and projects">
+    <div class="rail-top">
+      <div class="mark"><svg class="mark-sym" viewBox="2 6 45 36" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10H11.5C15.75 10 15.75 24 20 24"/><path d="M6 38H11.5C15.75 38 15.75 24 20 24"/><path d="M6 24H20"/><path d="M36 24H44"/></g><circle cx="28" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="4.2"/><circle cx="6" cy="10" r="3.4" class="mk-dot"/><circle cx="6" cy="24" r="3.4" class="mk-dot"/><circle cx="6" cy="38" r="3.4" class="mk-dot"/><circle cx="28" cy="24" r="3.6" class="mk-lamp"/></svg>switchboard</div>
+      <button class="whatsnew" id="whatsnew" type="button" hidden>What's new</button>
+    </div>
+    <button class="cmd" id="open-cmd" type="button"><span>Search or add…</span><kbd>Ctrl K</kbd></button>
+    <button class="needs" id="needs" type="button"><i></i><span id="needs-n">0</span>&nbsp;need you</button>
     <div id="pages" class="pages"></div>
-    <div id="projects"></div>
+    <div id="projects" class="projects"></div>
+    <div class="rail-foot">
+      <button class="status" id="status" type="button" hidden></button>
+      <button class="btn btn--primary btn--wide" id="update-btn" type="button" hidden>Update ready</button>
+      <button class="btn btn--wide" id="install-btn" type="button" hidden title="Make Switchboard its own app, with its own icon">Install app</button>
+      <div class="rail-tools">
+        <button class="rail-tool" id="open-windows" type="button" title="Open windows">Windows</button>
+        <button class="rail-tool" id="refresh" type="button" title="Check everything now" aria-label="Check everything now">↻</button>
+        <button class="rail-tool" id="open-settings" type="button">Settings</button>
+      </div>
+    </div>
   </nav>
   <main class="main" id="main">
     <div id="page" class="page"></div>
@@ -60,11 +71,11 @@
         <div id="term-queue" class="term-queue"></div>
         <div id="q-images" class="q-images"></div>
         <label for="q-text" class="sr">Message</label>
-        <textarea id="q-text" rows="1" placeholder="Message the agent, or drop a conversation or image here"></textarea>
+        <textarea id="q-text" rows="1" placeholder="Message the agent, or drop a file, picture or conversation here"></textarea>
         <div class="prompt-tools">
-          <button class="ptool" type="button" id="q-attach" title="Add an image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg><span class="sr">Add an image</span></button>
-          <input type="file" id="q-file" accept="image/*" multiple hidden>
-          <button class="ptool" type="button" id="q-bring" title="Bring in a message from your inbox" aria-expanded="false" aria-controls="bring-pop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg><span class="sr">Bring in a message</span></button>
+          <button class="ptool" type="button" id="q-attach" title="Add files or pictures"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg><span class="sr">Add files or pictures</span></button>
+          <input type="file" id="q-file" multiple hidden>
+          <button class="ptool txt ptool-label" type="button" id="q-bring" title="Bring in an email or chat from this project" aria-expanded="false" aria-controls="bring-pop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg><span>Messages</span></button>
           <button class="mic ptool" type="button" data-mic="q-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button>
           <span class="q-hint" id="q-hint"></span>
           <button class="ptool txt" type="button" data-qact="hold" title="Keep it in the queue until you release it">Hold</button>
@@ -111,6 +122,27 @@
 </div>
 
 <!-- new session -->
+<div class="scrim" id="file-scrim" role="dialog" aria-modal="true" aria-label="File">
+  <div class="sheet file-sheet">
+    <div class="sheet-head">
+      <div class="fv-title"><h2 id="file-name">File</h2><p class="fv-where" id="file-where"></p></div>
+      <div class="fv-actions"><span id="file-actions" class="fv-actions" hidden><button class="btn btn--quiet" type="button" id="file-open">Open</button><button class="btn btn--quiet" type="button" id="file-reveal">Show in folder</button><button class="btn btn--quiet" type="button" id="file-copy">Copy where it is</button></span><button class="btn btn--quiet" type="button" data-close="file-scrim">Close</button></div>
+    </div>
+    <div class="fv-body" id="file-body"></div>
+  </div>
+</div>
+<div class="scrim" id="new-scrim" role="dialog" aria-modal="true" aria-label="What's new">
+  <div class="sheet keys-sheet">
+    <div class="sheet-head"><h2>What's new</h2><button class="btn btn--quiet" type="button" data-close="new-scrim">Close</button></div>
+    <div class="w-conns" id="new-list"></div>
+  </div>
+</div>
+<div class="scrim" id="keys-scrim" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="sheet keys-sheet">
+    <div class="sheet-head"><h2>Keyboard shortcuts</h2><button class="btn btn--quiet" type="button" data-close="keys-scrim">Close</button></div>
+    <div class="keys-grid" id="keys-list"></div>
+  </div>
+</div>
 <div class="scrim" id="newterm-scrim" role="dialog" aria-modal="true" aria-label="New session">
   <form class="sheet" id="newterm-form">
     <div class="sheet-head"><h2>New session</h2><button class="btn btn--quiet" type="button" data-close="newterm-scrim">Close</button></div>
@@ -141,7 +173,8 @@
   <div class="prefs">
     <nav class="prefs-nav" aria-label="Settings sections">
       <h2>Settings</h2>
-      <button type="button" data-pane="accounts" aria-current="true">Accounts</button>
+      <button type="button" data-pane="accounts" aria-current="true">Account</button>
+      <button type="button" data-pane="connections">Connections</button>
       <button type="button" data-pane="projects">Projects</button>
       <button type="button" data-pane="alerts">Notifications</button>
       <button type="button" data-pane="mail">Mail</button>
@@ -149,12 +182,21 @@
       <button type="button" data-pane="system">System</button>
     </nav>
     <div class="prefs-body">
-      <div class="prefs-head"><h3 id="pane-title">Accounts</h3><span id="saved" class="saved" aria-live="polite"></span><button class="btn btn--quiet" type="button" data-close="settings-scrim">Done</button></div>
+      <div class="prefs-head"><h3 id="pane-title">Account</h3><span id="saved" class="saved" aria-live="polite"></span><button class="btn btn--quiet" type="button" data-close="settings-scrim">Done</button></div>
 
       <section class="pane" id="pane-accounts">
         <div class="acct-card" id="acct"></div>
+      </section>
+
+      <section class="pane" id="pane-connections" hidden>
+        <p class="pane-lead">What Switchboard is connected to, and below, everything you can add. Only what you use stays up here; each is signed in once, and its things then show on Now and Inbox in the right project.</p>
+        <div class="conn-search"><label for="conn-q" class="sr">Find a connection</label><input id="conn-q" class="field" type="search" placeholder="Find a connection: Gmail, Teams, GitHub, calendar…" autocomplete="off"></div>
+        <h3 class="conn-head">Your connections</h3>
+        <p class="muted conn-none" id="conn-mine-empty" hidden>Nothing here yet. Pick what you use under Add a connection, below.</p>
+        <div class="conn-group" data-cat="messages">
+          <h4 class="section-label">Messages</h4>
         <div id="gmail-cards"></div>
-        <div class="acct-card" id="gmail-add">
+        <div class="acct-card" id="gmail-add" data-conn="email">
           <div class="acct-main"><b>Email</b><span class="acct-line">Gmail, iCloud, Yahoo, Fastmail, work mail and more</span></div>
           <button class="btn" type="button" id="gmail-open">Add</button>
           <form id="gmail-form" class="acct-form" hidden>
@@ -171,35 +213,7 @@
             <span></span><div class="form-row"><button class="btn btn--primary" type="submit" id="g-connect">Connect</button><span id="gmail-msg" class="small"></span></div>
           </form>
         </div>
-        <div class="acct-card" id="cal-card">
-          <div class="acct-main"><b>Calendars</b><span class="acct-line" id="cal-line">Google, Outlook, iCloud, school and team calendars</span></div>
-          <button class="btn" type="button" id="cal-open">Add</button>
-          <div id="cal-list" class="acct-wide cal-list"></div>
-          <form id="cal-form" class="acct-form" hidden>
-            <label for="cal-url">Calendar link</label><input id="cal-url" type="url" placeholder="https://… or webcal://…  (ends in .ics)" autocomplete="off" required>
-            <label for="cal-space">Project</label><select id="cal-space"></select>
-            <span></span><details class="small cal-help"><summary class="muted">Where do I find the link?</summary>
-              <p><b>Google Calendar:</b> on the web, Settings, pick the calendar on the left, then Integrate calendar: copy <i>Secret address in iCal format</i>.</p>
-              <p><b>Outlook:</b> Settings, Calendar, Shared calendars, Publish a calendar: pick it, Can view all details, Publish, then copy the ICS link.</p>
-              <p><b>iCloud:</b> in the Calendar app, share the calendar and turn on Public Calendar, then copy the link.</p>
-              <p><b>School, team or club:</b> look for "Subscribe", "iCal" or "Add to calendar".</p>
-            </details>
-            <span></span><div class="form-row"><button class="btn btn--primary" type="submit">Add calendar</button><span id="cal-msg" class="small"></span></div>
-          </form>
-        </div>
-        <div class="acct-card" id="hook-card">
-          <div class="acct-main"><b>Webhooks</b><span class="acct-line">IFTTT, Zapier, Home Assistant, a phone shortcut or a script puts things on your board</span></div>
-          <button class="btn" type="button" id="hook-open">Add</button>
-          <div id="hook-list" class="acct-wide hook-list"></div>
-          <form id="hook-form" class="acct-form" hidden>
-            <label for="hook-name">Name</label><input id="hook-name" type="text" maxlength="60" placeholder="Gate sensor, IFTTT, my phone…" autocomplete="off" required>
-            <label for="hook-space">Project</label><select id="hook-space"></select>
-            <label for="hook-kind">Shows as</label><select id="hook-kind"></select>
-            <span></span><div class="form-row"><button class="btn btn--primary" type="submit">Make link</button><span id="hook-msg" class="small"></span></div>
-          </form>
-          <div id="hook-show" class="acct-wide" hidden></div>
-        </div>
-        <div class="acct-card" id="ms-card">
+        <div class="acct-card" id="ms-card" data-conn="microsoft">
           <div class="acct-main"><b>Microsoft 365</b><span id="ms-line" class="acct-line"></span></div>
           <div id="ms-actions" class="form-row"></div>
           <div id="ms-status" class="acct-wide"></div>
@@ -215,7 +229,63 @@
             </details>
           </div>
         </div>
+        </div>
+        <div class="conn-group" data-cat="calendars">
+          <h4 class="section-label">Calendars</h4>
+        <div class="acct-card" id="cal-card" data-conn="calendars">
+          <div class="acct-main"><b>Calendars</b><span class="acct-line" id="cal-line">Google, Outlook, iCloud, school and team calendars</span></div>
+          <button class="btn" type="button" id="cal-open">Add</button>
+          <div id="cal-google" class="acct-wide cal-accounts"></div>
+          <div id="cal-list" class="acct-wide cal-list"></div>
+          <div id="cal-accounts" class="acct-wide cal-accounts"></div>
+          <form id="cal-form" class="acct-form" hidden>
+            <label for="cal-url">Calendar link</label><input id="cal-url" type="url" placeholder="https://… or webcal://…  (ends in .ics)" autocomplete="off" required>
+            <label for="cal-space">Project</label><select id="cal-space"></select>
+            <span></span><details class="small cal-help"><summary class="muted">Where do I find the link?</summary>
+              <p><b>Google Calendar:</b> on the web, Settings, pick the calendar on the left, then Integrate calendar: copy <i>Secret address in iCal format</i>.</p>
+              <p><b>Outlook:</b> Settings, Calendar, Shared calendars, Publish a calendar: pick it, Can view all details, Publish, then copy the ICS link.</p>
+              <p><b>iCloud, Fastmail, Yahoo:</b> easier, add that email account above and its calendars are offered here, no link needed. Or share the calendar as public and copy its link.</p>
+              <p><b>School, team or club:</b> look for "Subscribe", "iCal" or "Add to calendar".</p>
+            </details>
+            <span></span><div class="form-row"><button class="btn btn--primary" type="submit">Add calendar</button><span id="cal-msg" class="small"></span></div>
+          </form>
+        </div>
+        </div>
+        <div class="conn-group" data-cat="money">
+          <h4 class="section-label">Money</h4>
+        <div class="acct-card" id="money-mail-card" data-conn="bank-alerts">
+          <div class="acct-main"><b>Bank and card alerts</b><span class="acct-line" id="money-mail-line">Read from your email: charges, receipts, payments in. Turn on alert emails in your bank's app or website, and they show on Money.</span></div>
+        </div>
+        </div>
+        <div class="conn-group" data-cat="coding">
+          <h4 class="section-label">Coding and sessions</h4>
         <div id="dev-cards"></div>
+        <div class="acct-card" id="local-ai-card" data-conn="localai"></div>
+        </div>
+        <div class="conn-group" data-cat="automation">
+          <h4 class="section-label">Automation</h4>
+        <div class="acct-card" id="tasks-card" data-conn="tasks"></div>
+        <div class="acct-card" id="trello-card" data-conn="trello"></div>
+        <div class="acct-card" id="asana-card" data-conn="asana"></div>
+        <div class="acct-card" id="notion-card" data-conn="notion"></div>
+        <div class="acct-card" id="feeds-card" data-conn="feeds"></div>
+        <div class="acct-card" id="hook-card" data-conn="webhooks">
+          <div class="acct-main"><b>Webhooks</b><span class="acct-line">IFTTT, Zapier, Home Assistant, a phone shortcut or a script puts things on your board</span></div>
+          <button class="btn" type="button" id="hook-open">Add</button>
+          <div id="hook-list" class="acct-wide hook-list"></div>
+          <form id="hook-form" class="acct-form" hidden>
+            <label for="hook-name">Name</label><input id="hook-name" type="text" maxlength="60" placeholder="Gate sensor, IFTTT, my phone…" autocomplete="off" required>
+            <label for="hook-space">Project</label><select id="hook-space"></select>
+            <label for="hook-kind">Shows as</label><select id="hook-kind"></select>
+            <span></span><div class="form-row"><button class="btn btn--primary" type="submit">Make link</button><span id="hook-msg" class="small"></span></div>
+          </form>
+          <div id="hook-show" class="acct-wide" hidden></div>
+        </div>
+        </div>
+        <p class="conn-none muted" id="conn-none" hidden>No connection by that name yet.</p>
+        <h3 class="conn-head">Add a connection</h3>
+        <div class="chips conn-cats" id="conn-cats" role="group" aria-label="Kind of connection"></div>
+        <div id="conn-shop" class="conn-next"></div>
       </section>
 
       <section class="pane" id="pane-projects" hidden>
@@ -254,6 +324,9 @@
         <div class="pref"><span class="field-label">Sessions</span><div class="toggles">
           <label class="toggle"><span>Changes, push and pull, and the pull request on each session</span><input type="checkbox" data-pref-bool="devChips"></label>
           <label class="toggle" id="gpu-toggle"><span>Use the graphics card for terminals</span><input type="checkbox" data-pref-bool="termGpu"></label>
+        </div></div>
+        <div class="pref"><span class="field-label">Now</span><div class="toggles">
+          <label class="toggle"><span>Morning rundown at the top of Now until noon</span><input type="checkbox" data-pref-bool="rundown"></label>
         </div></div>
         <div class="pref" id="weather-field"><span class="field-label">Weather</span><div class="weather-set" id="weather-set"></div></div>
         <div class="pref"><span class="field-label">Talk to type</span><div class="voice-field"><div class="seg" data-pref="voice"><button type="button" value="live">Live</button><button type="button" value="private">Private</button></div><div class="form-row" id="voice-row"></div></div></div>
@@ -294,10 +367,14 @@
 <script src="/js/now.js"></script>
 <script src="/js/pages.js"></script>
 <script src="/js/inbox.js"></script>
+<script src="/js/drafts.js"></script>
 <script src="/js/convo.js"></script>
 <script src="/js/detail.js"></script>
 <script src="/js/deliveries.js"></script>
 <script src="/js/routines.js"></script>
+<script src="/js/rundown.js"></script>
+<script src="/js/tasks.js"></script>
+<script src="/js/taskcards.js"></script>
 <script src="/js/calc.js"></script>
 <script src="/js/sanitize.js"></script>
 <script src="/js/editor.js"></script>
@@ -306,12 +383,24 @@
 <script src="/js/sessions.js"></script>
 <script src="/js/ci.js"></script>
 <script src="/js/checks.js"></script>
+<script src="/js/checksauth.js"></script>
+<script src="/js/calendar.js"></script>
+<script src="/js/googlecal.js"></script>
+<script src="/js/calendarform.js"></script>
+<script src="/js/project.js"></script>
+<script src="/js/costs.js"></script>
+<script src="/js/feeds.js"></script>
 <script src="/js/bring.js"></script>
 <script src="/js/voice.js"></script>
 <script src="/js/chat.js"></script>
+<script src="/js/fileview.js"></script>
 <script src="/js/devchips.js"></script>
+<script src="/js/search.js"></script>
 <script src="/js/nav.js"></script>
+<script src="/js/keys.js"></script>
 <script src="/js/settings.js"></script>
+<script src="/js/connections.js"></script>
+<script src="/js/connlist.js"></script>
 <script src="/js/sysmon.js"></script>
 <script src="/js/webhooks.js"></script>
 <script src="/js/favicon.js"></script>

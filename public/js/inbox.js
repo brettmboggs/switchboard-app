@@ -13,12 +13,20 @@ function renderInbox() {
   const base = inboxTab === 'business' ? biz : per;
   const list = base.filter(SOURCE[inboxSource]);
   const srcCount = (k) => base.filter(SOURCE[k]).length;
-  let html = `<div class="page-head inbox-head"><h1>Inbox</h1><div class="chips">
+  let html = `<div class="page-head inbox-head"><h1>Inbox</h1><div class="chips tabs">
       <button class="chip ${biz.length ? 'hot' : ''}" type="button" data-tab="business" aria-pressed="${inboxTab === 'business'}">Business <span class="c">${biz.length}</span></button>
       <button class="chip" type="button" data-tab="personal" aria-pressed="${inboxTab === 'personal'}">Personal <span class="c">${per.length}</span></button>
-    </div><span class="grow"></span><button class="btn btn--primary" type="button" data-act="compose">New email</button></div>
-    <div class="chips">${[['all', 'All'], ['email', 'Email'], ['texts', 'Texts and calls'], ['teams', 'Teams'], ['outlook', 'Outlook']].filter(([k]) => k === 'all' || srcCount(k) || (inboxTab === 'business' && S.recent.filter(inProject).some(SOURCE[k]))).map(([k, n]) => `<button class="chip" type="button" data-source="${k}" aria-pressed="${inboxSource === k}">${n} <span class="c">${srcCount(k)}</span></button>`).join('')}</div>
-    <section class="card"><div class="list">`;
+      <button class="chip" type="button" data-tab="reading" aria-pressed="${inboxTab === 'reading'}">Reading <span class="c">${readingList().filter((i) => !i.read_at).length || ''}</span></button>
+    </div><span class="grow"></span>${projectPicker()}<button class="btn btn--primary" type="button" data-act="compose">New email</button></div>`;
+  // Reading (feeds.js): news and blogs, in place of the conversations.
+  if (inboxTab === 'reading') {
+    html += readingHtml();
+    const el = $('page');
+    if (html !== inboxShown || el.dataset.view !== 'inbox') { el.innerHTML = html; inboxShown = html; el.dataset.view = 'inbox'; }
+    return;
+  }
+  html += `<div class="chips">${[['all', 'All'], ['email', 'Email'], ['texts', 'Texts and calls'], ['teams', 'Teams'], ['outlook', 'Outlook']].filter(([k]) => k === 'all' || srcCount(k) || (inboxTab === 'business' && S.recent.filter(inProject).some(SOURCE[k]))).map(([k, n]) => `<button class="chip" type="button" data-source="${k}" aria-pressed="${inboxSource === k}">${n} <span class="c">${srcCount(k)}</span></button>`).join('')}</div>
+    ${draftsSection()}<section class="card"><div class="list">`;
   const sub = (t) => t.kind === 'mail' || t.kind === 'outlook' ? `${t.subject}${t.snippet ? ' · ' + t.snippet : ''}` : (t.snippet || t.subject);
   const threadRow = (t) => row({ type: 'thread', key: t.key, space: t.space, title: t.who, via: VIA[t.kind] || 'Email', sub: sub(t), right: `<span class="mono muted">${ago(t.date)}</span>` });
   const recent = inboxTab === 'business' ? S.recent.filter(inProject).filter(SOURCE[inboxSource]).filter((r) => !list.some((t) => t.key === r.key)) : [];

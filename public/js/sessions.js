@@ -27,7 +27,7 @@ function renderSessions() {
   if (currentTerm && !terms.some((t) => t.key === currentTerm)) currentTerm = null;
   if (currentTerm && project !== 'all' && !inProject(termByKey(currentTerm))) currentTerm = null;
   if (!currentTerm) currentTerm = (terms.find(inProject) || terms[0])?.key || null;
-  let html = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}</div>
+  let html = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}<span class="grow"></span>${projectPicker()}</div>
     <div class="lines-strip">${visibleTerms().map((t) => `<button type="button" class="strip-line ${esc(t.state)}" data-term="${esc(t.key)}" aria-pressed="${t.key === currentTerm}" title="${esc(t.name)}">${esc(termLabel(t))}<span>${esc(TERM_STATE[t.state] || t.state)}</span></button>`).join('')}<button class="btn" type="button" data-new-term>New</button></div>`;
   if (!terms.length) html += `<section class="card"><p class="empty">No sessions yet. Start one here; sessions on your other computers show up here too when they are on and signed in.</p><div class="actions"><button class="btn btn--primary" type="button" data-new-term>New session</button></div></section>`;
   $('page').innerHTML = html;
@@ -99,19 +99,21 @@ function renderTermBar() {
     t.mode === 'direct' ? `<span title="This session ends if Switchboard restarts or updates.${S.platform === 'darwin' ? ' Install tmux (brew install tmux) to keep it running.' : ''}">ends on restart</span>` : '',
     `<span class="tb-path mono" title="${esc(t.cwd || '')}">${esc((t.cwd || '').replace(/^\/home\/[^/]+|^\/Users\/[^/]+|^[A-Za-z]:\\Users\\[^\\]+/, '~'))}</span>`].filter(Boolean).join('');
   const html = `<div class="tb-id"><b class="tb-name" title="${esc(t.name)}">${esc(termLabel(t))}</b>
-      <span class="tb-state ${esc(t.state)}">${esc(TERM_STATE[t.state] || t.state)}${t.updatedAt ? ` · <span data-tick="${t.updatedAt}">${dur(Date.now() - t.updatedAt)}</span>` : ''}</span></div>
+      <span class="tb-state ${esc(t.state)}">${esc(TERM_STATE[t.state] || t.state)}${t.updatedAt ? ` · <span data-tick="${Number(t.updatedAt) || 0}">${dur(Date.now() - t.updatedAt)}</span>` : ''}</span></div>
     <div class="tb-meta">${meta}</div>
     <div class="tb-actions">
       ${chatToggle(t)}
       <button class="tb-btn" type="button" data-tsize="-1" title="Smaller text" ${size <= 11 ? 'disabled' : ''}>A−</button>
       <button class="tb-btn" type="button" data-tsize="1" title="Bigger text" ${size >= 18 ? 'disabled' : ''}>A+</button>
       <button class="tb-btn" type="button" data-tcopy title="Copy what is selected">Copy</button>
-      <button class="tb-btn stop" type="button" data-qact="interrupt" title="Stop what the agent is doing (Esc)">Stop</button>
+      ${endAsk === t.key ? `<span class="tb-ask" role="group" aria-label="End this session?"><span>End this session?</span><button class="tb-btn danger" type="button" data-end-yes>End it</button><button class="tb-btn" type="button" data-end-no>Keep</button></span>` : `
+      <button class="tb-btn stop" type="button" data-qact="interrupt" ${t.state === 'running' || t.state === 'waiting' ? '' : 'disabled'} title="Stop what it is doing right now, like pressing Esc. The session stays open and you can keep talking to it.">Stop</button>
+      <button class="tb-btn end" type="button" data-end-session title="Close this session for good">End</button>`}
       <details class="tb-more"><summary class="tb-btn" title="More">More</summary><div class="tb-menu">
         ${t.remote ? '' : `<button type="button" data-rename="${esc(t.key)}">Rename</button>`}
         ${t.mode === 'tmux' && !t.remote ? `<button type="button" data-tcopy-attach="${esc(t.id)}">Copy tmux attach</button>` : ''}
         ${(t.links || []).map((l) => `<label class="tb-check"><input type="checkbox" data-auto="${esc(l.chat_key)}" ${l.auto ? 'checked' : ''}> Send ${esc(l.who || 'chat')}'s new messages in</label><button type="button" data-unlink="${esc(l.chat_key)}">Unlink ${esc(l.who || 'chat')}</button>`).join('')}
-        <button type="button" class="danger" data-end-session>End session…</button></div></details></div>`;
+      </div></details></div>`;
   if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
 }
 const TERM_SIZES = [11, 12, 13, 13.5, 14, 15, 16, 18];
@@ -155,10 +157,61 @@ function syncTerminal() {
   host.innerHTML = '';
   host.hidden = false;
   const term = new Terminal({ fontFamily: TERM_FONT, fontSize: Number(S?.prefs?.termSize) || 13.5, lineHeight: 1.18, fontWeightBold: 700,
-    cursorBlink: true, cursorStyle: 'bar', cursorWidth: 2, scrollback: 10000, allowProposedApi: false, theme: TERM_THEME });
+    cursorBlink: true, cursorStyle: 'bar', cursorWidth: 2, scrollback: 10000, allowProposedApi: false, macOptionClickForcesSelection: true, altClickMovesCursor: false, theme: TERM_THEME });
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(host);
+  // File names on the screen open the reader (fileview.js), here or from the computer the session runs on.
+  termFileLinks(term, currentTerm);
+  // Selecting text belongs to this screen. A session's tmux takes the mouse
+  // (for the wheel), so a plain drag would be tmux's selection: drawn on every
+  // computer showing the session, and copied on the one it runs on. Here a
+  // plain left drag is made the browser's own (as Shift-drag, or Option-drag
+  // on a Mac, is in xterm), so it shows only on this screen, and letting go
+  // copies it to this computer's clipboard. The wheel still scrolls in tmux.
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  host.addEventListener('mousedown', (e) => {
+    if (e.sbLocal || e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!term.element?.contains(e.target) || term.modes.mouseTrackingMode === 'none') return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    term.clearSelection();
+    const copy = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, detail: e.detail, button: 0, buttons: e.buttons, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, shiftKey: !isMac, altKey: isMac });
+    copy.sbLocal = true;
+    e.target.dispatchEvent(copy);
+    term.focus();
+  }, true);
+  host.addEventListener('mouseup', (e) => {
+    if (e.button !== 0) return;
+    setTimeout(() => {
+      const sel = term.hasSelection() ? term.getSelection() : '';
+      if (sel.trim()) navigator.clipboard.writeText(sel).then(() => toast('Copied.'), () => {});
+    }, 0);
+  });
+  // Cmd C on a Mac copies the selection here; Ctrl C stays the terminal's (it stops the agent).
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type === 'keydown' && e.metaKey && (e.key === 'c' || e.key === 'C') && term.hasSelection()) {
+      navigator.clipboard.writeText(term.getSelection()).then(() => toast('Copied.'), () => {});
+      return false;
+    }
+    // Ctrl+Backspace deletes the word before the cursor, as in every text box.
+    // The terminal would send ^H (one character back); ^W is "delete a word" in
+    // Claude Code, Codex and any shell.
+    if (e.key === 'Backspace' && e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (e.type === 'keydown') { e.preventDefault(); term.input('\x17'); }
+      return false;
+    }
+    // In a Claude session, the keys Claude Code itself uses: Shift+Enter is a
+    // new line (its Ctrl+J), Ctrl+Enter sends now even while it works (its
+    // Ctrl+X Ctrl+S). Anywhere else Enter stays Enter.
+    if (e.key === 'Enter' && !e.altKey && !e.metaKey && (e.shiftKey !== e.ctrlKey)) {
+      const t = termByKey(currentTerm);
+      if (t && (t.agent === 'claude' || t.claude_id)) {
+        if (e.type === 'keydown') { e.preventDefault(); term.input(e.shiftKey ? '\n' : '\x18\x13'); }
+        return false;
+      }
+    }
+    return true;
+  });
   termGpu(term);
   try { fit.fit(); } catch {}
   const t0 = termByKey(currentTerm);
@@ -201,6 +254,20 @@ function syncTerminal() {
     requestAnimationFrame(scaleToFit);
     return true;
   });
+  // A copy made inside the session (Claude Code's copy, tmux's mouse select)
+  // comes down the stream as OSC 52; it goes on the clipboard of the computer
+  // looking at it, not the one the session runs on. Only the window in use
+  // takes it, so two computers showing one session do not both get it; a
+  // request to read the clipboard ("?") is never answered.
+  term.parser.registerOscHandler(52, (data) => {
+    const b64 = data.slice(data.indexOf(';') + 1);
+    if (!b64 || b64 === '?' || !document.hasFocus()) return true;
+    try {
+      const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+      if (text) navigator.clipboard.writeText(text).then(() => toast('Copied.'), () => {});
+    } catch {}
+    return true;
+  });
   term.onData((d) => {
     if (!holds()) claim();
     if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'in', d }));
@@ -211,6 +278,16 @@ function syncTerminal() {
   ro.observe(host);
   ws.onopen = claim;
   ro.front = () => { if (!document.hidden) claim(); };
+  // Coming back to this computer often fires no focus (its window was already
+  // in front), so the mouse resting on the terminal also takes the size back:
+  // 400 ms inside it, in the window in use, so a mouse only passing over a
+  // computer nobody is using does not flip the size back and forth.
+  let dwell = null;
+  term.element?.addEventListener('pointermove', () => {
+    if (dwell || holds()) return;
+    dwell = setTimeout(() => { dwell = null; if (tv.term === term && document.hasFocus() && !holds()) claim(); }, 400);
+  }, { passive: true });
+  term.element?.addEventListener('pointerleave', () => { clearTimeout(dwell); dwell = null; });
   window.addEventListener('focus', ro.front);
   document.addEventListener('visibilitychange', ro.front);
   ro.claim = claim;
@@ -241,26 +318,23 @@ function termDetail() {
   const t = termByKey(currentTerm);
   if (!t) return `${allTerms().length ? sessionLines() : ''}<div class="lines-empty"><h2>Claude, inside Switchboard</h2><p class="muted">Start a session and it shows here: type in the terminal like always, or queue messages so they go in when Claude is free.</p></div>`;
   const rename = renaming === t.key ? `<form class="rename-form" id="rename-form"><label for="rename-input" class="sr">Session name</label><input id="rename-input" type="text" maxlength="60" value="${esc(renameVal ?? (t.named ? t.name : ''))}" placeholder="${esc(termLabel(t))}" autocomplete="off"><button class="btn btn--primary" type="submit">Save</button><button class="btn" type="button" data-rename-cancel>Cancel</button></form>` : '';
-  return rename + sessionLines();
+  return rename + sessionLines() + sessionMessages(t);
 }
 
-// End session: from the bar's More menu, with one plain question first.
+// End session: End on the bar, then "End it" in the same place. The question
+// stays until it is answered (no timer), and a click anywhere else, or another
+// session, puts the buttons back.
+let endAsk = null;
 document.addEventListener('click', (e) => {
-  if (e.target.closest('[data-end-session]')) {
-    const t = termByKey(currentTerm); if (!t) return;
-    e.target.closest('details')?.removeAttribute('open');
-    if (confirmEnd === t.key) { confirmEnd = null; queueAct('close', null); return; }
-    confirmEnd = t.key; toast(`Click End session again to end ${termLabel(t)}.`);
-    setTimeout(() => { if (confirmEnd === t.key) confirmEnd = null; }, 4000);
-    return;
-  }
+  if (e.target.closest('[data-end-session]')) { endAsk = currentTerm; renderTermBar(); return; }
+  if (e.target.closest('[data-end-yes]')) { if (termByKey(endAsk)) queueAct('close', null); endAsk = null; return; }
+  if (e.target.closest('[data-end-no]') || (endAsk && !e.target.closest('.tb-ask'))) { endAsk = null; renderTermBar(); }
   if (e.target.closest('[data-show-all]')) { project = 'all'; store.set('space', project); render(); return; }
   const at = e.target.closest('[data-tcopy-attach]');
   if (at) { e.target.closest('details')?.removeAttribute('open'); navigator.clipboard.writeText(`tmux attach -t ${at.dataset.tcopyAttach}`).then(() => toast('Copied.'), () => toast('Could not copy.')); return; }
   // A click anywhere else closes the More menu.
   for (const d of document.querySelectorAll('.tb-more[open]')) if (!d.contains(e.target)) d.removeAttribute('open');
 });
-let confirmEnd = null;
 
 // The docked message bar under the terminal. The textarea stays put across
 // refreshes (so typing and dictation are never interrupted); its draft follows
@@ -290,56 +364,76 @@ function renderTermCompose() {
   if (!free && !qs.querySelector('.ql')) qs.insertAdjacentHTML('afterbegin', '<span class="ql">Queue</span>');
   if (free) qs.querySelector('.ql')?.remove();
   $('q-hint').textContent = asking ? 'Enter sends this instead (answers No)' : free ? 'Enter to send · Shift+Enter for a new line' : `${t.agentName} is working · Enter queues it`;
-  $('term-queue').innerHTML = t.queued.map((q, i) => `<div class="qline ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="qn">${q.held ? 'Held' : 'Next' + (i ? ' +' + i : '')}</span><span class="txt">${esc(q.text)}</span><span class="src">${esc(q.source)}</span>${q.held ? `<button type="button" class="go" data-q="${q.id}" data-qa="release">Send when free</button>` : ''}<button type="button" data-q="${q.id}" data-qa="drop" title="Remove from the queue">Remove</button></div>`).join('');
+  $('term-queue').innerHTML = t.queued.map((q, i) => `<div class="qline ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="qn">${q.held ? 'Held' : 'Next' + (i ? ' +' + i : '')}</span><span class="txt">${esc(q.text)}</span><span class="src">${esc(q.source)}</span>${q.held ? `<button type="button" class="go" data-q="${esc(q.id)}" data-qa="release">Send when free</button>` : ''}<button type="button" data-q="${esc(q.id)}" data-qa="drop" title="Remove from the queue">Remove</button></div>`).join('');
 }
 function growText(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 180) + 'px'; }
 document.addEventListener('input', (e) => { if (e.target.id === 'q-text') growText(e.target); });
 
-// ---------- images in the message bar: paste or drop one, it goes with the message
-const images = {};   // 'term:<key>' -> [{ path, url }]
+// ---------- files in the message bar: paste, drop or pick any file, it goes
+// with the message as its location on this computer, which is how Claude Code
+// and Codex take files (pictures, PDFs, spreadsheets, code, anything). In the
+// Terminal view a dropped file's location is typed where the cursor is.
+const images = {};   // 'term:<key>' -> [{ path, name, url (pictures only) }]
 function renderImages() {
   const host = $('q-images'); if (!host) return;
   const list = images['term:' + currentTerm] || [];
-  host.innerHTML = list.map((x, i) => `<span class="q-img"><img src="${x.url}" alt=""><button type="button" data-img-del="${i}" aria-label="Remove image">×</button></span>`).join('');
+  host.innerHTML = list.map((x, i) => x.url
+    ? `<span class="q-img" title="${esc(x.name)}"><img src="${esc(x.url)}" alt="${esc(x.name)}"><button type="button" data-img-del="${i}" aria-label="Remove ${esc(x.name)}">×</button></span>`
+    : `<span class="q-file" title="${esc(x.path)}"><span class="q-file-name">${esc(x.name)}</span><span class="q-file-size">${fmtSize(x.size)}</span><button type="button" data-img-del="${i}" aria-label="Remove ${esc(x.name)}">×</button></span>`).join('');
+}
+function fileTarget() {
+  const t = termByKey(currentTerm);
+  if (!t) return null;
+  if (t.remote) { toast(`Files go to sessions on this computer. This one runs on ${t.deviceName || 'another computer'}: add the file there.`); return null; }
+  return t;
 }
 async function addImage(file) {
-  const t = termByKey(currentTerm);
-  if (!t) return;
-  if (t.remote) { toast('Images can go to sessions on this computer for now.'); return; }
-  const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(file); });
+  const t = fileTarget(); if (!t) return;
   try {
-    const { path } = await api('/api/paste', { type: file.type, data });
-    (images['term:' + t.key] ||= []).push({ path, url: URL.createObjectURL(file) });
+    const f = await uploadFile(file);
+    (images['term:' + t.key] ||= []).push({ path: f.path, name: f.name, size: f.size, url: f.image ? URL.createObjectURL(file) : null });
     renderImages(); $('q-text').focus();
   } catch (err) { toast(err.message, { kind: 'error' }); }
 }
-// The paperclip: pick images from the computer.
+// Terminal view: the file's location goes in at the cursor, quoted, nothing sent.
+async function fileIntoTerminal(files) {
+  const t = fileTarget(); if (!t || !tv.term) return;
+  for (const file of files) {
+    try { const f = await uploadFile(file); tv.term.paste(" '" + f.path.replace(/'/g, "'\\''") + "' "); }
+    catch (err) { toast(err.message, { kind: 'error' }); }
+  }
+  tv.term.focus();
+}
+// The paperclip: pick files from the computer.
 document.addEventListener('click', (e) => { if (e.target.closest('#q-attach')) $('q-file').click(); });
 document.addEventListener('change', (e) => {
   if (e.target.id !== 'q-file') return;
-  [...e.target.files].filter((f) => f.type.startsWith('image/')).forEach(addImage);
+  [...e.target.files].forEach(addImage);
   e.target.value = '';
 });
 // Clicking the prompt's empty space puts the cursor in it, like a chat app.
 document.addEventListener('mousedown', (e) => { if (e.target.id === 'q-prompt' || e.target.classList?.contains('prompt-tools')) { e.preventDefault(); $('q-text').focus(); } });
 document.addEventListener('paste', (e) => {
   if (e.target.id !== 'q-text') return;
-  const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
+  const files = [...(e.clipboardData?.files || [])];
   if (!files.length) return;
   e.preventDefault();
   files.forEach(addImage);
 });
 document.addEventListener('drop', (e) => {
-  if (!e.target.closest?.('#q-prompt, #term-host')) return;
-  const files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith('image/'));
-  if (files.length) { e.stopImmediatePropagation(); e.preventDefault(); $('q-prompt')?.classList.remove('drop'); files.forEach(addImage); }
+  if (!e.target.closest?.('#q-prompt, #term-host, #chat-host')) return;
+  const files = [...(e.dataTransfer?.files || [])];
+  if (!files.length) return;
+  e.stopImmediatePropagation(); e.preventDefault(); $('q-prompt')?.classList.remove('drop');
+  if (e.target.closest('#term-host') && !$('term-host').hidden && tv.term) fileIntoTerminal(files);
+  else files.forEach(addImage);
 }, true);
 document.addEventListener('click', (e) => {
   const d = e.target.closest('[data-img-del]');
   if (!d) return;
   const list = images['term:' + currentTerm] || [];
   const [gone] = list.splice(Number(d.dataset.imgDel), 1);
-  if (gone) URL.revokeObjectURL(gone.url);
+  if (gone?.url) URL.revokeObjectURL(gone.url);
   renderImages();
 });
 // Enter: while dictating, stops dictation; in the message bar, sends.
@@ -482,7 +576,10 @@ const ntAgent = () => ntAgents.find((a) => a.id === $('nt-agent').value) || {};
 async function openNewTerm() {
   const [list, agents] = await Promise.all([api('/api/folders'), api('/api/agents')]);
   ntAgents = agents;
-  $('nt-folder').innerHTML = list.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join('');
+  // Your folders first; the agents' side copies of a repo (git worktrees) in a group of their own at the end.
+  const mains = list.filter((f) => !f.copyOf), copies = list.filter((f) => f.copyOf);
+  $('nt-folder').innerHTML = mains.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join('')
+    + (copies.length ? `<optgroup label="Agents' work copies (${copies.length})">${copies.map((f) => `<option value="${esc(f.path)}">${esc(f.name)} · copy of ${esc(f.copyOf)}</option>`).join('')}</optgroup>` : '');
   $('nt-agent').innerHTML = agents.map((a) => `<option value="${esc(a.id)}" ${a.installed ? '' : 'disabled'}>${esc(a.name)}${a.installed ? '' : ' (not installed)'}</option>`).join('');
   $('nt-agent').value = store.get('lastAgent', 'claude');
   if ($('nt-agent').selectedOptions[0]?.disabled) $('nt-agent').value = 'claude';

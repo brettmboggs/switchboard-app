@@ -2,12 +2,29 @@
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 // ---------- data
-let loading = false, again = false;
+let loading = false, again = false, offlineSince = 0, retryTimer = null;
 async function load() {
   if (loading) { again = true; return; }
   loading = true;
-  try { S = await api('/api/state'); render(); applyPrefs(S.prefs); checkWelcome(); renderWelcome(); if ($('settings-scrim').classList.contains('open')) { renderAccount(); renderMsStatus(); if (SET) { renderGmail(); renderDev(); renderVoice(); } } }
-  catch { const el = $('status'); el.hidden = false; el.textContent = 'Switchboard server is not running'; el.title = ''; }
+  clearTimeout(retryTimer);
+  let state;
+  try { state = await api('/api/state'); offlineSince = 0; }
+  catch (e) {
+    // Only a server that does not answer is "not running". A restart after an
+    // update or a code change takes a second or two, so say that first and keep
+    // trying; only after half a minute say it is down.
+    const el = $('status'); el.hidden = false; el.title = '';
+    if (e?.data?.offline) {
+      offlineSince ||= Date.now();
+      el.textContent = Date.now() - offlineSince < 30000 ? 'Switchboard is restarting. Reconnecting…' : 'Switchboard server is not running. Restart this computer\'s Switchboard, or wait: this page reconnects by itself.';
+      retryTimer = setTimeout(load, 2000);
+    } else el.textContent = e?.message || 'Switchboard could not load the board. Reload the page.';
+    loading = false; if (again) { again = false; load(); }
+    return;
+  }
+  // A mistake in the page itself is reported as one, never as the server being down.
+  try { S = state; hideWaiting(); render(); applyPrefs(S.prefs); checkWelcome(); renderWelcome(); if ($('settings-scrim').classList.contains('open')) { renderAccount(); renderMsStatus(); if (SET) { renderGmail(); renderDev(); renderVoice(); } } }
+  catch (e) { oops(e, 'drawing the board'); }
   finally { loading = false; if (again) { again = false; load(); } }
 }
 
@@ -30,5 +47,5 @@ const es = new EventSource('/api/events');
 es.addEventListener('changed', load);
 es.addEventListener('open', load);
 if (!location.hash) { const sp = store.get('prefs', {})?.startPage; if (sp && sp !== 'now') history.replaceState(null, '', '#' + sp); }
-page = (PAGES.find(([id]) => id === location.hash.replace('#', '')) || ['now'])[0];
+pageFromHash();
 load();

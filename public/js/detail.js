@@ -7,7 +7,7 @@ function find(type, key) {
   if (type === 'run') return S.runs.find((r) => String(r.id) === key);
   if (type === 'ci') return ciRun(key);
   if (type === 'review') return S.reviews.find((r) => String(r.id) === key);
-  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent].find((t) => t.key === key) || convoThread(key);
+  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent].find((t) => t.key === key) || convoThread(key) || searchPool.find((t) => t.key === key) || draftThread(key);
   if (type === 'awaiting') return S.awaiting.find((t) => t.key === key);
   if (type === 'invoice') return S.money.invoices.find((i) => String(i.id) === key);
   if (type === 'item') return [...S.items, ...S.money.bills, ...S.money.paid].find((i) => String(i.id) === key);
@@ -17,6 +17,8 @@ function find(type, key) {
   if (type === 'delivery') return findDelivery(key);
   if (type === 'routine') return findRoutine(key);
   if (type === 'check') return findCheck(key);
+  if (type === 'task') return findTask(key);
+  if (type === 'draft') return findDraft(key);
   return null;
 }
 
@@ -37,8 +39,12 @@ function guessFrom(t) {
   return (from && mine.includes(from)) ? from : mine[0];
 }
 
+// The panel is there only when it has something to show: a picked item, or
+// the session list on Sessions. Otherwise the page has the width (data-panel).
+const panelShows = (on) => { document.body.dataset.panel = on ? 'on' : 'off'; };
 function renderDetail() {
   const el = $('detail');
+  panelShows(page === 'sessions' || selected?.type === 'newcost' || (!CV && !!(selected && find(selected.type, selected.key))));
   if (page === 'sessions') {
     // Keep the box being typed in (the message bar, or a session's new name) through redraws.
     const fid = ['q-text', 'rename-input'].includes(document.activeElement?.id) ? document.activeElement.id : null;
@@ -49,7 +55,13 @@ function renderDetail() {
   }
   // An open conversation has the whole width (convo.js); the panel steps aside.
   if (CV) { if (el.innerHTML) el.innerHTML = ''; return; }
+  // A new recurring cost (costs.js): its form, left alone while it is open.
+  if (selected?.type === 'newcost') { if (!costFormOpen('new')) el.innerHTML = `<div class="kicker">New recurring cost</div>` + costFormHtml(costForm?.prefill, 'new'); return; }
+  // A draft being edited (drafts.js): left as it is while the board refreshes.
+  if (selected?.type === 'draft' && draftPanelBusy()) return;
   const x = selected && find(selected.type, selected.key);
+  // A project's page has its own side column: the panel only opens for a picked card.
+  if (!x && page === 'project') { el.innerHTML = ''; return; }
   if (!x) {
     const label = project === 'all' ? 'Everything' : spaceOf(project).name;
     const hints = { now: 'Click a card to see it here and act on it. Session cards also jump straight to their window.', inbox: 'Pick a conversation to read it and reply without leaving.', money: 'Log money with Ctrl+K: invoice, paid, bill.', notes: 'Ctrl+K works from any page.', builds: 'Runs update by themselves while they go. Click one for its jobs, to re-run what failed, or to cancel it.', checks: 'Click a check for its last runs, what failed and screenshots.' };
@@ -99,6 +111,11 @@ function renderDetail() {
     html = kick('Invoice out') + `<h2>${esc(x.text)}</h2>
       <dl class="facts"><dt>Amount</dt><dd>${$$(x.amount)}</dd><dt>Sent</dt><dd>${when(x.created_at)}</dd>${x.due_at ? `<dt>Due</dt><dd>${dayOnly(x.due_at)}</dd>` : ''}</dl>
       <div class="actions"><button class="btn btn--primary" data-act="paid" type="button">Mark paid</button><button class="btn" data-act="delete" type="button">Delete</button></div>`;
+  } else if (t === 'item' && x.kind === 'bill') {
+    // A recurring cost is its own form: change any of it and Save (costs.js).
+    if (costFormOpen(String(x.id))) return;
+    costForm = { key: String(x.id) };
+    html = kick('Recurring cost') + `<h2>${esc(x.text)}</h2><p class="muted">${$$(x.amount)} ${esc(CADENCE_WORD[x.cadence] || x.cadence)} · ${$$(monthly(x))} a month</p>` + costFormHtml(x, String(x.id));
   } else if (t === 'item' || t === 'done') {
     const label = { note: 'Note', todo: 'To-do', reminder: 'Reminder', paid: 'Payment', bill: 'Bill' }[x.kind] || 'Item';
     html = kick(label) + `<h2>${esc(x.text)}</h2>
@@ -110,6 +127,10 @@ function renderDetail() {
     html = deliveryDetail(x, kick);
   } else if (t === 'check') {
     html = checkDetail(x, kick);
+  } else if (t === 'task') {
+    html = taskDetail(x, kick);
+  } else if (t === 'draft') {
+    html = draftDetail(x, kick);
   } else if (t === 'money') {
     html = kick(x.kind === 'charge' ? 'Card or bank alert' : 'Receipt') + `<h2>${esc(x.merchant || x.from_name)}</h2>
       <dl class="facts">${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Subject</dt><dd>${esc(x.subject)}</dd><dt>From</dt><dd>${esc(x.from_addr)}</dd><dt>Date</dt><dd>${when(x.date)}</dd></dl>
@@ -128,7 +149,7 @@ function renderDetail() {
 function render() {
   if (!S) return;
   renderShell();
-  ({ now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, inbox: renderInbox, money: renderMoney, notes: renderNotes })[page]();
+  ({ now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, calendar: renderCalendar, inbox: renderInbox, money: renderMoney, notes: renderNotes, project: renderProject })[page]();
   document.body.dataset.page = page;
   syncConvo();
   $('term-host').hidden = page !== 'sessions' || !currentTerm;
@@ -142,7 +163,26 @@ function render() {
   if (page === 'sessions') { syncTerminal(); renderTermCompose(); } else closeTerminal();
   renderDetail();
   renderWindows();
+  alignPanel();
 }
+
+// The panel on the right starts level with the first block under the page's
+// title (a card, the tiles), not with the title itself, so the right column's
+// top edge lines up with the left's. Sessions lays its panel out itself; in a
+// narrow window the panel sits underneath and needs no lining up.
+const wideFrame = matchMedia('(min-width: 1281px)');
+function alignPanel() {
+  const panel = document.querySelector('.frame > .panel'), pg = $('page');
+  if (!panel || !pg) return;
+  let lead = 0;
+  if (wideFrame.matches && page !== 'sessions') {
+    const first = [...pg.children].find((el) => !el.matches('.page-head, .sessions-head, .chips') && el.offsetParent !== null);
+    if (first) lead = (first.getBoundingClientRect().top - pg.getBoundingClientRect().top) / (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom')) || 1);
+  }
+  const px = Math.max(0, Math.round(lead)) + 'px';
+  if (panel.style.marginTop !== px) panel.style.marginTop = px;
+}
+addEventListener('resize', alignPanel);
 
 function renderWindows() {
   const wins = S.windows.filter((w) => project === 'all' || w.space === project);

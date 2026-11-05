@@ -43,3 +43,17 @@ test('attach: only sb-* sessions with an open record', () => {
   assert.throws(() => attach('=sb-x', 80, 24), /closed/);        // tmux target syntax
   assert.throws(() => attach('', 80, 24), /closed/);
 });
+
+test('folders: an agent\'s git worktree is marked as a copy of its repo', async () => {
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  const { setSetting } = await import('../lib/db.js');
+  const { folders } = await import('../lib/terminals.js');
+  const root = mkdtempSync(join(tmpdir(), 'sb-code-'));
+  mkdirSync(join(root, 'shop', '.git', 'worktrees', 'shop-fix'), { recursive: true });
+  mkdirSync(join(root, 'shop-fix'));
+  writeFileSync(join(root, 'shop-fix', '.git'), `gitdir: ${join(root, 'shop', '.git', 'worktrees', 'shop-fix')}\n`);
+  mkdirSync(join(root, 'notes'));
+  setSetting('codeRoot', root);
+  const mine = folders().filter((f) => f.path.startsWith(root));
+  assert.deepEqual(Object.fromEntries(mine.map((f) => [f.name, f.copyOf || null])), { shop: null, 'shop-fix': 'shop', notes: null });
+});

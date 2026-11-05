@@ -183,12 +183,20 @@ async function queueAct(kind, btn) {
   if (btn) btn.disabled = true;
   try {
     if (kind === 'close') { await api(termPath(t, 'close'), {}); closeTerminal(); currentTerm = null; toast('Session ended.'); }
-    else if (kind === 'interrupt') { await api(termPath(t, 'interrupt'), {}); toast('Stopped.'); }
+    else if (kind === 'interrupt') { await api(termPath(t, 'interrupt'), {}); toast('Stopped what it was doing. The session is still open.'); }
     else {
       await dictated;
       const imgs = images['term:' + t.key] || [];
       const text = [$('q-text').value.trim(), ...imgs.map((x) => x.path)].filter(Boolean).join('\n');
       if (!text) { toast('Write something first.'); return; }
+      // "Type something" was picked on the agent's question: this message is the answer.
+      if (kind !== 'hold' && chatOn(t.key) && cv?.menu && cv.typeOwn != null) {
+        const own = $('q-text').value.trim();
+        if (!own) { toast('Type your answer first.'); return; }
+        await answerMenu(cv.typeOwn, own);
+        delete draft['term:' + t.key]; $('q-text').value = ''; growText($('q-text'));
+        return;
+      }
       // The agent is asking permission in the Chat view: a message is the
       // answer "No, do this instead", so say No first and send it straight in.
       let instead = false;
@@ -232,7 +240,11 @@ document.addEventListener('click', (e) => {
   const ul = e.target.closest('[data-unlink]');
   if (ul) { api('/api/links', { chatKey: ul.dataset.unlink, unlink: true }).then(load); return; }
   const ba = e.target.closest('[data-bring-add]');
-  if (ba) { addToComposer(bringText(ba.dataset.bringAdd)); return; }
+  if (ba) {
+    // On Terminal there is no message bar: the message is typed in at the cursor.
+    if (document.body.classList.contains('term-only') && tv.term) { bringText(ba.dataset.bringAdd).then((txt) => { if (txt) { tv.term.paste(txt); tv.term.focus(); } }); return; }
+    addToComposer(bringText(ba.dataset.bringAdd)); return;
+  }
   const bm = e.target.closest('[data-bring-more]');
   if (bm) { toggleBring(bm.dataset.bringMore); return; }
 }, true);

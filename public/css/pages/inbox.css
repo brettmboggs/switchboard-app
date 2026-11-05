@@ -10,7 +10,7 @@
 /* The conversation view (convo.js): the list narrows to a column, the
    conversation takes the room, the reply box stays at the bottom. */
 body[data-convo] { height: 100vh; overflow: hidden; }
-body[data-convo] .frame { height: calc(100vh - var(--top-h)); grid-template-columns: 200px minmax(0, 1fr); align-items: stretch; padding-bottom: 16px; }
+body[data-convo] .frame { height: 100vh; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: stretch; padding-bottom: 16px; }
 body[data-convo] .panel { display: none; }
 body[data-convo] .rail { overflow: auto; }
 body[data-convo] .main { grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-content: stretch; min-height: 0; }
@@ -98,7 +98,7 @@ body[data-convo] #page .item.sel .s, body[data-convo] #page .item.sel .muted, bo
 .cv-hint { font-size: var(--fs-sm); color: var(--fg-muted); padding-left: 4px; }
 .cv-hint kbd { font-family: var(--font-mono); font-size: var(--fs-xs); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--r-sm); padding: 0 4px; }
 
-@media (max-width: 1280px) { body[data-convo] .frame { grid-template-columns: 180px minmax(0, 1fr); } }
+@media (max-width: 1280px) { body[data-convo] .frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); } }
 @media (max-width: 1100px) { body[data-convo] .main { grid-template-columns: minmax(0, 1fr); } body[data-convo] #page { display: none; } }
 @media (max-width: 860px) {
   body[data-convo] { height: auto; overflow: auto; }
@@ -107,3 +107,29 @@ body[data-convo] #page .item.sel .s, body[data-convo] #page .item.sel .muted, bo
   .cv-side { display: none; }
   .cv-acts .btn:not([data-act]) { display: none; }
 }
+
+/* Reading (feeds.js): posts are links that look like the other rows. */
+a.feed-item { color: inherit; text-decoration: none; }
+.feed-add { margin-top: var(--sp-2); }
+.feed-add input { flex: 1; min-width: 12rem; }
+/* Unread posts are bold, with no dot: the orange dot is for people waiting on you. */
+.feed-item.unread .t { font-weight: 700; }
+.feed-item:not(.unread) .t { color: var(--fg-muted); }
+
+/* Email drafts (public/js/drafts.js): under a conversation's messages, or in
+   the side panel. A dashed card, so it never reads as sent; the Draft tag is
+   blue, as orange means "needs you". Edit opens the fields in place. */
+.cv-drafts { display: grid; gap: var(--sp-3); padding: 0 8px; }
+.cv-drafts:empty { display: none; }
+.cv-draft { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0; padding: var(--sp-3) var(--sp-4); border: 1px dashed var(--border); border-radius: var(--r-lg); background: var(--bg-surface); }
+.dr-head { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.dr-tag { flex: none; padding: 1px 8px; border-radius: var(--r-pill); background: var(--info-tint); color: var(--info); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .02em; }
+.dr-to { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--fs-sm); }
+.dr-when { margin-left: auto; flex: none; color: var(--fg-muted); font-size: var(--fs-xs); }
+.dr-subject { margin: 0; font-weight: 600; }
+.dr-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+.dr-form { display: grid; gap: var(--sp-2); }
+.dr-field { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--fg-muted); }
+.dr-body { width: 100%; min-height: 10rem; resize: vertical; font: inherit; line-height: 1.5; }
+.cv-draft .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.cv-draft .grow { flex: 1; }

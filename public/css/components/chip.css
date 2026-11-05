@@ -1,6 +1,9 @@
 /* Chips and pills.
      .chip        a filter or tab you press (Now's "Needs you 3", Notes' tabs); solid ink when pressed
      .chip .c     its count, in mono
+     .tabs        a page's own tabs (Now, Inbox, Notes, Sessions): the same buttons,
+                  drawn as words with a line under the one you are on. Pills
+                  (plain .chips) are for the smaller filters inside a tab.
      .pill        a state word on a card or row, mono uppercase ("FAILED", "DONE"); the
                   state colours live with the thing that shows them (pages/now.css)
      .pill--soft  the same shape in body type, for a package or weather note
@@ -12,6 +15,13 @@
 .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg-surface); border-color: var(--fg); }
 .chip[aria-pressed="true"] .c { color: var(--bg-surface); opacity: .8; }
 .chip.hot .c { color: var(--accent-text); }
+
+.tabs { flex-wrap: nowrap; gap: var(--sp-5); align-self: flex-end; overflow-x: auto; scrollbar-width: none; }
+.tabs .chip, .tabs .chip[aria-pressed], .tabs .chip[aria-current] { border: 0; border-radius: 0; background: none; padding: var(--sp-1) 0 6px; border-bottom: 2px solid transparent; color: var(--fg-muted); font-weight: 600; align-items: center; white-space: nowrap; }
+.tabs .chip:hover { color: var(--fg); }
+.tabs .chip[aria-pressed="true"], .tabs .chip[aria-current="page"] { color: var(--fg); border-bottom-color: var(--fg); }
+.tabs .chip[aria-pressed="true"] .c, .tabs .chip[aria-current="page"] .c { color: var(--fg-muted); opacity: 1; }
+.tabs .chip.hot .c { color: var(--accent-text); }
 
 .pill { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: var(--r-pill); white-space: nowrap; }
 .pill--soft { font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600; text-transform: none; letter-spacing: 0; padding: 3px 10px; background: var(--border-faint); color: var(--fg-muted); }

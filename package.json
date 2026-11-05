@@ -1,6 +1,6 @@
 {
   "name": "switchboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "FSL-1.1-MIT",
   "description": "One screen for everything you run: AI coding sessions, builds, email, chats, calendar, reminders and money, on your own computer.",
@@ -16,7 +16,8 @@
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
     "publish": "node scripts/publish.mjs",
     "lint": "node scripts/page-globals.mjs && eslint .",
-    "notices": "node scripts/notices.mjs"
+    "notices": "node scripts/notices.mjs",
+    "pitch": "node scripts/pitch.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "0.11.0",

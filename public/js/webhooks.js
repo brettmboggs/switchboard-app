@@ -1,4 +1,4 @@
-// Settings, Accounts, Webhooks: make a link, pick its project and what it shows as, copy it, test it, replace it, remove it.
+// Settings, Connections, Automation, Webhooks: make a link, pick its project and what it shows as, copy it, test it, replace it, remove it.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 // Everything a webhook brings in is text from outside: it goes through esc() like mail.

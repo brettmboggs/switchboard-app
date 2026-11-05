@@ -394,6 +394,12 @@ export default {
         .bind(token, acct.id, String(body.device || '').slice(0, 80), Date.now()).run();
       return json({ ok: true });
     }
+    // Which phones get pings, so a phone can list them and take away one no
+    // longer used (an old install, or Expo Go during development).
+    if (req.method === 'GET' && path === '/v1/push/list') {
+      const { results } = await env.DB.prepare('SELECT token, device, created_at FROM push_tokens WHERE account_id = ? ORDER BY created_at').bind(acct.id).all();
+      return json({ phones: results });
+    }
     if (req.method === 'POST' && path === '/v1/push/unregister') {
       await env.DB.prepare('DELETE FROM push_tokens WHERE token = ? AND account_id = ?').bind(String(body.token || ''), acct.id).run();
       return json({ ok: true });

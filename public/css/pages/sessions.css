@@ -7,17 +7,17 @@
 /* ---- The grid: the title across the top, the console in the middle, the lines
    beside it, starting and ending where the console does. One screen, no scroll. */
 body[data-page="sessions"] { height: 100vh; overflow: hidden; }
-body[data-page="sessions"] .frame { height: calc(100vh - var(--top-h)); grid-template-columns: 200px minmax(0, 1fr) 288px; grid-template-rows: auto auto minmax(0, 1fr) auto; row-gap: 0; column-gap: 16px; align-items: stretch; padding-bottom: 28px; }
+body[data-page="sessions"] .frame { height: 100vh; grid-template-columns: var(--rail-w) minmax(0, 1fr) 288px; grid-template-rows: auto auto minmax(0, 1fr) auto; row-gap: 0; column-gap: 16px; align-items: stretch; padding-bottom: 28px; }
 body[data-page="sessions"] .rail { grid-column: 1; grid-row: 1 / -1; overflow: auto; }
 body[data-page="sessions"] .main { display: contents; }
-body[data-page="sessions"] #page { grid-column: 2 / -1; grid-row: 1; gap: 10px; margin-bottom: 14px; }
+body[data-page="sessions"] #page { grid-column: 2 / -1; grid-row: 1; gap: 10px; margin-bottom: 14px; padding-top: var(--top-h); }
 body[data-page="sessions"] #term-bar { grid-column: 2; grid-row: 2; flex: none; }
 body[data-page="sessions"] #term-host, body[data-page="sessions"] #chat-host { grid-column: 2; grid-row: 3; }
 body[data-page="sessions"] #term-compose { grid-column: 2; grid-row: 4; position: relative; }
-body[data-page="sessions"] .panel { grid-column: 3; grid-row: 2 / -1; position: static; display: flex; min-height: 0; overflow: auto; }
+body[data-page="sessions"] .panel { grid-column: 3; grid-row: 2 / -1; position: static; display: flex; min-height: 0; overflow: auto; padding-top: 0; margin-top: 0; }
 body[data-page="sessions"] .panel > .detail { flex: 1; min-height: 0; overflow: auto; padding: 10px 8px 12px; border-radius: var(--r-lg); scrollbar-width: thin; }
 @media (max-width: 1180px) {
-  body[data-page="sessions"] .frame { grid-template-columns: 170px minmax(0, 1fr); }
+  body[data-page="sessions"] .frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
   body[data-page="sessions"] #page { grid-column: 2; }
   body[data-page="sessions"] .panel { display: none; }
 }
@@ -31,9 +31,6 @@ body[data-page="sessions"] .panel > .detail { flex: 1; min-height: 0; overflow: 
 .sessions-head .linked i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: inline-block; }
 body[data-page="builds"] #page > .sessions-head, body[data-page="checks"] #page > .sessions-head { margin-bottom: 4px; }
 /* Page tabs: words, a rule under the open one (subTabs in core.js). */
-.sub-tabs { flex: none; flex-wrap: nowrap; gap: 20px; align-self: flex-end; }
-.sub-tabs .chip, .sub-tabs .chip[aria-current="page"] { border: 0; border-radius: 0; background: none; padding: 4px 0 6px; border-bottom: 2px solid transparent; color: var(--fg-muted); font-weight: 600; align-items: center; white-space: nowrap; }
-.sub-tabs .chip:hover { color: var(--fg); }
 .sub-tabs .chip[aria-current="page"] { color: var(--fg); border-bottom-color: var(--fg); }
 .sub-tabs .chip .c, .sub-tabs .chip[aria-current="page"] .c { font: 500 var(--fs-base) var(--font-body); color: var(--fg-muted); }
 .sub-tabs .chip .c.bad { color: var(--bad); }
@@ -69,8 +66,8 @@ body[data-page="builds"] #page > .sessions-head, body[data-page="checks"] #page 
 .lines-empty { padding: 4px 12px; }
 .lines-empty h2 { font-size: var(--fs-lg); }
 .detail .rename-form { margin: 0 4px 10px; }
-.rename-form { display: flex; gap: 6px; margin: 4px 0 8px; }
-.rename-form input { flex: 1; font: 600 var(--fs-xl) var(--font-body); padding: 5px 8px; }
+.rename-form { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.rename-form input { flex: 1 1 100%; font: 600 var(--fs-xl) var(--font-body); padding: 5px 8px; }
 /* Narrow windows: the panel steps aside and the lines become one row of names. */
 .lines-strip { display: none; }
 @media (max-width: 1180px) {
@@ -107,6 +104,11 @@ body[data-page="builds"] #page > .sessions-head, body[data-page="checks"] #page 
 .tb-btn:disabled { opacity: .35; cursor: default; }
 .tb-btn.stop { border-color: var(--con-border); }
 .tb-btn.stop:hover { border-color: var(--con-bad); color: var(--con-bad-2); background: var(--con-bad-tint); }
+.tb-btn.end:hover, .tb-btn.danger { color: var(--con-bad-2); }
+.tb-btn.danger { border-color: var(--con-bad); background: var(--con-bad-tint); }
+/* End this session? End it | Keep, in the place of Stop and End */
+.tb-ask { display: inline-flex; align-items: center; gap: 4px; color: var(--con-fg); font: 600 var(--fs-sm) var(--font-body); }
+.tb-ask > span { padding: 0 6px; }
 .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* Chat | Terminal */
 .tb-seg { display: inline-flex; flex: none; padding: 2px; margin-right: 6px; border-radius: var(--r-md); background: var(--con-bg); border: 1px solid var(--con-border); }
@@ -124,7 +126,6 @@ body[data-page="builds"] #page > .sessions-head, body[data-page="checks"] #page 
 .tb-menu button, .tb-check { padding: 8px 10px; border: 0; border-radius: var(--r-md); background: none; color: var(--con-fg); font: 500 var(--fs-base) var(--font-body); text-align: left; cursor: pointer; }
 .tb-check { display: flex; gap: 8px; align-items: center; }
 .tb-menu button:hover, .tb-menu button:focus-visible, .tb-check:hover { background: var(--con-bg-3); outline: none; }
-.tb-menu button.danger { color: var(--con-bad-2); margin-top: 4px; border-top: 1px solid var(--con-border); border-radius: 0 0 var(--r-md) var(--r-md); }
 
 /* ---- The terminal. The bar, the screen and the prompt stack flush with no gap;
    the prompt never covers the screen, so menus Claude draws at the bottom are
@@ -171,6 +172,10 @@ body.term-only[data-page="sessions"] #term-host .xterm { padding-bottom: 16px; }
 /* Images waiting to go with the next message */
 .q-images { display: flex; gap: 8px; flex-wrap: wrap; }
 .q-img { position: relative; width: 72px; height: 72px; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--con-border); background: var(--bg-hover); }
+.q-file { position: relative; display: inline-flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 120px; max-width: 220px; height: 72px; padding: var(--sp-2) 28px var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--con-border); background: var(--con-bg-2); color: var(--con-fg); }
+.q-file-name { font-weight: 600; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-file-size { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--con-muted); }
+.q-file button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--overlay-ink); color: var(--fg-on-color); cursor: pointer; line-height: 1; font-size: var(--fs-base); }
 .q-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .q-img button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--overlay-ink); color: var(--fg-on-color); cursor: pointer; line-height: 1; font-size: var(--fs-base); }
 /* Queued messages: a short list over the prompt. */
@@ -314,6 +319,15 @@ body[data-page="sessions"] .chat-host { flex: 1 1 auto; }
 .ca-n { flex: none; min-width: 1.4em; font: 600 var(--fs-sm) var(--font-mono); color: var(--con-muted); }
 .ca-how { margin: 10px 0 0; font-size: .86em; color: var(--con-muted); }
 .ca-hint { display: block; margin-top: 1px; font-size: .84em; font-weight: 400; color: var(--con-muted); }
+.ca-tabs { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-2); margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--con-muted); }
+.ca-tabs .done { color: var(--con-ok); }
+.ca-tabs .on { color: var(--con-fg-strong); font-weight: 700; }
+.ca-sep { color: var(--con-faint); }
+.ca-opt.checked { border-color: var(--con-ok); }
+.ca-opt.checked .ca-n { color: var(--con-ok); }
+.ca-opt.ca-submit { justify-content: center; font-weight: 700; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.ca-opt.ca-submit .ca-n { color: var(--accent-fg); }
+.ca-opt.typing { border-color: var(--con-info); box-shadow: inset 3px 0 0 var(--con-info); }
 .ca-notes { margin: 8px 0 0; font: var(--fs-sm) var(--font-mono); color: var(--con-muted); }
 /* Asked once, the first time a session opens as a chat: keep it, or terminal. */
 .chat-first { position: sticky; top: 10px; z-index: 2; box-shadow: var(--con-shadow); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--con-border); border-radius: var(--r-lg); background: var(--con-bg-2); font-size: .9em; color: var(--con-fg-soft); }
@@ -325,3 +339,29 @@ body[data-page="sessions"] .chat-host { flex: 1 1 auto; }
 .nt-inline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .nt-inline select { flex: 0 1 200px; }
 .nt-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-base); color: var(--fg-muted); white-space: nowrap; }
+/* Bring in a message, per project: a search under the head, the other projects folded, Link to a project. */
+.bring-head { flex-wrap: wrap; }
+.bring-q { flex: 1 0 100%; padding: 7px 10px; border: 1px solid var(--con-border); border-radius: var(--r-md); background: var(--con-bg); color: var(--con-fg); font: var(--fs-base) var(--font-body); }
+.bring-q:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.bring-acts { display: inline-flex; align-items: center; }
+.bring-link { opacity: 1; }
+.bring-fold { display: block; width: 100%; margin: 6px 0 2px; padding: 8px 10px; border: 0; border-top: 1px solid var(--con-border); background: none; color: var(--con-muted); font: 600 var(--fs-sm) var(--font-body); text-align: left; cursor: pointer; }
+.bring-fold:hover { color: var(--con-fg); }
+.bring-fold:focus-visible, .bring-q:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ptool-label { gap: 6px; padding: 0 10px 0 8px; }
+
+/* Messages under the session list (bring.js sessionMessages): the project's
+   latest conversations, in the panel's own console-free paper. */
+.ses-msgs { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--border-faint); display: grid; gap: var(--sp-2); }
+.ses-msgs-head { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--sp-2); }
+.ses-msgs-head h3 { margin: 0; }
+.ses-msgs-head span { display: flex; gap: var(--sp-1); }
+.ses-msgs .bring { max-height: none; }
+.ses-msgs-none { padding: 0 var(--sp-2); }
+/* In the narrow side panel: the message wraps to three lines, and Earlier sits
+   under it, always visible, rather than beside it on hover. */
+.ses-msgs .bring-item { grid-template-columns: minmax(0, 1fr); }
+.ses-msgs .bi-s { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.ses-msgs .bring-acts { display: flex; gap: var(--sp-1); padding: 0 var(--sp-2) var(--sp-2); }
+.ses-msgs .bring-more { opacity: 1; margin: 0; }
+.ses-msgs .bring-item.unread .bi-who::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: var(--sp-2); vertical-align: middle; }

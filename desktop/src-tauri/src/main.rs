@@ -7,7 +7,8 @@
 //   - leaves alone a Switchboard that is already running (a git checkout's
 //     systemd / launchd service), and just shows it;
 //   - closing the window hides it (reminders and notifications keep coming);
-//     Quit in the tray menu stops the server it started and exits;
+//     Quit in the tray menu, or Ctrl+Q in the window, stops the server it
+//     started and exits (the page asks for /app/quit; see public/js/keys.js);
 //   - one copy at a time, window size remembered, start at login, updates from
 //     GitHub Releases (signed; asks before restarting).
 // See desktop/README.md for why it is built this way.
@@ -31,7 +32,8 @@ use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
 const PORT: u16 = 4747;
-const URL: &str = "http://127.0.0.1:4747/";
+// The page opened in the window: ?app=quit tells it this app quits on Ctrl+Q.
+const APP_URL: &str = "http://127.0.0.1:4747/?app=quit";
 
 #[derive(Default)]
 struct Server {
@@ -205,6 +207,7 @@ fn main() {
             }
 
             let opener = handle.clone();
+            let quitter = handle.clone();
             let opener2 = handle.clone();
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("Switchboard")
@@ -212,6 +215,8 @@ fn main() {
                 .min_inner_size(420.0, 400.0)
                 .visible(!hidden)
                 .on_navigation(move |url| {
+                    // Ctrl+Q on the page: the same as Quit in the tray.
+                    if ours(url) && url.path() == "/app/quit" { stop_server(&quitter); quitter.exit(0); return false; }
                     if ours(url) { return true; }
                     let _ = opener.opener().open_url(url.as_str(), None::<&str>);
                     false
@@ -231,7 +236,7 @@ fn main() {
                     sleep(Duration::from_millis(250));
                 }
                 if answering() {
-                    let _ = w.navigate(Url::parse(URL).unwrap());
+                    let _ = w.navigate(Url::parse(APP_URL).unwrap());
                 }
             });
 

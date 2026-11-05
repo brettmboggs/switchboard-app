@@ -140,3 +140,35 @@ test('the model picker: nine choices with their descriptions, the effort line as
   // The effort line moves with ←/→; the question stays the same question.
   assert.equal(parseMenu(MODEL_PICKER.replace('◐ Medium effort (default)', '● High effort')).sig, m.sig);
 });
+
+// AskUserQuestion, from a real Claude Code 2.1 screen (Nov 4 2026): tabs, a
+// description under each choice, "Chat about this" under a rule, tick boxes
+// and a Submit row for several answers, and a review tab with no footer.
+const ASK = {
+ "askq1": "❯ Ask me two questions.\n  Keep it short.\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n←  ☐ Color  ☐ Toppings  ✔ Submit  →\n\nWhich color?\n\n❯ 1. Red\n     Warm\n  2. Blue\n     Cool\n  3. Type something.\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n  4. Chat about this\n\nEnter to select · Tab/Arrow keys to navigate · Esc to cancel",
+ "askq2": "❯ Ask me two questions.\n  Keep it short.\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n←  ☒ Color  ☐ Toppings  ✔ Submit  →\n\nWhich toppings?\n\n❯ 1. [ ] Cheese\n         Cheese topping\n  2. [ ] Olives\n         Olives topping\n  3. [ ] Basil\n         Basil topping\n  4. [ ] Type something\n     Submit\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n  5. Chat about this\n\nEnter to select · Tab/Arrow keys to navigate · Esc to cancel",
+ "askq3": "❯ Ask me two questions.\n  Keep it short.\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n←  ☒ Color  ☒ Toppings  ✔ Submit  →\n\nWhich toppings?\n\n  1. [✔] Cheese\n         Cheese topping\n  2. [ ] Olives\n         Olives topping\n  3. [ ] Basil\n         Basil topping\n  4. [ ] Type something\n❯    Submit\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n  5. Chat about this\n\nEnter to select · Tab/Arrow keys to navigate · ctrl+g to edit in VS Code · Esc to cancel",
+ "askq4": "❯ Ask me two questions.\n  Keep it short.\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n←  ☒ Color  ☒ Toppings  ✔ Submit  →\n\nReview your answers\n\n ● Which color?\n   → Red\n ● Which toppings?\n   → Cheese\n\nReady to submit your answers?\n\n❯ 1. Submit answers\n  2. Cancel"
+};
+test('AskUserQuestion: one answer, with descriptions and the tabs', () => {
+  const m = parseMenu(ASK.askq1);
+  assert.equal(m.question, 'Which color?');
+  assert.deepEqual(m.tabs.map((t) => [t.label, t.done, t.submit]), [['Color', false, false], ['Toppings', false, false], ['Submit', false, true]]);
+  assert.deepEqual(m.options.map((o) => [o.label, o.hint || '']), [['Red', 'Warm'], ['Blue', 'Cool'], ['Type something.', ''], ['Chat about this', '']]);
+  assert.equal(m.multi, false); assert.equal(m.at, 0);
+});
+test('AskUserQuestion: several answers, tick boxes and the Submit row', () => {
+  const m = parseMenu(ASK.askq2);
+  assert.equal(m.multi, true); assert.equal(m.tabs[0].done, true);
+  assert.deepEqual(m.options.map((o) => o.label), ['Cheese', 'Olives', 'Basil', 'Type something', 'Submit', 'Chat about this']);
+  assert.equal(m.options[4].submit, true); assert.equal(m.options[0].checked, false);
+  const ticked = parseMenu(ASK.askq3);
+  assert.equal(ticked.options[0].checked, true); assert.equal(ticked.at, 4);
+  assert.deepEqual(keysFor(ticked, 0), ['Up', 'Up', 'Up', 'Up', 'Enter']);
+});
+test('AskUserQuestion: the review tab reads without a footer', () => {
+  const m = parseMenu(ASK.askq4);
+  assert.equal(m.question, 'Ready to submit your answers?');
+  assert.deepEqual(m.options.map((o) => o.label), ['Submit answers', 'Cancel']);
+  assert.ok(m.lines.some((l) => l.t === '→ Cheese'));
+});

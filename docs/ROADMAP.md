@@ -13,7 +13,7 @@ many, not the point.
   real install (and on Mac / Windows where it touches them, or marked
   unverified there).
 - Connections first: every program that offers a free way in is worth
-  connecting. A connection is: sign in once in Settings, Accounts; its items
+  connecting. A connection is: sign in once in Settings, Connections; its items
   show on Now and Inbox in the right project; replying or acting works without
   leaving Switchboard; a broken connection says so in one line.
 - No paid services yet. Free tiers are fine.
@@ -80,11 +80,17 @@ connection has no entry. Remaining: more empty states as pages grow.
 
 ## Agents and the phone
 
-- Phone app: brettmboggs/switchboard-mobile (Expo, private). The phone is one
+- Phone app: brettmboggs/switchboard-mobile (Expo, private). Working on
+  Brett's Mac (Nov 4). The phone is one
   more device on the account: it signs in to the sync service and talks
   through it and the relay, never to 127.0.0.1. First: Now (what needs you),
   sessions (state, queue a message, Esc), Actions, and push when a session
   needs you or a build fails. Brett starts the Apple side from the Mac.
+- Phone, Nov 5: the phone may also read Calendar (GET /api/calendar), add,
+  change and delete events (/api/calendar/event), and press Done on a task
+  app's task (/api/tasks/close); never connecting Todoist or Google. The sync
+  service lists the phones that get pings (GET /v1/push/list) so the phone
+  can stop pings to an old install or Expo Go (whose banners show Expo's icon).
 
 ## Agreed next (Brett, Nov 3), in this order
 
@@ -98,12 +104,34 @@ connection has no entry. Remaining: more empty states as pages grow.
    quote, line, indent, clear, undo), #tags, search in Ctrl K, sync; lists
    from Ctrl K ("shopping eggs"), the calculator ("3 × $12.50 ="), logs with
    totals ("log eggs 14"). Waiting on Brett's notes once he has used it.
-4. Morning rundown: one beautiful card (weather, meetings, bills, what needs
-   you, packages), read aloud if wanted. Design first; only ships if it looks
-   great.
+4. Morning rundown. Done Nov 4: until noon the top of Now is one card (the
+   day in a sentence, four figures, the schedule beside needs you, bills this
+   week, routines and packages), Read aloud with a voice on the computer only,
+   Done for today, Rundown on the Today card at any hour, a switch in
+   Settings, Look.
 5. Connections, one after another: the free ones that need nothing from Brett
    first (RSS, Home Assistant, Todoist / Trello / Notion with a pasted key),
    then Slack and Discord (each needs a small app registered).
+
+## Agents: next (Brett, Nov 4)
+
+- Local AI models, easily. First part done Nov 4: Settings, Connections,
+  Local AI models installs Ollama (one click, in a session), starts it, and
+  gets a starter model (llama3.2, qwen2.5-coder:7b, gemma3:4b); New session's
+  Agent "Local model (Ollama)" lists the pulled models and runs `ollama run`.
+  LM Studio, llama.cpp's server and Jan show when they answer on localhost.
+  Done Nov 4: LM Studio's downloaded models start sessions the same way
+  (Agent "Local model (LM Studio)", `lms chat <model>`; lms found on the PATH
+  or in ~/.lmstudio/bin). Tested on Linux with Gemma 4 12B.
+  Done Nov 5: local sessions read like a chat (bin/localchat.mjs against the
+  model's own server; checked end to end against a stand-in LM Studio server,
+  not yet a real model). Codex in the Chat view done Nov 5 (its rollout log;
+  approvals still answered in Terminal). Next: Claude Code or Codex pointed
+  at a local model. Mac and Windows install commands unverified.
+- Outlook.com and Hotmail: parked (Nov 4). Outlook.com mail has no app
+  passwords since 2024, so it needs Microsoft sign-in with personal accounts
+  allowed on the Switchboard app (a setting in Microsoft Entra, Brett's), and
+  Switchboard holds one Microsoft account at a time today.
 
 ## Connections
 
@@ -112,11 +140,11 @@ Ordered by how many people they help per hour of work.
 | Connection | What it brings | How | Effort |
 |---|---|---|---|
 | Any email (IMAP) | iCloud, Yahoo, AOL, Fastmail, Zoho, Proton (Bridge), most others by Thunderbird's directory | Done Nov 3. Outlook.com and Hotmail need Microsoft sign-in (next to do here) | S |
-| Calendars | Today's events on Now; a heads-up 10 min before | Done Nov 3 by private calendar link (Google, Outlook, iCloud, any .ics). Next: iCloud/Fastmail/Yahoo through the email account's app password (CalDAV); a co-owned work tenant's calendar waits on its owner's okay | M |
+| Calendars | Today's events on Now; a heads-up 10 min before | Done Nov 3 by private calendar link (Google, Outlook, iCloud, any .ics). Done Nov 4: iCloud, Fastmail and Yahoo straight from the email account's app password (CalDAV, lib/caldav.js), tested against a stand-in server only, not yet a real account; a co-owned work tenant's calendar waits on its owner's okay | M |
 | Slack | Messages and mentions in Inbox, reply | Slack app, free | M |
 | Discord | DMs and mentions | Discord bot or OAuth, free | M |
 | Google Drive / Docs | Files shared with you, comments that mention you | Google API, free | M |
-| Todoist, Trello, Asana, Notion | Tasks due, assigned to you | Each has a free API | S each |
+| Todoist, Trello, Asana, Notion | Tasks due, assigned to you | All four done (Todoist Nov 4; Trello, Asana, Notion Nov 5, lib/taskapps.js): pasted keys, due today or overdue on Now, Done closes it in the app, each its own card and tile. Checked against stand-ins and each service's own refusal of a wrong key; no real account tried yet | S each |
 | Package tracking | Deliveries arriving today | Done Nov 3: Packages in the Today card, read from shipping emails (FedEx, UPS, USPS, DHL, Amazon, any shop); delayed is a Needs-you card. Outlook mail not read for it yet | S |
 | Bank and cards | Balances, bills due, big charges | Teller free tier (now: alert emails) | M |
 | Phone texts | SMS on Inbox | Google Voice (have, via email); Android companion app later | L |
@@ -126,7 +154,7 @@ Ordered by how many people they help per hour of work.
 | Weather | Today, frost and storm alerts | Done Nov 3: Open-Meteo forecast, NWS warnings in the US | S |
 | System monitor | How busy this computer is (processor, memory, graphics, network, storage, temperatures, fans, apps) in Settings | Done Nov 4: live page, Linux verified; Mac and Windows unverified. Next: Windows fan and CPU temperature only through a tool the person runs (LibreHardwareMonitor) | M |
 | Webhooks in | Anything else (IFTTT, Zapier, Home Assistant, a phone shortcut, a script) posts a note, to-do, reminder or "needs you" | Done Nov 3: a private link per webhook, on this computer and (signed in) from anywhere through the sync service, which seals each message to the webhook's own key | S |
-| RSS | News, blogs, forums | Plain feeds | S |
+| RSS | News, blogs, forums | Done Nov 4: follow a site or its feed (RSS 1.0, 2.0, Atom; a site's own feed link is found) in Settings, Connections; posts on Inbox, Reading, kept 30 days, never on Now | S |
 | Browser tabs | Open tabs grouped by project, close a project's tabs at once | A small browser extension | M |
 | Codex and Gemini sessions | "Needs you" like Claude | Watch their output (today) or their hooks if they add them | M |
 
@@ -148,15 +176,47 @@ Ordered by how many people they help per hour of work.
 
 ## Polish
 
-- Search everything from Ctrl K: messages, notes, sessions, people. (M)
-- Undo for archive, done and delete. (S)
-- Keyboard shortcuts with a cheat sheet on ?. (S)
-- Remember scroll position and selection per page. (S)
-- Accessibility pass: focus order, screen reader labels, contrast in dark. (S)
+- Signed-in browser checks (Nov 4): built, Linux only so far. Needs a first real run against a Microsoft sign-in, and a look on Mac and Windows (file modes, the window).
+
+- Messages beside sessions (Nov 4, Brett): a Teams message from a teammate about
+  a project never showed while working in it; linking was a manual step hidden
+  behind Messages. Now the session's project's newest conversations are always
+  under the session list. Next, if wanted: new messages from a person also
+  queue into the session by themselves (the links table does this for a Teams
+  chat once linked).
+
+- Claude's multiple-choice questions in the chat (Nov 4, Brett): AskUserQuestion's
+  tabs, descriptions, tick boxes, Submit, Type something and the review are
+  read off the screen and answered from the chat; checked end to end against
+  a real Claude Code 2.1 session.
+
+- Files everywhere (Nov 4, Brett): any file into a session's chat or
+  terminal, pictures and files in notes, project files of any type up to 1 GB,
+  streamed to disk (lib/attachments.js). Not yet: files to a session on another
+  computer, and syncing a note's pictures to other computers.
+
+- Search everything from Ctrl K. Done Nov 5: sessions (here and remote), people
+  on project pages, 60 days of mail and Teams, pages and notes, projects, and
+  Switchboard's features (lib/search.js, public/js/search.js); then calendar
+  events, money and mail past 60 days (Nov 5). Mail is only as old as this
+  computer keeps it (about two weeks on the first install); searching Gmail
+  itself for older mail is not done.
+- Undo for archive, done and delete. Done Nov 4: six seconds, Undo on the
+  toast or Ctrl+Z; a closed tab still sends it.
+- Keyboard shortcuts with a cheat sheet on ?. Done Nov 4: ? for the sheet,
+  G then N / S / B / I / M / O to go to a page, comma for Settings.
+- Remember scroll position and selection per page. Done Nov 4: per tab
+  (sessionStorage), a link to a given item wins.
+- Accessibility pass: focus order, screen reader labels, contrast in dark.
+  Done Nov 4: every page, Settings pane and dialog scanned in light and dark
+  for unnamed controls and text under 4.5:1 (3:1 large); two fixed (the Done
+  pill, the current page's count in dark). Screen reader run-through by a
+  person still to do.
 - Tests for each connection's parsing, and a smoke test that loads every page.
   (M, ongoing)
 - Error reports: a "something went wrong" line with a copy-details button,
-  never a silent failure. (S)
+  never a silent failure. Done Nov 4 for the page (any uncaught error);
+  server-side failures still show only where a click reports them.
 - Mobile-friendly layout for small windows. (M)
 
 ## Security
@@ -200,6 +260,12 @@ Open, in order:
   once (reported Nov 3, after the "device in use sets the size, others scale"
   fix). Reproduce with the Mac and Linux both showing one session; check the
   Mac is on the latest version first, since the scaling needs both sides updated.
+  Nov 4: still there, but small. Moving from one computer to the other, the
+  terminal shows the other computer's size until you click in it; the click
+  fixes it at once. Resting the mouse on it (aaf5cc6, 400 ms) did not fix it,
+  so the claim is probably not being sent, or not taking effect, until a key
+  or click. Look at what the click does that the hover does not (term.focus,
+  the relay's size message) before trying anything else. Low priority.
 
 ## Parked
 
@@ -210,6 +276,84 @@ Open, in order:
 
 ## Done recently
 
+- Email drafts in Inbox (Nov 5, Brett): every draft in the Drafts folder,
+  in its conversation or at the top of Inbox; Edit, Send, Save draft, Discard.
+  Checked on Gmail end to end with two test drafts (save shows in Gmail in the
+  same thread, discard leaves nothing); Send uses the reply path and was not
+  tried with a real recipient. Other IMAP accounts read their Drafts folder the
+  same way, untried.
+- Ctrl+Q quits the Switchboard app (Nov 5, Brett): the page side is live and
+  checked; the app side (desktop/src-tauri/src/main.rs) needs the next desktop
+  release, untested until then.
+- From Brett's build notes (Nov 5): a session started as another command that
+  turns out to be Claude (a project's own worker sessions) opens as a chat too; the morning
+  rundown no longer repeats the Needs-you list that sits right under it (its
+  figure and sentence stay); the dots on a session's event list are no longer
+  cut off; in a Claude session's terminal Shift+Enter is a new line and
+  Ctrl+Enter sends now.
+- Connections as a list you choose (Nov 5, Brett): Settings, Connections
+  shows Your connections (connected or added) and, below, Add a connection:
+  tiles by category with Add, and what is coming. Remove from list on any card
+  not connected. Set up from the welcome or What's new adds the card first.
+- File names in the chat open (Nov 5): a file an agent names that exists on
+  this computer is a link, in Chat and in Terminal view; the reader shows markdown as a page, code with the
+  named line lit, pictures full size, and Open, Show in folder, Copy where it
+  is. Files it sends (SendUserFile) are cards with the picture shown. Linux
+  checked (Nemo picks the file out); Mac (open -R) and Windows (explorer
+  /select) unverified. Sessions on another computer too (Nov 5): that computer
+  checks the names and sends the text or picture (up to 450 KB) over the
+  relay; Open and Show in folder stay there. Not yet tried with a real Mac
+  session (both computers need this version).
+- The pitch (Nov 5): seven headline features with a one-paragraph "why it's
+  cool" and a 20-second demo each (docs/headlines.json); npm run pitch writes
+  docs/PITCH.md (headlines, then every feature from the setup registry) and
+  the top of README.md; test/pitch.test.js keeps them in step. Next, when
+  wanted: videos from the demo scripts.
+- Projects as pages (Nov 4): a project on the rail opens its own page
+  (#project/<id>): in flight, conversations, sessions, notes, files dropped on
+  the page (kept on this computer, 50 MB each, download only), and on the side
+  About, People (name, role, email, phone; Found in your mail offers everyone
+  written to in that project, Add or Hide) and Links (site, admin, repo).
+  Files stay on one computer until that is a problem (Brett, Nov 4); admin
+  links stay links, no stored client passwords.
+  Filtering a list by project moved to a picker in the head of Now, Sessions,
+  Builds, Inbox, Money and Notes. Ctrl K files into the open project's page.
+- Sessions (Nov 4): End is on the bar and asks once in place, with no timer;
+  Stop says what it does and is grey when there is nothing to stop. A session
+  stays Working while its helpers (sub-agents) run and says so, and is Your
+  turn only when the last is back (SubagentStart / SubagentStop hooks;
+  `node scripts/setup.mjs hooks` refreshes an older install).
+- News and blogs (Nov 4): Settings, Connections, News and blogs follows a
+  site (its feed is found) or a feed address, per project; Inbox, Reading
+  lists the newest posts, unread in bold, a click opens the post and marks it
+  read, Mark all read. Checked every 30 minutes. A news page with no feed is
+  watched instead: its article links one level under the page become posts,
+  dated when first seen. A single post's address (…/whats-new/2026-w37) tries
+  its parent page too. Read posts leave the list; each feed keeps its 3
+  newest however old, so a quiet feed is not empty. Only plain text is kept;
+  nothing on this computer or the local network is fetched.
+- Calendars from an email account (Nov 4): an iCloud, Fastmail or Yahoo
+  account in Switchboard shows "Find calendars" under Calendars; tick the
+  calendars, pick a project, Add. Read over CalDAV with the mail's app
+  password, only over https and only to that provider's own hosts (a redirect
+  elsewhere is refused before the password is sent). Unverified against a
+  real account: nobody here has one yet.
+- Recurring costs (Nov 4): Money has a Recurring costs card (a month and a
+  year, split by project, add and edit in the side panel, weekly, monthly,
+  every 3 months or yearly); each project's page has its own. Charges and
+  receipts from the email seen in two or more months at about the same amount
+  are offered (Add fills the form; Not recurring is remembered). Bank balances
+  (Teller) and Stripe wait until someone needs them (Brett, Nov 4).
+- Settings, Connections (Nov 4): every connection in its own section,
+  grouped (Messages, Calendars, Money, Coding and sessions, Automation) with
+  a search box and "Coming next" saying what each needs; Account keeps the
+  Switchboard sign-in and computers.
+- New session's folder list (Nov 4): your folders first; agents' git worktrees
+  (a .git file pointing back at a repo) in "Agents' work copies" at the end,
+  each named with the repo it copies, and left out of Browser checks' list.
+- Dialogs keep their frame (Nov 4): Settings' sections, title and Done stay
+  put and only the pane scrolls; the same for every sheet and the System
+  monitor, and DESIGN.md makes it the rule for anything new.
 - Sessions: model and effort (Nov 4). New session has Model (Default, Sonnet,
   Opus, Haiku, a 1M-context box) and Effort (Default to Max) for Claude and a
   model box for Codex, remembered per folder, passed as `--model` / `--effort`
@@ -302,7 +446,9 @@ Open, in order:
   window and tray icon; bundles Node and starts the server unless one is
   already running; starts at login; signed updates from GitHub Releases. The
   Desktop app workflow builds Windows, Mac and Linux installers into a draft
-  release. Left for Brett: the two updater secrets, where public releases live
+  release. In daily use on Brett's Linux machine (Nov 4: the AppImage opens
+  its window onto the already-running service); tray and self-update still
+  unchecked. Left for Brett: the two updater secrets, where public releases live
   (the repo is private), Mac signing. See desktop/README.md. (Nov 3)
 - Terminal redesigned as one console card: a bar with the session's state and
   how long it has been in it, agent, branch, build light, queued count and

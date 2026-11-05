@@ -23,6 +23,7 @@ Only because you connected it, and only to that service:
 | GitHub | GitHub, through the `gh` command | What `gh` sends: your token, the repo names |
 | A calendar link | The address of that link | Nothing but the request |
 | Weather | Open-Meteo and the US National Weather Service, no account | The town or ZIP you typed |
+| Todoist (optional) | api.todoist.com | Your API token; which task you marked done |
 | Updates (git install) | GitHub | A fetch of the repository |
 | The desktop app | GitHub Releases | A check for a newer version every six hours |
 | A Switchboard account (optional) | The sync service (a Cloudflare Worker run by the author) | Encrypted data only. The service, and whoever runs it, cannot read it. Cloudflare's logs see your IP address and times, as with any web request |
@@ -36,6 +37,16 @@ only.
 
 Talk to type: "Live" uses your browser's own speech service (Google's in
 Chrome); "Private" runs Whisper on your computer and sends nothing.
+
+Files and pictures you add to a session, a note or a project are kept in
+Switchboard's data folder on this computer and are not synced: a note that
+syncs carries only the file's address, so another computer shows that the
+file is elsewhere. Nothing is uploaded anywhere.
+
+Read aloud (the morning rundown): uses only a voice installed on your
+computer (the browser's `localService` voices). Online voices, which would
+send the text to their maker, are never used; with none installed, the
+button does not show.
 
 ## Agents
 

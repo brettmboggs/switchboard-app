@@ -18,11 +18,14 @@ const CHAT_KEEP = 3000;           // messages kept in memory per session
 const chatModes = store.get('chatModes', {});   // session key -> 'chat' | 'term'
 let cv = null;                    // the open chat: { key, id, file, start, end, items, first, tools, ids, ... }
 
+// Agents besides Claude whose conversation Switchboard can read (lib/chatview.js).
+const CHAT_AGENTS = new Set(['localai', 'lmstudio', 'codex']);
 // Why a session cannot show as a chat (null when it can).
 function chatBlocked(t) {
   if (!t) return 'No session.';
-  if (t.remote) return `Chat view works for sessions on this computer for now. This one runs on ${t.deviceName}, so it shows its terminal.`;
-  if (t.agent !== 'claude') return `Chat view reads Claude Code's transcript. ${t.agentName} shows its terminal for now.`;
+  // A session started as some other command can still be Claude (an agent
+  // starting its own workers, say): once Claude reports itself it gets a chat too.
+  if (t.agent !== 'claude' && !t.claude_id && !CHAT_AGENTS.has(t.agent)) return `Chat view reads the conversation an agent keeps. ${t.agentName} keeps none Switchboard can read yet, so it shows its terminal.`;
   return null;
 }
 function chatOn(key) {
@@ -67,7 +70,12 @@ document.addEventListener('click', (e) => {
     render(); return;
   }
   const pick = e.target.closest('[data-menu-pick]');
-  if (pick) { answerMenu(Number(pick.dataset.menuPick)); return; }
+  if (pick) {
+    const i = Number(pick.dataset.menuPick);
+    // "Type something": the answer is written in the message bar, then sent as the choice.
+    if (TYPE_OWN.test(cv?.menu?.options?.[i]?.label || '')) { cv.typeOwn = i; renderChatLive(); $('q-text').placeholder = 'Type your answer, Enter sends it'; $('q-text').focus(); return; }
+    answerMenu(i); return;
+  }
   if (e.target.closest('[data-chat-earlier]')) { chatEarlier(); return; }
   if (e.target.closest('#chat-jump')) { chatToBottom(true); return; }
   const cp = e.target.closest('[data-chat-copy]');
@@ -148,7 +156,7 @@ async function fetchChat() {
   c.busy = true; c.lastFetch = Date.now();
   try {
     const q = c.file ? `?file=${encodeURIComponent(c.file)}&from=${c.end}` : '';
-    const r = await api(`/api/terms/${encodeURIComponent(c.id)}/chat${q}`);
+    const r = await api(termPath(termByKey(c.key) || { id: c.id }, 'chat') + q);
     if (cv !== c) return;
     if (!r.file) { c.why = r.why; renderChatLive(); return; }
     c.why = null;
@@ -232,7 +240,7 @@ async function chatEarlier() {
   }
   if (!(c.start > 0)) return;
   try {
-    const r = await api(`/api/terms/${encodeURIComponent(c.id)}/chat?file=${encodeURIComponent(c.file)}&before=${c.start}`);
+    const r = await api(termPath(termByKey(c.key) || { id: c.id }, 'chat') + `?file=${encodeURIComponent(c.file)}&before=${c.start}`);
     if (cv !== c || r.file !== c.file) return;
     const older = [];
     chatTake(r.messages, older);
@@ -263,22 +271,26 @@ function chatToBottom(smooth) {
 async function watchMenu() {
   const c = cv, t = termByKey(c?.key);
   if (!c || !t || c.menuBusy) return;
+  // A session on another computer has no file event here: look for new messages every few seconds.
+  if (t.remote && Date.now() - c.lastFetch > 2500) fetchChat();
   if (!['running', 'waiting', 'starting'].includes(t.state) && !c.menu) return;
   c.menuBusy = true;
   try {
-    const r = await api(`/api/terms/${encodeURIComponent(c.id)}/menu`);
+    const r = await api(termPath(t, 'menu'));
     if (cv !== c) return;
     if ((r.menu?.sig || null) !== (c.menu?.sig || null)) { c.menu = r.menu; renderChatLive(); renderTermCompose(); }
   } catch { /* the next look tries again */ }
   finally { c.menuBusy = false; }
 }
-async function answerMenu(index) {
+const TYPE_OWN = /^Type something\b/i;
+async function answerMenu(index, text) {
   const c = cv;
   if (!c?.menu) return;
   const sig = c.menu.sig;
+  c.typeOwn = null; $('q-text').placeholder = 'Message the agent, or drop a file, picture or conversation here';
   document.querySelectorAll('[data-menu-pick]').forEach((b) => { b.disabled = true; });
   try {
-    const r = await api(`/api/terms/${encodeURIComponent(c.id)}/menu`, { sig, index });
+    const r = await api(termPath(termByKey(c.key) || { id: c.id }, 'menu'), { sig, index, ...(text ? { text } : {}) });
     if (cv !== c) return;
     c.menu = r.menu || null;
     renderChatLive(); renderTermCompose();
@@ -320,11 +332,12 @@ function renderChatLive() {
     const no = menuNoIndex();
     html = `<div class="chat-ask" role="group" aria-label="${esc(t.agentName)} is asking">
       <div class="ca-head">${esc(t.agentName)} is asking${q.title ? ` · <span>${esc(q.title)}</span>` : ''}</div>
+      ${q.tabs ? `<div class="ca-tabs">${q.tabs.map((tb) => `<span class="${tb.done ? 'done' : ''}">${tb.done ? '✓ ' : ''}${esc(tb.label)}</span>`).join('<span class="ca-sep">›</span>')}</div>` : ''}
       ${q.lines.map((l) => l.code ? `<pre class="ca-code">${esc(l.t)}</pre>` : `<p class="ca-line">${esc(l.t)}</p>`).join('')}
       ${q.question ? `<p class="ca-q">${esc(q.question)}</p>` : ''}
-      <div class="ca-opts">${q.options.map((o, i) => `<button type="button" class="ca-opt${i === 0 ? ' first' : ''}" data-menu-pick="${i}"><span class="ca-n">${o.n ?? i + 1}</span><span>${esc(o.label)}${o.hint ? `<small class="ca-hint">${esc(o.hint)}</small>` : ''}</span></button>`).join('')}</div>
+      <div class="ca-opts">${q.options.map((o, i) => `<button type="button" class="ca-opt${i === 0 ? ' first' : ''}${o.submit ? ' ca-submit' : ''}${o.checked ? ' checked' : ''}${cv.typeOwn === i ? ' typing' : ''}" data-menu-pick="${i}"${o.checked !== undefined ? ` aria-pressed="${o.checked}"` : ''}><span class="ca-n">${o.submit ? '→' : o.checked !== undefined && !TYPE_OWN.test(o.label) ? (o.checked ? '☑' : '☐') : (o.n ?? i + 1)}</span><span>${esc(o.label)}${o.hint ? `<small class="ca-hint">${esc(o.hint)}</small>` : ''}</span></button>`).join('')}</div>
       ${(q.notes || []).length ? `<p class="ca-notes">${q.notes.map(esc).join(' · ')}</p>` : ''}
-      ${no >= 0 ? `<p class="ca-how">Or write below what to do instead, and it answers No for you.</p>` : ''}
+      ${cv.typeOwn != null ? `<p class="ca-how">Type your answer in the message bar below; Enter sends it.</p>` : q.multi ? `<p class="ca-how">Tick every one that applies, then Submit.</p>` : no >= 0 ? `<p class="ca-how">Or write below what to do instead, and it answers No for you.</p>` : ''}
     </div>`;
   } else if (t.state === 'waiting') {
     html = `<div class="chat-wait"><div class="cw-head">Needs you</div><p class="cw-q">${esc(t.detail || `${t.agentName} is asking for a decision.`)}</p><p class="cw-how">This question could not be read here. Answer it in the terminal, then come back.</p><button class="btn btn--primary btn--sm" type="button" data-chat-answer>Open the terminal</button></div>`;
@@ -358,9 +371,11 @@ function chatNode(m) {
   if (m.k === 'text') {
     const row = elt('div', 'cm cm-agent');
     row.append(chatMd(m.t));
+    fileLinks(row);
     return row;
   }
   if (m.k === 'note') return elt('div', 'cm cm-note', m.t);
+  if (m.files?.length) return sentFiles(m);
   // A tool call: one line, opened to show what went in and what came back.
   const d = elt('details', 'cm cm-tool');
   const s = elt('summary');
@@ -474,22 +489,23 @@ function chatMd(src) {
   }
   return frag;
 }
-const CHAT_INLINE = /(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<![\w*])\*([^*\s][^*\n]*?)\*(?![\w*])|(?<![\w])_([^_\s][^_\n]*?)_(?![\w])|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
+const CHAT_INLINE = /(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<![\w*])\*([^*\s][^*\n]*?)\*(?![\w*])|(?<![\w])_([^_\s][^_\n]*?)_(?![\w])|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])|(?<![\w/:.~-])((?:~|\.{1,2})?\/?(?:[\w@+-][\w.@+-]*\/)+[\w@+-][\w.@+-]*\.[A-Za-z][A-Za-z0-9]{0,7}(?::\d+)?)(?![\w/])/g;
 function chatInline(text, parent) {
   let last = 0;
   for (const m of String(text).matchAll(CHAT_INLINE)) {
     if (m.index > last) parent.append(document.createTextNode(text.slice(last, m.index)));
     last = m.index + m[0].length;
-    if (m[1]) parent.append(elt('code', 'cm-ic', m[2].replace(/^ (.*) $/, '$1')));
+    if (m[1]) { const t = m[2].replace(/^ (.*) $/, '$1'); parent.append(looksLikePath(t) ? pathEl('code', 'cm-ic', t, t) : elt('code', 'cm-ic', t)); }
     else if (m[3] || m[4]) { const b = elt('strong'); chatInline(m[3] || m[4], b); parent.append(b); }
     else if (m[5] || m[6]) { const em = elt('em'); chatInline(m[5] || m[6], em); parent.append(em); }
     else if (m[7]) parent.append(chatLink(m[8], m[7]));
     else if (m[9]) parent.append(chatLink(m[9], m[9]));
+    else if (m[10]) parent.append(pathEl('span', null, m[10], m[10]));
   }
   if (last < text.length) parent.append(document.createTextNode(text.slice(last)));
 }
 function chatLink(href, label) {
-  if (!/^https?:\/\//i.test(href)) { const s = elt('span', null, label); return s; }
+  if (!/^https?:\/\//i.test(href)) return looksLikePath(href) ? pathEl('span', null, label, href) : elt('span', null, label);
   const a = elt('a', null, label);
   a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
   return a;

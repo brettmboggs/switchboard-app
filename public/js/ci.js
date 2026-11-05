@@ -53,7 +53,7 @@ function ciRow(r, repo, attrs) {
 function renderActionsPage() {
   const repos = (S.actions || []).filter(inProject);
   const live = ciActiveCount();
-  let html = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}<span class="grow"></span>
+  let html = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}<span class="grow"></span>${projectPicker()}
     ${live ? `<span class="chip hot">${ciDot('running')} ${live} running</span>` : ''}<span class="mono muted">${S.status.github.at ? 'GitHub Actions, live · checked ' + since(S.status.github.at) : ''}</span></div>`;
   if (S.status.github.ok === false) html += `<section class="card"><p class="empty">GitHub isn't connected. Run <span class="mono">gh auth login</span> in a terminal.</p></section>`;
   else if (!repos.length) html += `<section class="card"><p class="empty">No workflow runs in the last few days${project === 'all' ? '' : ' for this project'}. Push to a repo with GitHub Actions and its runs show here as they go.</p></section>`;

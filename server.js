@@ -9,6 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, getSetting, isCleared } from './lib/db.js';
 import { spaces } from './lib/spaces.js';
+import { profiles } from './lib/projects.js';
 import { send } from './lib/http.js';
 import { startSecrets, secretsState } from './lib/secrets.js';
 import { route as boardRoutes } from './lib/routes/board.js';
@@ -25,18 +26,32 @@ import { pageList } from './lib/pages.js';
 import { route as agentRoutes } from './lib/routes/agentapi.js';
 import { route as sessionViewRoutes } from './lib/routes/sessionview.js';
 import { route as checkRoutes } from './lib/routes/browserchecks.js';
+import { route as calendarRoutes } from './lib/routes/calendar.js';
+import { route as googleRoutes } from './lib/routes/google.js';
 import { route as inboxRoutes } from './lib/routes/inbox.js';
+import { route as projectRoutes } from './lib/routes/projects.js';
+import { route as costRoutes } from './lib/routes/costs.js';
+import { recurringGuesses } from './lib/costs.js';
+import { pollLocalAI } from './lib/localai.js';
+import { route as feedRoutes } from './lib/routes/feeds.js';
+import { route as taskRoutes } from './lib/routes/tasks.js';
+import { route as fileRoutes } from './lib/routes/files.js';
+import { route as draftRoutes } from './lib/routes/drafts.js';
+import { readAllDrafts, drafts } from './lib/drafts.js';
+import { route as localFileRoutes } from './lib/routes/localfile.js';
+import { pollTasks, tasks, taskStatus } from './lib/tasks.js';
+import { pollFeeds, reading, feeds } from './lib/feeds.js';
 import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
-const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, sessionViewRoutes, inboxRoutes, slashRoutes];
+const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, costRoutes, feedRoutes, taskRoutes, fileRoutes, localFileRoutes, draftRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)
 // sessionView: how Claude sessions open, 'chat' or 'term' (each session's
 // Chat | Terminal switch overrides it). devChips, termGpu: the Sessions extras.
 // All in Settings, Look. (The old chatView switch is dropped.)
-const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true };
+const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true, rundown: true, msgHidden: {}, connections: null };
 // Which coding agents are installed and signed in, checked at most once a minute.
 let agentCache = { at: 0, list: [] };
 const agentsNow = () => { if (Date.now() - agentCache.at > 60e3) agentCache = { at: Date.now(), list: installedAgents() }; return agentCache.list; };
@@ -58,6 +73,7 @@ import { syncStatus, signIn, startSync, onUnlocked } from './lib/sync.js';
 import { startRelay, restartRelay, relayState, remoteTerms, publishTerms, openRemote } from './lib/relay.js';
 import { installedAgents, sampleActivity, listTerms, deliver, allLinks, feedLinked, attach } from './lib/terminals.js';
 import { microsoft, msConfig, pollMicrosoft, canWrite, chatMessages } from './lib/microsoft.js';
+import { friendlyError } from './lib/friendly.js';
 
 const PORT = Number(process.env.SWITCHBOARD_PORT || 4747);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -98,18 +114,18 @@ async function boardState() {
   const windows = await listWindows();
   return {
     now,
-    spaces: spaces(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, voice: voiceState(), agents: agentsNow(),
+    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, voice: voiceState(), agents: agentsNow(),
     webhooks: webhookList().length,
     deliveries: deliveriesForBoard(),
     routines: routines(),
     pages: pageList(),
     checks: checksForBoard(),
     events: calendarEvents().filter((e) => e.end > now && e.start < now + 7 * 86400e3), calendars: calendarStatus(), weather: weather(),
-    sessions: sessions.map((x) => ({ ...x, termId: termBy.get(x.id) || null, ci: repoFor(x.cwd) })), runs, reviews, actions: gh.actions, threads, email, awaiting, recent,
+    sessions: sessions.map((x) => ({ ...x, termId: termBy.get(x.id) || null, ci: repoFor(x.cwd) })), runs, reviews, actions: gh.actions, threads, email, awaiting, recent, drafts: drafts(),
     terms: terms.map((t) => ({ ...t, ci: repoFor(t.cwd) })), links: allLinks(), remoteTerms: remoteTerms(), relay: relayState(),
     items: items.filter((i) => ['note', 'todo', 'reminder'].includes(i.kind)),
     recentDone,
-    money: { mail: [...moneyFromMail(), ...microsoft().receipts].sort((a, b) => b.date - a.date), bills, paid, invoices },
+    money: { mail: [...moneyFromMail(), ...microsoft().receipts].sort((a, b) => b.date - a.date), bills, paid, invoices, guesses: recurringGuesses(now) },
     sendAs: sendAddresses(),
     windows,
     version: (() => { const u = updateState(); return { build: BUILD, pkg: u.pkg, sha: u.sha, channel: u.channel, behind: u.behind, subjects: u.subjects, error: u.error, busy: u.busy }; })(),
@@ -185,7 +201,7 @@ const server = createServer(async (req, res) => {
   const hin = path.match(/^\/hook\/in\/([0-9a-f]{64})$/);
   if (hin) {
     try { return await hookInLocal(req, res, hin[1], send, changed); }
-    catch (e) { console.error(e); return send(res, 500, { error: 'Switchboard could not take that.' }); }
+    catch (e) { console.error(e); return send(res, 500, { error: 'Switchboard could not take that message: ' + friendlyError(e, 'the sender') }); }
   }
 
   // Anything that changes state must carry this header. Browsers cannot add it
@@ -204,7 +220,7 @@ const server = createServer(async (req, res) => {
     return send(res, 404, { error: 'not found' });
   } catch (e) {
     console.error(e);
-    return send(res, 500, { error: String(e?.message || e) });
+    return send(res, 500, { error: friendlyError(e, 'a service Switchboard uses') });
   }
 });
 
@@ -270,14 +286,16 @@ server.listen(PORT, '127.0.0.1', () => {
 function startAll() {
   watchFolders(() => [...listTerms().map((t) => t.cwd), ...sessionFolders()]);
   pollGithub().then(changed);
-  pollGmail().then(changed);
+  // Drafts after the mail, so a draft's conversation is known by then (lib/drafts.js).
+  const mailAndDrafts = () => pollGmail().then(changed).then(() => readAllDrafts()).then((c) => c && changed()).catch(() => {});
+  mailAndDrafts();
   setInterval(() => pollGithub().then(changed), 2 * 60e3);
   // GitHub Actions, live: the folders sessions work in, and a quick check every
   // 10 seconds that only asks GitHub when a run is going or a session's repo
   // may have just been pushed to (lib/github.js).
   let liveBusy = false;
   setInterval(() => { if (liveBusy) return; liveBusy = true; liveGithub().then((moved) => { if (moved) changed(); }).catch(() => {}).finally(() => { liveBusy = false; }); }, 10e3);
-  setInterval(() => pollGmail().then(changed), 90e3);
+  setInterval(mailAndDrafts, 90e3);
   pollMicrosoft().then(changed);
   // Every 30 seconds: three small Graph requests. An open chat is also checked
   // every few seconds on its own (lib/conversation.js, public/js/convo.js).
@@ -298,6 +316,15 @@ function startAll() {
     if (sig !== lastStates) { lastStates = sig; changed(); publishTerms(); }
   }, 2e3);
   setInterval(tickReminders, 15e3);
+  // Models on this computer (Ollama, LM Studio): a quick look now and every minute.
+  pollLocalAI().then((c) => c && changed()).catch(() => {});
+  setInterval(() => pollLocalAI().then((c) => c && changed()).catch(() => {}), 60e3);
+  // Task apps (Todoist): soon after start, then every 5 minutes.
+  setTimeout(() => pollTasks().then((c) => c && changed()).catch(() => {}), 8e3);
+  setInterval(() => pollTasks().then((c) => c && changed()).catch(() => {}), 5 * 60e3);
+  // News and blogs: soon after start, then every 30 minutes (feeds change slowly).
+  setTimeout(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 20e3);
+  setInterval(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 30 * 60e3);
   pollCalendars().then((c) => c && changed());
   setInterval(() => pollCalendars().then((c) => c && changed()), 10 * 60e3);
   setInterval(tickEvents, 30e3);

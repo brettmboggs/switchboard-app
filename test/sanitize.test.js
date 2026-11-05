@@ -27,6 +27,9 @@ const CASES = [
   // [name, input, must contain (regexps), must not contain (regexps)]
   ['a script tag is dropped, its text too', '<p>hi</p><script>alert(1)</script><p>there</p>', [/^<p>hi<\/p><p>there<\/p>$/], [/alert/]],
   ['handlers are dropped', '<p onclick="steal()" onmouseover="x()">click</p><b onclick="y()">b</b>', [/^<p>click<\/p><b>b<\/b>$/], [/onclick|onmouseover|steal/]],
+  ['a picture Switchboard keeps stays, with nothing else on it', '<p><img src="/api/files/0123456789ab--photo.png" alt="fence" onerror="x()" style="width:9px"></p>', [/^<p><img src="\/api\/files\/0123456789ab--photo\.png" alt="fence"><\/p>$/], [/onerror|style/]],
+  ['a picture from anywhere else is dropped', '<p>a<img src="https://evil.example/x.png">b<img src="/api/files/../../etc/passwd"><img src="data:image/png;base64,AAAA"></p>', [/^<p>ab<\/p>$/], [/img|evil|passwd|data:/]],
+  ['a file link Switchboard keeps stays; any other link is unwrapped', '<p><a class="x" href="/api/files/0123456789ab--brief%20v2.pdf" onclick="y()">brief</a> <a href="/api/files/zz--x">no</a></p>', [/<a class="file-link" href="\/api\/files\/0123456789ab--brief%20v2\.pdf">brief<\/a>/, / no<\/p>$/], [/onclick|zz--x/]],
   ['a link is unwrapped, javascript: and all', '<p><a href="javascript:alert(1)">go</a> on</p>', [/^<p>go on<\/p>$/], [/href|javascript:/]],
   ['an image with an error handler is dropped', '<p>a<img src=x onerror="alert(1)">b</p>', [/^<p>ab<\/p>$/], [/img|onerror/]],
   ['svg and anything in it is dropped', '<p>x</p><svg><script>alert(1)</script><circle/></svg>', [/^<p>x<\/p>$/], [/svg|script|circle/]],
@@ -61,7 +64,9 @@ test('sanitizeHtml in a headless browser: scripts, handlers and links gone; list
       for (const re of yes) assert.match(result, re, `${name}: expected ${re} in ${result}`);
       for (const re of no) assert.doesNotMatch(result, re, `${name}: ${re} must not be in ${result}`);
       // Whatever went in, nothing that runs comes out.
-      assert.doesNotMatch(result, /<script|\son\w+=|javascript:|<iframe|<img|style=/i, `${name}: ${result}`);
+      assert.doesNotMatch(result, /<script|\son\w+=|javascript:|<iframe|style=/i, `${name}: ${result}`);
+      // A picture only ever points at Switchboard's own files.
+      for (const m of result.matchAll(/<img\b[^>]*>/gi)) assert.match(m[0], /^<img src="\/api\/files\/[a-f0-9]{12}--[^"]+" alt="[^"]*">$/, `${name}: ${m[0]}`);
     }
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }

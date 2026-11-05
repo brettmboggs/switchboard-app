@@ -6,6 +6,32 @@ Switchboard" on the Now page is built from.
 
 ## Unreleased
 
+- Calendar: a page with a month of everything on your connected calendars (any
+  calendar link, and iCloud, Fastmail or Yahoo from your email account), a day
+  opened underneath with its times, places and which calendar it is on. Adding
+  and editing events from here comes next, starting with Google.
+- Google Calendar, read and write: Settings, Connections, Calendars has Sign in
+  with Google (Google's own page, in a new tab; Switchboard never sees a
+  password), then tick the calendars to show. On the Calendar page, Add event,
+  and click an event to change or delete it. Calendars added by link stay
+  read only.
+- Browser checks can run signed in: Sign in opens a real browser window, you
+  sign in yourself, Done saves it privately on this computer, and a project's
+  tests get it as SB_AUTH_STATE for that check only. It pauses and asks again
+  when it runs out.
+
+- The phone app shows the same pages as here: it asks a computer that shares
+  its sessions for its board (Now, Inbox, Money, Builds, projects) and acts
+  through that computer's own routes, end-to-end encrypted over the relay.
+  Only what the pages do is allowed: never settings, the account, keys,
+  updates, connecting accounts, or this computer's windows and files.
+  It can also bring a conversation into a session, attach a photo to a
+  message, add and remove browser checks, and show the system monitor.
+- The phone app can start a session on one of your computers (in one of that
+  computer's project folders, with an agent installed there) and rename one.
+  Like the rest of the phone's access, this works only on computers that share
+  their sessions (Settings, Accounts), and every request is end-to-end
+  encrypted.
 - A new logo: three streams converge on one jack and leave as one, with the
   lamp inside it as the state light. The wordmark is set in lowercase Public
   Sans Bold, the dock and app icons are redrawn, and the browser tab's icon is

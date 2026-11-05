@@ -62,6 +62,7 @@ function makeEditor(host, body, { onSave } = {}) {
       <label class="sr" for="ed-style">Text style</label><select id="ed-style" class="ed-sel" title="Text style"><option value="p">Normal text</option><option value="h1">Heading</option><option value="h2">Subheading</option><option value="h3">Small heading</option></select>
       <label class="sr" for="ed-size">Size</label><select id="ed-size" class="ed-sel" title="Size"><option value="s">Small</option><option value="n" selected>Normal size</option><option value="l">Large</option><option value="xl">Huge</option></select>
       ${ED_BUTTONS.map(([cmd, label, icon]) => cmd === '|' ? '<span class="tb-sep"></span>' : `<button type="button" class="tb" data-ed="${cmd}" title="${label}" aria-label="${label}">${icon}</button>`).join('')}
+      <button type="button" class="tb" data-ed="attach" title="Add a picture or file" aria-label="Add a picture or file">${ICON('<path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/>')}</button><input type="file" multiple hidden class="ed-file">
       <button type="button" class="tb mic" data-mic="ed-doc" title="Talk to type: the words go in where the caret is" aria-label="Talk to type">${ICON('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')}</button>
     </div><div class="ed-logsum" hidden></div>
     <div class="ed-doc" id="ed-doc" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Page"></div>`;
@@ -327,6 +328,7 @@ function makeEditor(host, body, { onSave } = {}) {
     if (c === 'indent' || c === 'outdent') return shiftIndent(c === 'outdent');
     if (c === 'undo') return undo();
     if (c === 'redo') return redo();
+    if (c === 'attach') { remember(); host.querySelector('.ed-file').click(); return; }
     remember();
     if (c === 'quote') { exec('formatBlock', selEl()?.closest('blockquote') ? 'p' : 'blockquote'); }
     else if (c === 'removeFormat') { exec('removeFormat'); doc.querySelectorAll('span[class^="fs-"]').forEach((s) => { if (getSelection().containsNode(s, true)) s.replaceWith(...s.childNodes); }); }
@@ -394,14 +396,36 @@ function makeEditor(host, body, { onSave } = {}) {
   // so the sanitiser applies and one undo step takes it back out.
   function insertHtml(clean) { refocus(); remember(); document.execCommand('insertHTML', false, clean); keepRange(); changed(); }
   const textHtml = (t) => /(^|\n)\s*([-*] |\d+[.)] |- \[[ x]\] |#{1,3} )/i.test(t) ? linesToHtml(t) : esc(t).replace(/\n/g, '<br>');
-  // Pasting: formatting kept (bold, lists…), everything else dropped.
+  // Pictures and files: kept on this computer (lib/attachments.js); a picture
+  // shows in the page, anything else is a link that downloads it.
+  async function insertFiles(files) {
+    for (const file of files) {
+      try {
+        const f = await uploadFile(file);
+        insertHtml(f.image ? `<p><img src="${esc(fileUrl(f.id))}" alt="${esc(f.name)}"></p>` : `<p><a class="file-link" href="${esc(fileUrl(f.id))}">${esc(f.name)}</a></p>`);
+      } catch (err) { toast(err.message, { kind: 'error' }); }
+    }
+  }
+  host.querySelector('.ed-file').addEventListener('change', (e) => { const f = [...e.target.files]; e.target.value = ''; insertFiles(f); });
+  // Pasting: formatting kept (bold, lists…), everything else dropped; a pasted picture or file goes in as one.
   doc.addEventListener('paste', (e) => {
     e.preventDefault();
     const cd = e.clipboardData;
+    if (cd?.files?.length) { insertFiles([...cd.files]); return; }
     const h = cd?.getData('text/html');
     insertHtml(h ? sanitizeHtml(h) : textHtml(cd?.getData('text/plain') || ''));
   });
-  doc.addEventListener('drop', (e) => { if (e.dataTransfer?.files?.length) e.preventDefault(); });
+  doc.addEventListener('dragover', (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); });
+  doc.addEventListener('drop', (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    // Where it was dropped is where it goes.
+    const r = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+    if (r) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); lastRange = r.cloneRange(); }
+    insertFiles([...e.dataTransfer.files]);
+  });
+  // A file link opens (downloads) on a click, even while editing.
+  doc.addEventListener('click', (e) => { const a = e.target.closest('a.file-link'); if (a) { e.preventDefault(); window.open(a.getAttribute('href'), '_blank', 'noopener'); } });
 
   // ---- talk to type (voice.js finds this on the page element as target.dictation)
   // The words so far sit in a marked span at the caret, replaced as the

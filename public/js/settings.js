@@ -4,7 +4,7 @@
 // ---------- settings
 // Sections down the left; every change saves as it is made.
 let SET = null, pane = 'accounts';
-const PANES = { accounts: 'Accounts', projects: 'Projects', alerts: 'Notifications', mail: 'Mail', look: 'General', system: 'System' };
+const PANES = { accounts: 'Account', connections: 'Connections', projects: 'Projects', alerts: 'Notifications', mail: 'Mail', look: 'General', system: 'System' };
 const SWATCHES = ['#FF4F00', '#2F5D8A', '#1F7A4D', '#8A6D1F', '#7A3E9D', '#B42318', '#0E7C86', '#8A8F98'];
 
 async function openSettings(to) {
@@ -21,7 +21,7 @@ function showPane(id) {
 }
 function renderSettings() {
   if (!SET) return;
-  renderAccount(); renderGmail(); renderCalendars(); renderWebhooks(); renderMsStatus(); renderDev(); renderProjects(); renderAlerts(); renderSigs(); renderLook();
+  renderAccount(); renderGmail(); renderCalendars(); renderWebhooks(); renderMsStatus(); renderDev(); renderConnections(); renderProjects(); renderAlerts(); renderSigs(); renderLook();
 }
 
 let savedTimer = null;
@@ -35,8 +35,8 @@ async function saveSet(body) {
 }
 
 // -- accounts
-function card({ name, line = '', bad = false, actions = '' }) {
-  return `<div class="acct-card"><div class="acct-main"><b>${name}</b>${line ? `<span class="acct-line ${bad ? 'bad-text' : ''}">${line}</span>` : ''}</div><div class="form-row">${actions}</div></div>`;
+function card({ name, line = '', bad = false, actions = '', conn = '' }) {
+  return `<div class="acct-card"${conn ? ` data-conn="${conn}"` : ''}><div class="acct-main"><b>${name}</b>${line ? `<span class="acct-line ${bad ? 'bad-text' : ''}">${line}</span>` : ''}</div><div class="form-row">${actions}</div></div>`;
 }
 
 const PROVIDER_NAMES = { google: 'Google', github: 'GitHub', microsoft: 'Microsoft', dev: 'Test sign-in' };
@@ -163,6 +163,8 @@ function renderCalendars() {
       <button class="btn btn--quiet" type="button" data-cal-remove="${esc(c.id)}">Remove</button></div>`;
   }).join('');
   $('cal-open').textContent = (SET.calendars || []).length ? 'Add another' : 'Add';
+  renderCalAccounts();
+  renderGoogleCal();
 }
 
 function renderMsStatus() {
@@ -189,8 +191,8 @@ function renderMsStatus() {
 // Developer accounts: GitHub through the gh tool, and each coding agent signed in its own way.
 function renderDev() {
   const st = S.status;
-  const gh = st.github.ok === true ? card({ name: 'GitHub', line: 'Connected' })
-    : card({ name: 'GitHub', line: st.github.ok === false ? 'Run <span class="mono">gh auth login</span> in a terminal' : 'Checking…', bad: st.github.ok === false });
+  const gh = st.github.ok === true ? card({ name: 'GitHub', line: 'Connected', conn: 'github' })
+    : card({ name: 'GitHub', conn: 'github', line: st.github.ok === false ? 'Run <span class="mono">gh auth login</span> in a terminal' : 'Checking…', bad: st.github.ok === false });
   const how = {
     claude: { install: 'npm i -g @anthropic-ai/claude-code', login: 'claude' },
     codex: { install: 'npm i -g @openai/codex', login: 'codex login', note: 'Signs in with your ChatGPT account' },
@@ -199,10 +201,10 @@ function renderDev() {
   const agents = SET.agents.filter((a) => how[a.id]).map((a) => {
     const h = how[a.id];
     const name = a.id === 'codex' ? 'ChatGPT (Codex)' : a.name;
-    if (!a.installed) return card({ name, line: h.note || 'Not installed', actions: `<button class="btn" type="button" data-term-cmd="${esc(h.install + ' && ' + h.login)}">Install</button>` });
-    if (a.id === 'claude') return card({ name, line: st.hooks ? 'Connected' : 'Run <span class="mono">npm run setup</span> in the Switchboard folder' , bad: !st.hooks });
-    if (!a.signedIn) return card({ name, line: 'Installed, not signed in', actions: `<button class="btn" type="button" data-term-cmd="${esc(h.login)}">Sign in</button>` });
-    return card({ name, line: 'Ready for new sessions' });
+    if (!a.installed) return card({ name, conn: a.id, line: h.note || 'Not installed', actions: `<button class="btn" type="button" data-term-cmd="${esc(h.install + ' && ' + h.login)}">Install</button>` });
+    if (a.id === 'claude') return card({ name, conn: a.id, line: st.hooks ? 'Connected' : 'Run <span class="mono">npm run setup</span> in the Switchboard folder' , bad: !st.hooks });
+    if (!a.signedIn) return card({ name, conn: a.id, line: 'Installed, not signed in', actions: `<button class="btn" type="button" data-term-cmd="${esc(h.login)}">Sign in</button>` });
+    return card({ name, conn: a.id, line: 'Ready for new sessions' });
   });
   $('dev-cards').innerHTML = gh + agents.join('');
 }

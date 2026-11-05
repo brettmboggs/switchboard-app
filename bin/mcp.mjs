@@ -148,7 +148,8 @@ const TOOLS = [
       return list.map((c) => {
         const r = c.runs.find((x) => x.state === 'running' || x.state === 'queued') || c.runs.find((x) => ['success', 'failure', 'cancelled'].includes(x.state));
         const what = c.kind === 'page' ? `page ${c.url}${c.expect ? ` must show "${c.expect}"` : ''}` : `tests in ${c.folder}: ${c.command}`;
-        const head = `- ${c.name} [${c.id}] · ${what} · ${EVERY[c.every] || ''} · ${r ? `${r.state}${r.endedAt ? ' ' + ago(r.endedAt) : ''}${r.summary ? ': ' + r.summary : ''}` : 'not run yet'}`;
+        const si = c.signin ? ` · sign-in: ${{ ok: 'signed in (saved ' + ago(c.signin.savedAt) + ')', expired: 'needs sign-in (it ran out)', none: 'needs sign-in (not signed in yet)', starting: 'sign-in window opening', open: 'sign-in window open', saving: 'saving the sign-in' }[c.signin.state] || c.signin.state}` : '';
+        const head = `- ${c.name} [${c.id}] · ${what} · ${EVERY[c.every] || ''}${si} · ${r ? `${r.state}${r.endedAt ? ' ' + ago(r.endedAt) : ''}${r.summary ? ': ' + r.summary : ''}` : 'not run yet'}`;
         const fails = r?.state === 'failure' ? (r.failures || []).slice(0, 5).map((f) => `    failed: ${f.title}${f.file ? ` (${f.file}${f.line ? ':' + f.line : ''})` : ''}${f.error ? ' · ' + String(f.error).split('\n')[0].slice(0, 200) : ''}`) : [];
         return [head, ...fails].join('\n');
       }).join('\n');
@@ -157,11 +158,11 @@ const TOOLS = [
   {
     name: 'switchboard_add_check',
     title: 'Add a browser check',
-    description: 'Set up a browser check for the user: kind "page" opens url in a headless browser and fails if it will not load or never shows the expect text; kind "tests" runs a project\'s own Playwright tests (folder is its full path; command defaults to "npx playwright test" and may only be the project\'s test runner: npx playwright test, npm test or npm run <script>). every is minutes between runs: 0 (only on a click, the default), 60, 360 or 1440. project is a Switchboard project name. It runs once right away unless run_now is false; a failure becomes a Needs-you card for the user. Read results with switchboard_checks.',
+    description: 'Set up a browser check for the user: kind "page" opens url in a headless browser and fails if it will not load or never shows the expect text; kind "tests" runs a project\'s own Playwright tests (folder is its full path; command defaults to "npx playwright test" and may only be the project\'s test runner: npx playwright test, npm test or npm run <script>). every is minutes between runs: 0 (only on a click, the default), 60, 360 or 1440. project is a Switchboard project name. It runs once right away unless run_now is false; a failure becomes a Needs-you card for the user. Read results with switchboard_checks. For a site that needs sign-in, a tests check can have signin_url (the sign-in page, https): only the person can sign in, in a window on their own computer (Sign in on the check); you never see or handle any password, and the check does not run until they have.',
     inputSchema: {
       type: 'object',
       properties: {
-        kind: { type: 'string', enum: ['page', 'tests'] },
+        kind: { type: 'string', enum: ['page', 'tests'] }, signin_url: { type: 'string' },
         url: { type: 'string' }, expect: { type: 'string' },
         folder: { type: 'string' }, command: { type: 'string' },
         name: { type: 'string' }, project: { type: 'string' },
@@ -185,9 +186,11 @@ const TOOLS = [
         space = hit.id;
       }
       // agent: true tells the server this came from an agent, so it applies the same rule.
-      const r = await sb('/api/checks', { kind: a.kind, url: a.url, expect: a.expect, folder: a.folder, command: a.command, name: a.name, space, every: a.every || 0, agent: true });
-      if (a.run_now !== false) await sb('/api/checks/run', { id: r.id });
-      return `Added browser check [${r.id}]${a.run_now !== false ? ' and started a run' : ''}. The user sees it in Sessions, Browser checks; read the result with switchboard_checks.`;
+      const r = await sb('/api/checks', { kind: a.kind, url: a.url, expect: a.expect, folder: a.folder, command: a.command, name: a.name, space, every: a.every || 0, signin_url: a.signin_url, agent: true });
+      const runs = a.run_now !== false && !a.signin_url;   // a signed-in check waits for the person to sign in
+      if (runs) await sb('/api/checks/run', { id: r.id });
+      if (a.signin_url) return `Added browser check [${r.id}]. It cannot run until the user presses Sign in on it (Sessions, Browser checks) and signs in themselves; tell them so.`;
+      return `Added browser check [${r.id}]${runs ? ' and started a run' : ''}. The user sees it in Sessions, Browser checks; read the result with switchboard_checks.`;
     }
   }
 ];

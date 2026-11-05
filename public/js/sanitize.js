@@ -7,11 +7,15 @@
 // A page is stored as HTML, and only these tags ever survive:
 // p h1 h2 h3 b i u s ul ol li blockquote hr br, span with a size class, and
 // ul class="checklist" / "log" with li data-checked / data-at. Everything else
-// (scripts, styles, links, handlers, images, frames) is dropped; an unknown
+// (scripts, styles, links, handlers, frames) is dropped, except a picture or a
+// file link that Switchboard itself keeps: <img src="/api/files/…"> and
+// <a class="file-link" href="/api/files/…">, nothing else on them; an unknown
 // wrapper is unwrapped and its text kept. Bold, italic, underline, strike and
 // size are read off pasted styles; no style attribute is ever kept.
 const ED_TAGS = { P: 'p', DIV: 'p', H1: 'h1', H2: 'h2', H3: 'h3', H4: 'h3', H5: 'h3', H6: 'h3', B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', INS: 'u', S: 's', STRIKE: 's', DEL: 's', UL: 'ul', OL: 'ol', LI: 'li', BLOCKQUOTE: 'blockquote', HR: 'hr', BR: 'br', SPAN: 'span', FONT: 'span' };
 const ED_DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'TEMPLATE', 'SVG', 'MATH', 'HEAD', 'TITLE', 'META', 'LINK', 'NOSCRIPT', 'FORM', 'INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'IMG', 'VIDEO', 'AUDIO', 'CANVAS']);
+// Switchboard's own file address: /api/files/<12 hex>--<name, encoded>.
+const ED_FILE = /^\/api\/files\/[a-f0-9]{12}--[A-Za-z0-9%._~!*'()-]{1,420}$/;
 const FONT_SIZE = { 1: 's', 2: 's', 4: 'l', 5: 'l', 6: 'xl', 7: 'xl' };
 
 // Only what the editor itself makes gets through.
@@ -23,6 +27,9 @@ function sanitizeHtml(html) {
       if (n.nodeType === 3) { to.appendChild(document.createTextNode(n.nodeValue)); continue; }
       // Inside <svg> and <math> tag names come back lowercase: compare upper, so those and anything in them go.
       const T = n.nodeType === 1 ? n.tagName.toUpperCase() : '';
+      // A picture or file added in Switchboard: only its own address, nothing else kept.
+      if (T === 'IMG' && ED_FILE.test(n.getAttribute('src') || '')) { const im = document.createElement('img'); im.src = n.getAttribute('src'); im.alt = (n.getAttribute('alt') || '').slice(0, 140); to.appendChild(im); continue; }
+      if (T === 'A' && ED_FILE.test(n.getAttribute('href') || '')) { const a = document.createElement('a'); a.className = 'file-link'; a.setAttribute('href', n.getAttribute('href')); a.textContent = n.textContent.slice(0, 140) || 'file'; to.appendChild(a); continue; }
       if (n.nodeType !== 1 || ED_DROP.has(T)) continue;
       const tag = ED_TAGS[T];
       if (!tag) { copy(n, to); continue; }   // unknown wrapper: keep what is inside

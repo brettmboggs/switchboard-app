@@ -34,7 +34,7 @@ function syncConvo() {
   if (!x) { if (CV) unmountConvo(); return; }
   if (!CV || CV.key !== x.key) { mountConvo(x); return; }
   CV.thread = x;
-  paintHead(); paintSide();
+  paintHead(); paintSide(); paintDrafts();
   // The board heard of something newer (a poll, a notification): fetch it now.
   if (x.date > CV.newest + 1000) pullConvo();
 }
@@ -110,13 +110,14 @@ function mountConvo(x) {
   host.innerHTML = `<header class="cv-head" id="cv-head"></header>
     <div class="cv-body"><div class="cv-main">
       <div class="cv-scroll" id="cv-scroll"><div class="cv-earlier" id="cv-earlier" hidden><button class="btn" type="button" data-cv="earlier">Load earlier messages</button></div>
-        <div class="cv-list" id="cv-list" role="log" aria-label="Messages"><p class="cv-note">Opening the conversation…</p></div></div>
+        <div class="cv-list" id="cv-list" role="log" aria-label="Messages"><p class="cv-note">Opening the conversation…</p></div>
+        <div class="cv-drafts" id="cv-drafts"></div></div>
       <button class="btn cv-pill" id="cv-pill" type="button" data-cv="bottom" hidden></button>
     </div><aside class="cv-side" id="cv-side" ${store.get('cvSide', false) ? '' : 'hidden'}></aside></div>
     <div class="cv-compose">${composerHtml(x)}</div>`;
   host.hidden = false;
   $('cv-scroll').addEventListener('scroll', cvOnScroll, { passive: true });
-  paintHead(); paintSide();
+  paintHead(); paintSide(); paintDrafts();
   const ta = $('r-text');
   if (ta) { ta.focus({ preventScroll: true }); ta.selectionStart = ta.selectionEnd = ta.value.length; }
   pullConvo();

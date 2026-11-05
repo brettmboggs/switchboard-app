@@ -1,8 +1,24 @@
 # Switchboard
 
-**One light app for everything you run: AI coding sessions, builds, email,
-chats, calendar, reminders, money and packages, all on one screen. It runs on
-your own computer, so your passwords and mail stay there.**
+<!-- pitch:start (made by npm run pitch from docs/headlines.json; edit that) -->
+
+**One screen for everything that wants your attention: your AI coding agents, builds, email, Teams, calendar, bills and packages.**
+
+Anything that needs you turns orange, and you can answer it right there without opening the other app. It runs on your own computer: your passwords and mail never pass through anyone else's server, and nothing is ever sent without your click.
+
+**What makes it different**
+
+- **Orange means it needs you.** An agent waiting for an answer, a build that failed, a reply you owe, a bill due, a late package, the chickens to feed: one board, one colour for "you". Everything else stays quiet, so a glance tells you whether you can keep working.
+- **Your AI agents live inside it.** Claude Code, Codex, Gemini and local models run inside Switchboard, and a Claude session reads like a clean chat: its permission prompts and multiple-choice questions are buttons, messages queue while they work, any file they mention opens with a click, and the bar shows the model, how much context is used and what it has cost so far.
+- **Your agents can talk back.** Switchboard is an MCP server, so the agents themselves can read your board: what needs you, how the builds are doing. A stuck agent puts a card on your board instead of sitting silently in a terminal, and one session can hand work to another.
+- **Work finds the session it is about.** A Teams message or email about a project shows up beside the coding session for that project. One click puts it into what you send the agent, with who sent it and when. A notes page goes in the same way.
+- **Reply without opening the other app.** Gmail, any other mail account, Teams, Outlook and Google Voice texts in one Inbox that reads like a chat app. Reply, archive or snooze from there, and close the dozen tabs: you still see everything.
+- **Every computer, one board.** Sign in on each computer and every session shows on all of them. Open a session running on your desktop from your laptop and it is a chat there too, questions and all. Settings and notes follow you, end-to-end encrypted.
+- **Private, light and yours.** One small local server, one SQLite file and a plain web page, using far less memory than the browser tabs and apps it replaces. No middleman server, no subscription, and nothing sent on your behalf: every email and message goes when you click.
+
+The short version, with every feature listed and a 20-second demo for each of these: [docs/PITCH.md](docs/PITCH.md).
+
+<!-- pitch:end -->
 
 Built by Brett Boggs for his own day, starting November 2026. Now it's being
 made to install and run for anyone.
@@ -40,15 +56,22 @@ Three principles shape every decision:
 
 | Area | What you get |
 |---|---|
-| **Now** | Everything in flight as cards with one state each: needs you, working, waiting on someone else, done. Today's calendar, weather, packages. |
-| **Sessions** | Claude Code, Codex, Gemini CLI, Aider or any command, running inside Switchboard in a real terminal (tmux on Linux and macOS, so sessions survive restarts). Grouped by repo, renamable, with a live state bar, one prompt with talk-to-type and images, and a queue: messages wait and go in when the agent is free. Sessions on your other computers show up too. Claude sessions open as a **chat**: the session's own transcript as a clean conversation with one message bar, tool calls folded to one line, what it is doing while it works, and its permission prompts and questions as buttons. New session picks the model (Sonnet, Opus, Haiku, 1M context) and effort, remembered per folder; typing `/` in the message bar lists Claude's commands and the folder's skills with what each does, and `/model` opens Claude's picker as buttons; the session's bar reads its model, effort, context used and cost live ("Opus 5.5 · high · 39% · $0.42"). Opt in (Settings, General): git status and the branch's pull request on each session's bar, and terminals drawn by the graphics card (WebGL). |
+| **Calendar** | A month of everything on your connected calendars, with a day opened underneath: times, places, and which calendar. It opens from **Calendar** on Now's Today line (or G then C); it has no place on the rail. It reads the same calendars as Now (private links, or iCloud, Fastmail and Yahoo through your email account) and asks each only when you look, keeping the answer five minutes. **Google Calendar** signs in with one button (Settings, Connections, Calendars): Google's own page opens in a new tab and you sign in there; Switchboard keeps only a refresh token, locked on this computer, and never sees your password. Then **Add event**, and click an event to change or delete it; every change is your click on Save or Delete. Calendars added by link, iCloud or Fastmail stay read only for now. Repeating events: a change affects that one occurrence. For a copy of Switchboard to offer the Google button it needs the app's Google client: the id is in `lib/product.js`, the secret is read from `~/.config/switchboard/google-client.json` (`{"clientId", "clientSecret"}`, mode 0600) or `SWITCHBOARD_GOOGLE_CLIENT_SECRET`, and is not kept in the repository. |
+| **Now** | Everything in flight as cards with one state each: needs you, working, waiting on someone else, done. Today's calendar, weather, packages. Until noon, a **morning rundown** at the top: the day in one sentence (meetings, what needs you, bills this week, packages, routines), four figures, the schedule beside the lists, and Read aloud with a voice on your computer. |
+| **Sessions** | Claude Code, Codex, Gemini CLI, Aider or any command, running inside Switchboard in a real terminal (tmux on Linux and macOS, so sessions survive restarts). Grouped by repo, renamable, with a live state bar, one prompt with talk-to-type and images, and a queue: messages wait and go in when the agent is free. Sessions on your other computers show up too. Claude sessions (and Codex and local model sessions) open as a **chat**: the session's own transcript as a clean conversation with one message bar, tool calls folded to one line, what it is doing while it works, and its permission prompts and questions as buttons. New session picks the model (Sonnet, Opus, Haiku, 1M context) and effort, remembered per folder; typing `/` in the message bar lists Claude's commands and the folder's skills with what each does, and `/model` opens Claude's picker as buttons; the session's bar reads its model, effort, context used and cost live ("Opus 5.5 · high · 39% · $0.42"). Files the agent names are links when they exist on this computer, in Chat and in Terminal view alike: a click shows a document as a page, code with the named line lit, or a picture, with Open (its own app) and Show in folder; pictures it sends show in the chat. A session on your other computer works too: that computer sends the file over, and Open stays on that computer. Only files in your home, temp or the session's folder, never keys or secrets, and a script is only ever shown in its folder, never run. Opt in (Settings, General): git status and the branch's pull request on each session's bar, and terminals drawn by the graphics card (WebGL). |
 | **Sessions, Builds** | GitHub Actions, live, in GitHub's colours: yellow glowing while a run goes, green passed, red failed, with jobs and the current step. Checks every 10 seconds while something runs. Each session shows its own repo's runs. Re-run failed jobs or cancel. |
-| **Browser checks** (a tab on Sessions) | Opt in. A project's own Playwright tests, or "this page must load and show this text", run in a headless browser (no window, nothing to keep open) on a click or every hour, 6 hours or day. One line per check with its light. Click one to see what failed, with screenshots. A failure becomes a Needs-you card. Agents can add and read checks for you. `node scripts/setup.mjs browser` also gives your agents a headless Playwright MCP server. |
+| **Browser checks** (a tab on Sessions) | Opt in. A project's own Playwright tests, or "this page must load and show this text", run in a headless browser (no window, nothing to keep open) on a click or every hour, 6 hours or day. One line per check with its light. Click one to see what failed, with screenshots. A failure becomes a Needs-you card. A project's tests can run **signed in** to a site that needs it: you press Sign in, a normal browser window opens on your computer, and you sign in yourself on the site's own page (including any code or MFA). Give the address of the site you are testing: Done saves only once the window is back on that site, which is when its own sign-in tokens exist. Switchboard never sees, types or asks for a password, code or answer; it keeps only the browser's sign-in state in a file only your account can read (`~/.config/switchboard/auth/<check id>.json`, mode 0600), outside every project, never logged, never shown on the page or to an agent, and never sent anywhere. The test command gets its path in `SB_AUTH_STATE`, only for that check. If the sign-in runs out, the test prints a line with `SIGNIN_EXPIRED`; the check pauses (it never retries by itself) and a Needs-you card asks you to sign in again. Sign out, removing the check, or changing its folder or sign-in page deletes the file. Agents can add and read checks for you (they can name the sign-in page, but only you can sign in). `node scripts/setup.mjs browser` also gives your agents a headless Playwright MCP server. |
 | **Inbox** | Conversations waiting on a reply from email (Gmail or any IMAP account), Google Voice texts and voicemail, Teams chats and Outlook. Pick one and it opens large beside a narrow list, like Teams or Discord: messages grouped by who sent them, day by day, links clickable, your reply box pinned at the bottom. It stays put while the board updates, and it is live: an open Teams chat is checked every 4 seconds while you can see it, mail on every mail check. Your reply shows at once and is confirmed when it has gone. Reply, archive, snooze, or bring one message into an agent session. |
-| **Notes** | A notebook: pages per project with a formatting toolbar like an email (headings, size, bold, italic, underline, strikethrough, bullets, numbers, checklists, quotes), a mic that types where the caret is, #tags, search, a calculator (end a line with `=`), lists you add to from Ctrl K, logs with totals, and `today …` for a timed line on the day's page. Send to session puts a page (or a quick note) in a session's message bar with a line saying what to do with it; you press Enter there. Plus quick notes (with a mic), reminders, to-dos, and chores that come back on their own ("trash every tue at 7pm"). |
-| **Money** | Invoices you sent and are waiting on, bills and when they are due, payments in, card charges and receipts read from alert emails. |
+| **Drafts** | Your email drafts, including ones an assistant writes for you through your Gmail, show in Inbox: one that answers a conversation sits at the bottom of it, marked Draft; the rest are listed at the top of Inbox. **Edit** opens To, Cc, Subject and the text; **Send** sends it in its thread, **Save draft** puts the new version back in your Drafts (so Gmail on your phone shows the same), **Discard** moves it to your mail's Trash. Read from the Drafts folder with the rest of your mail; nothing is sent until you press Send. |
+| **Notes** | A notebook: pages per project with a formatting toolbar like an email (headings, size, bold, italic, underline, strikethrough, bullets, numbers, checklists, quotes), a mic that types where the caret is, #tags, search, a calculator (end a line with `=`), lists you add to from Ctrl K, logs with totals, and `today …` for a timed line on the day's page. Send to session sends a whole page, the text you selected, or the line you are on (or a quick note) to a session: you see exactly what goes, can change it, and can add a line saying what to do with it. Plus quick notes (with a mic), reminders, to-dos, and chores that come back on their own ("trash every tue at 7pm"). |
+| **Projects** (on the left) | Each client, business or part of life has its own page: what is in flight there, its conversations, sessions, notes and files (drop them on the page, any type up to 1 GB; they stay on this computer), and on the side what you do for them, the people with their email and phone (with everyone you have written to in that project's mail offered under Found in your mail: Add or Hide), and links to their site, its admin, the repo and anything else you open for them. To narrow a list to one project, use the picker at the top of Now, Sessions, Inbox, Money or Notes. |
+| **Reading** (a tab on Inbox) | News and blogs you follow (RSS and Atom; type a site and its feed is found, and a news page with no feed, such as anthropic.com/news, is watched for new article links instead), newest first, unread in bold, kept 30 days. Never on Now and never orange: reading is for when there is time. Only each post's title, link, date and a short plain-text summary are kept; a post's own HTML is never shown. |
+| **Money** | Invoices you sent and are waiting on, bills and when they are due, payments in, card charges and receipts read from alert emails. **Recurring costs**: rent, hosting, software, insurance, each with how often and its project, totalled per month and per year and split by project (each project's page shows its own); charges in your email that come back like a subscription are offered with Add or Not recurring. No bank connection needed. |
+| **Local AI models** (Settings, Connections) | Run models on this computer with Ollama: install it, get a starter model and start it as a session (New session, Agent: Local model), all from Switchboard. Private, free, works offline. If you use LM Studio, the models you downloaded there start as sessions too (Agent: Local model (LM Studio)). A local model session reads like a chat, the same as a Claude session: Switchboard's own small chat program (`bin/localchat.mjs`) talks to the model through Ollama's or LM Studio's server on this computer, starts that server if it is not running, keeps the conversation in a file in Switchboard's data folder, and the terminal shows it too. llama.cpp's server and Jan are listed when they run. Only `127.0.0.1` is ever asked. |
 | **System monitor** (Settings, System) | How busy this computer is, live: processor (and each thread), memory split into in use, cached and free, graphics, network speed, storage left, temperatures and fans where the computer shares them, and the apps using the most (grouped, sortable, searchable). A line at the top says in words what is straining ("Memory is 93% full; Chrome holds 6.0 GB"). Charts keep two minutes. Linux, macOS and Windows; it reads numbers only while it is open, keeps no history, sends nothing, and never asks for admin rights. |
-| **Ctrl K** | Type it once: `remind fri 9am call the bank`, `bill rent 1200 on the 1st`, `todo send the proposal by thu`, or anything else as a note. |
+| **Files and pictures** | Drop, paste or pick any file: into a session's message bar (it goes to the agent as the file's location, so Claude Code and Codex can open pictures, PDFs, spreadsheets or code), onto a session's terminal (its location is typed at the cursor), into a note (a picture shows in the page, anything else is a link that downloads it), or onto a project's page. Up to 1 GB each, written straight to disk. They stay on the computer they were added on: synced notes show a picture only there. Pictures show inside Switchboard; every other type only ever downloads, so a dropped web page cannot run in it. |
+| **Keyboard** | `?` lists every shortcut; G then a letter goes to a page (G I for Inbox); `,` opens Settings. In the Switchboard app, Ctrl+Q quits it like any app (Cmd+Q on a Mac); your sessions keep running. In a Claude session's terminal, Shift+Enter starts a new line and Ctrl+Enter sends now, even while Claude is working (the keys Claude Code itself uses: Ctrl+J, and Ctrl+X Ctrl+S). |
+| **Ctrl K** | Search everything, and type it once. A few letters find sessions (on every computer), people on your projects' pages, emails (any age, from people) and Teams chats, calendar events (a month back, two ahead), money (bills, invoices, payments, charges and receipts), notebook pages, notes, reminders, projects, and Switchboard's own features ("monitor" finds the System monitor); arrow down and Enter opens one. It searches only what is already on this computer. Or type `remind fri 9am call the bank`, `bill rent 1200 on the 1st`, `todo send the proposal by thu`, or anything else as a note. |
 | **Your agents can use it** | Switchboard is an MCP server, so your coding agents (Claude Code and Codex today, Gemini CLI too) can see what needs you, put a needs-you card on your board when they are blocked, read build status and hand work to another session. |
 | **Every computer** | An optional end-to-end encrypted account links your computers. Your settings and notes follow you, and you can use a session running on one computer from another. |
 
@@ -64,7 +87,11 @@ Each connection runs from your computer, straight to the service.
 | Email (Gmail, iCloud, Fastmail, Yahoo, most others) | IMAP with an app password, server found from the address | Every 90 s | Reads. Replies, archives and sends when you click | An app password per account |
 | Google Voice | Voice forwards texts, voicemail and missed calls to Gmail | With mail | Reads. Replies by text when you click | "Forward to email" on in Voice |
 | Teams and Outlook | Microsoft Graph, signed in with Microsoft | Every 30 s, and an open Teams chat every 4 s while the page is visible (30 s when hidden) | Reads. Replies and archives when you click | A Microsoft 365 account (see below) |
-| Calendars | Private calendar links (ICS): Google, Outlook, iCloud, any | Every 10 min | Reads | The private link |
+| Calendars | Private calendar links (ICS): Google, Outlook, iCloud, any. iCloud, Fastmail and Yahoo also straight from the email account (CalDAV): tick the calendars, no link | Every 10 min | Reads | The private link, or the mail's app password (sent only over https to that provider) |
+| Todoist | Todoist's API v1 with your personal API token (Todoist, Settings, Integrations, Developer); the token is locked on disk with this computer's key | Every 5 min | Reads tasks due today or overdue. Closes one when you click Done | A Todoist account (free) |
+| Trello | Trello's REST API with an API key (trello.com/power-ups/admin) and a token you allow on Trello's own page; both locked on disk | Every 5 min | Reads cards on your boards with a due date of today or earlier, not complete. Marks the due date complete when you click Done | A Trello account (free) |
+| Asana | Asana's API with a personal access token (app.asana.com/0/my-apps); locked on disk | Every 5 min | Reads open tasks assigned to you, due today or earlier, in each workspace. Completes one when you click Done | An Asana account (free) |
+| Notion | Notion's API with an internal integration's secret (notion.so/my-integrations), locked on disk; Notion only lets it see the databases you share with it | Every 5 min | Reads pages in your task database with a date of today or earlier and not done (a Done checkbox, or a status in the Complete group). Sets it done when you click Done | A Notion account (free) |
 | Weather | Open-Meteo forecast and US National Weather Service warnings, free, no key | Every 30 min | Reads | A town or ZIP |
 | Packages | Shipping emails already in your mail | With mail | Reads | Nothing |
 | Card charges, receipts | Bank alert emails and receipts already in your mail | With mail | Reads | Alerts on in your bank's app |
@@ -133,7 +160,9 @@ Each connection runs from your computer, straight to the service.
   service to that webhook's own public key, so the service cannot read them.
 - **Transcripts stay put.** The Chat view reads Claude Code's own transcript
   files on your computer (`~/.claude/projects/…`) by byte range and sends
-  nothing anywhere. Text is drawn as plain text, never as HTML. Answering a
+  nothing anywhere. Viewing a session from your other computer, the part on
+  screen goes to it sealed with your account key, like its terminal does, and
+  only when that computer shares its sessions. Text is drawn as plain text, never as HTML. Answering a
   question from the chat presses only arrow keys and Enter in that session,
   and only after a click.
 - **The agent tools leave your mail out.** The MCP tools cover the board, your
@@ -141,6 +170,18 @@ Each connection runs from your computer, straight to the service.
   to agents on purpose. (A program running as you on this computer can still
   ask the local server, as the page does: Switchboard trusts your own user
   account, like any app on your computer.)
+- **Project files stay on this computer.** Files dropped on a project's page
+  are kept in the data folder (`projects/<id>/files`), private to your user
+  account, and are never synced or sent anywhere. They open only as a
+  download, never inside the page. A project's about, people and links are a
+  setting, so they sync, encrypted, like your projects do. Links are kept
+  only if they are web, mail or phone links. Found in your mail is read from
+  mail already on this computer (people you wrote to in that project, and
+  people who wrote to you there whom you have written to); nothing new is
+  fetched for it, and senders like no-reply never show.
+- **Feeds never reach inward.** A feed address is only fetched over http(s)
+  from the public internet: an address on this computer or the local network
+  (Switchboard's own API, a router's page) is refused, redirects included.
 - **Sending is always a click.** Switchboard never sends an email, text or chat
   message by itself.
 
@@ -159,7 +200,7 @@ If someone asks you what Switchboard is or how to use it, these are the facts:
 - **To install today:** Node 22.13+, git, then `git clone`, `npm install`,
   `npm run setup`. A double-click installer for Windows, macOS and Linux is
   built (see "The app" below); public downloads come once releases are public.
-- **To connect things:** Settings, Accounts. The welcome card on Now walks
+- **To connect things:** Settings, Connections. It shows only your connections; everything else is under Add a connection, by kind, with Add (and Remove from list for one you don't use). The welcome card on Now walks
   through it.
 - **MCP:** setup registers a `switchboard` MCP server with each coding agent
   it finds (Claude Code, Codex, Gemini CLI). Its tools are `switchboard_overview`, `switchboard_add`,
@@ -170,7 +211,7 @@ If someone asks you what Switchboard is or how to use it, these are the facts:
   `switchboard_add` with kind `needs` only when you truly need the user.
 - **Claude Code wiring:** setup adds hooks (`bin/hook.sh` posting to
   `/hook/claude`, events SessionStart, UserPromptSubmit, Notification, Stop,
-  SessionEnd, PostToolUse, PreToolUse for AskUserQuestion, PreModelSwitch and
+  SubagentStart, SubagentStop, SessionEnd, PostToolUse, PreToolUse for AskUserQuestion, PreModelSwitch and
   PostModelSwitch) and, only if the person has none, a status line
   (`bin/statusline.sh` posting Claude Code's status JSON to
   `/hook/claude/status`), which is where a session's model, effort, context
@@ -261,10 +302,14 @@ on the formatting bar talks to type at the caret (Live or Private, as in
 Settings); one undo takes the words back out. `today fed the goats` in Ctrl K
 puts "6:10 PM · fed the goats" on a page called, say, "Tue Nov 4" in the
 project you are in, making it the first time. **Send to session** (beside
-Pin on a page, and on each quick note) opens a picker of your open sessions
-and a line to put above the text ("Summarise these notes into to-dos", "Turn
-this into a plan", "Just the notes", or your own words); it lands in that
-session's message bar as plain text and goes nowhere until you press Enter.
+Pin on a page, and on each quick note) opens a picker of your open sessions.
+It sends the text you selected, the line the caret is on (a bullet with the
+bullets under it), or the whole page, and shows exactly what will go in a box
+you can edit. A line above it is optional and starts empty ("Summarise these
+notes into to-dos" and "Turn this into a plan" are one click). **Send** puts
+it in now, or queues it until the agent is free; **Edit in the message bar**
+puts it in the session's message bar instead, where nothing goes until you
+press Enter.
 Pages are stored as HTML and pass through one sanitiser (`public/js/sanitize.js`)
 on load, paste and save, so nothing but the editor's own tags survives.
 
@@ -300,11 +345,24 @@ named by what it is working on (Claude Code's own title for it, such as
 your name for it if you gave one, and what it is doing (Working,
 Your turn, Needs you, with how long it has waited), plus a second line only
 when there is more to know (2 queued, build failed). The order holds still,
-orange marks only what needs you, and the list follows the project picked on
-the left. The open session's bar carries its branch, build, linked chats and
-folder, with Stop and More (rename, linked chats, copy the tmux command, End
-session, which asks twice). **Bring in a message** is the speech-bubble
-button beside the paperclip: click a message to add it, or drag it in.
+orange marks only what needs you, and the list follows the project picker at
+the top of the page. The open session's bar carries its branch, build, linked
+chats and folder, with **Stop** (interrupts what the agent is doing, like
+pressing Esc; the session stays open, and the button is grey when there is
+nothing to stop), **End** (asks "End this session?" in the same place, End it
+or Keep, and waits for you), and More (rename, linked chats, copy the tmux
+command). A session whose agent sent helpers (sub-agents) off to work stays
+**Working**, with "2 helpers still working", until the last one is back; only
+then is it Your turn (from Claude Code's SubagentStart and SubagentStop hooks;
+`node scripts/setup.mjs hooks` adds them to an install made before). **Messages**, beside the paperclip,
+brings in a message: the session's project's recent emails, texts and Teams
+chats come first (mail either way in the last 60 days from people you have
+written to or that a rule puts in a project, never newsletters), with a search,
+and the other projects fold out below. Click one to add its newest message,
+Earlier for the rest of the conversation, or drag it in. **Link to** a project
+on a conversation from elsewhere adds a rule (Settings, Projects) with that
+person's address, or the Teams chat's name, so their messages belong to that
+project from then on.
 Double-click a line to rename it. "Move into Switchboard" on a VS Code session
 reopens it here with `claude --resume`. Claude sessions open as a chat
 unless you pick Terminal (Settings, Look, **Sessions open in**, also offered
@@ -316,13 +374,21 @@ screen and shows it as buttons; a click moves to that choice and presses
 Enter, only if the same question is still on screen. Writing a message
 instead answers No and sends it. Sessions run without tmux (Windows, a Mac
 without it) cannot have their screen read, so those questions show **Open the
-terminal**. Chat reads Claude Code sessions on this computer. Other agents, and sessions on another computer, show their
-terminal. **Builds** and **Browser checks** are tabs on Sessions (old
+terminal**. Chat reads Claude Code sessions, on this computer or on your other ones
+(through the same encrypted relay as their terminals; the computer the session
+runs on reads the transcript and sends back only the part being shown). Other
+agents show their terminal. Copying in a session's terminal (Claude Code's
+copy, or selecting with the mouse in tmux) lands on the clipboard of the
+computer you are using, through the terminal's own copy code (OSC 52), not the
+one the session runs on. Selecting text with the mouse is each screen's own:
+a drag highlights only on the computer doing it, and letting go copies it
+there (Cmd C on a Mac copies too). One session still has one screen size and
+one scroll position, shared by every computer showing it. **Builds** and **Browser checks** are tabs on Sessions (old
 `#actions` links still land on Builds).
 
 ### Connecting Microsoft 365 (Teams and Outlook)
 
-Settings, Accounts, **Sign in with Microsoft** uses the Switchboard app
+Settings, Connections, **Sign in with Microsoft** uses the Switchboard app
 registration (`lib/product.js`), so any work or school account can sign in.
 Some companies require an admin to approve new apps first. To use your own
 registration instead (about 5 minutes, shareable within a tenant):
@@ -366,12 +432,16 @@ kind per minute per account. Expo's push service is free. The tables are in
 | `lib/gmail.js`, `lib/mailservers.js` | Email over IMAP, sorting (mail, Voice, charges, receipts), provider lookup |
 | `lib/microsoft.js` | Teams and Outlook through Microsoft Graph |
 | `lib/conversation.js` | One open conversation (Teams, Outlook, mail, texts) for the Inbox's conversation view |
-| `lib/claude.js` | Agent session states from Claude Code hooks |
+| `lib/claude.js` | Agent session states from Claude Code hooks (helpers counted) |
+| `lib/projects.js`, `lib/routes/projects.js`, `public/js/project.js` | A project's own page: its profile (about, people, links) and its files |
 | `lib/terminals.js` | Sessions Switchboard runs (tmux or a pty), the queue, linked chats |
 | `lib/transcript.js`, `lib/agentmenu.js`, `lib/gitinfo.js`, `lib/routes/sessionview.js` | The chat's transcript reader (by byte offset), the agent's on-screen question read as choices, the session bar's change counts, and their API |
-| `lib/calendar.js`, `lib/weather.js`, `lib/deliveries.js` | Calendars, weather, packages |
+| `lib/feeds.js` | News and blogs: RSS and Atom, read without a parser package |
+| `lib/localai.js` | Local AI models: Ollama, LM Studio, llama.cpp and Jan on localhost |
+| `lib/calendar.js`, `lib/caldav.js`, `lib/weather.js`, `lib/deliveries.js` | Calendars (links, and iCloud, Fastmail and Yahoo accounts over CalDAV), weather, packages |
 | `lib/capture.js`, `lib/routines.js`, `lib/pages.js` | Ctrl K, chores, the notebook |
 | `lib/browserchecks.js` | Browser checks: headless Playwright runs, schedules, results |
+| `lib/checkauth.js`, `scripts/signin.mjs` | Signed-in checks: the visible sign-in window and the private saved sign-in |
 | `lib/webhooks.js` | Webhooks in (local and through the sync service) |
 | `lib/sync.js`, `lib/relay.js`, `lib/secrets.js` | Encrypted account and sync, the live link between computers, the on-disk key |
 | `lib/desktop.js` | Windows, focus, notifications, keychain: the OS-specific parts |

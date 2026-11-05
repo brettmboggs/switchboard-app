@@ -13,6 +13,11 @@ const bc = await import('../lib/browserchecks.js');
 const { runCommand } = await import('../lib/terminals.js');
 setSetting('notify', { checks: false });   // no desktop alerts from the tests
 
+test('a test copy keeps its saved sign-ins inside its own data folder, never the real ones', async () => {
+  const { AUTH_DIR } = await import('../lib/checkauth.js');
+  assert.equal(AUTH_DIR, join(process.env.SWITCHBOARD_DATA, 'auth'));
+});
+
 test('the pinned Playwright MCP is the same in setup and in the checks', () => {
   const setup = readFileSync(new URL('../scripts/setup.mjs', import.meta.url), 'utf8');
   assert.match(setup, new RegExp(`PLAYWRIGHT_MCP = '${bc.PLAYWRIGHT_MCP.replace(/[.@/]/g, '\\$&')}'`));
@@ -20,7 +25,7 @@ test('the pinned Playwright MCP is the same in setup and in the checks', () => {
 
 test('the form: pages and tests', () => {
   const page = bc.cleanCheck({ kind: 'page', url: 'https://example.com', expect: 'Sign in', every: 60, space: 'work' });
-  assert.deepEqual(page.check, { kind: 'page', every_min: 60, space: 'work', url: 'https://example.com/', expect: 'Sign in', folder: null, command: null, name: 'example.com' });
+  assert.deepEqual(page.check, { kind: 'page', every_min: 60, space: 'work', url: 'https://example.com/', expect: 'Sign in', folder: null, command: null, signin_url: null, name: 'example.com' });
   assert.match(bc.cleanCheck({ kind: 'page', url: 'example.com' }).error, /full address/);
   assert.match(bc.cleanCheck({ kind: 'page', url: 'file:///etc/passwd' }).error, /http/);
   assert.match(bc.cleanCheck({ kind: 'page', url: 'https://x.com', expect: 'say "hi"' }).error, /quotes/);
@@ -28,7 +33,7 @@ test('the form: pages and tests', () => {
 
   const yes = () => true, no = () => false;
   const t = bc.cleanCheck({ folder: '/home/me/dev/my-app/frontend', space: 'all' }, { folderExists: yes });
-  assert.deepEqual(t.check, { kind: 'tests', every_min: 0, space: null, folder: '/home/me/dev/my-app/frontend', command: 'npx playwright test', url: null, expect: null, name: 'frontend' });
+  assert.deepEqual(t.check, { kind: 'tests', every_min: 0, space: null, folder: '/home/me/dev/my-app/frontend', command: 'npx playwright test', signin_url: null, url: null, expect: null, name: 'frontend' });
   assert.match(bc.cleanCheck({ folder: 'dev/app' }, { folderExists: yes }).error, /full folder path/);
   assert.match(bc.cleanCheck({ folder: '/nope' }, { folderExists: no }).error, /no folder/);
   assert.match(bc.cleanCheck({ folder: '/a', command: 'npx playwright test\nrm -rf /' }, { folderExists: yes }).error, /one line/);

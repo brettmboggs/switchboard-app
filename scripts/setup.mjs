@@ -32,7 +32,7 @@ const sh = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'inherit', wi
 const BIN = process.env.SWITCHBOARD_BIN || join(HERE, 'bin');
 const SETTINGS = join(HOME, '.claude', 'settings.json');
 const HOOK = OS === 'win32' ? `"${join(BIN, 'hook.cmd')}"` : join(BIN, 'hook.sh');
-const EVENTS = [['SessionStart'], ['UserPromptSubmit'], ['Notification'], ['Stop'], ['SessionEnd'], ['PostToolUse'], ['PreToolUse', 'AskUserQuestion'], ['PreModelSwitch'], ['PostModelSwitch']];
+const EVENTS = [['SessionStart'], ['UserPromptSubmit'], ['Notification'], ['Stop'], ['SubagentStart'], ['SubagentStop'], ['SessionEnd'], ['PostToolUse'], ['PreToolUse', 'AskUserQuestion'], ['PreModelSwitch'], ['PostModelSwitch']];
 const OURS = /switchboard[\\/]+bin[\\/]+hook\.(sh|cmd)/i;
 // The status line: Claude Code runs this command with the session's model,
 // effort, context used and cost as JSON on stdin; bin/statusline.sh posts it to
@@ -41,7 +41,8 @@ const OURS = /switchboard[\\/]+bin[\\/]+hook\.(sh|cmd)/i;
 // and still feed the board, chain the two in settings.json (sh, Linux and macOS):
 //   "statusLine": { "type": "command", "command": "j=$(cat); printf %s \"$j\" | /path/to/switchboard/bin/statusline.sh; printf %s \"$j\" | your-own-command" }
 const STATUS = OS === 'win32' ? `"${join(BIN, 'statusline.cmd')}"` : join(BIN, 'statusline.sh');
-const OURS_STATUS = /switchboard[\\/]+bin[\\/]+statusline\.(sh|cmd)/i;
+// Ours only when the whole command is ours: a person's own status line that chains ours in front of it is theirs and is left alone.
+const OURS_STATUS = /^\s*"?[^|;&"]*switchboard[\\/]+bin[\\/]+statusline\.(sh|cmd)"?\s*$/i;
 
 function hooks(install) {
   mkdirSync(dirname(SETTINGS), { recursive: true });
@@ -311,6 +312,8 @@ function browser(install) {
 }
 
 if (mode === 'mcp') { mcp(true); process.exit(0); }
+// Puts the hooks back in step after an update adds an event (keeps the person's own hooks).
+if (mode === 'hooks') { hooks(true); process.exit(0); }
 if (mode === 'browser') { try { browser(process.argv[3] !== 'remove'); process.exit(0); } catch (err) { console.error('error ' + err.message); process.exit(1); } }
 // The installed app (desktop/sidecar/start.mjs): hooks and MCP only; the app is its own launcher and login item.
 if (mode === 'app') { hooks(true); mcp(true); process.exit(0); }
@@ -323,5 +326,5 @@ if (!service) { console.log(`Switchboard has no installer for ${OS} yet. Run it 
 
 if (mode === 'install') { hooks(true); upstream(); service(true); launcher(true); mcp(true); console.log('\nOpen Switchboard from your apps, or go to http://127.0.0.1:4747'); }
 else if (mode === 'remove') { hooks(false); service(false); launcher(false); mcp(false); browser(false); }
-else console.log('Usage: node scripts/setup.mjs install|remove|voice|mcp|browser [remove]');
+else console.log('Usage: node scripts/setup.mjs install|remove|hooks|voice|mcp|browser [remove]');
 }

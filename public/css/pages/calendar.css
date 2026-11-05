@@ -1,0 +1,23 @@
+/* Calendar: a month grid of days, each a button with its first events, and the
+   opened day's list underneath. Colours are the projects' own, never orange. */
+.cal-nav { display: flex; gap: var(--sp-1); }
+.cal-month { margin: var(--sp-3) 0 var(--sp-2); font-size: var(--fs-xl); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border-soft); border: 1px solid var(--border-soft); border-radius: var(--r-md); overflow: hidden; margin-bottom: var(--sp-4); }
+.cal-dow { padding: var(--sp-1) var(--sp-2); background: var(--bg-surface); font-size: var(--fs-xs); color: var(--fg-muted); text-transform: uppercase; letter-spacing: .04em; }
+.cal-cell { display: flex; flex-direction: column; gap: 2px; min-height: 6.5rem; padding: var(--sp-1) var(--sp-2); border: 0; background: var(--bg-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.cal-cell:hover { background: var(--bg-hover); }
+.cal-cell.out { color: var(--fg-muted); background: var(--bg-canvas); }
+.cal-cell.sel { background: var(--bg-selected); box-shadow: inset 0 0 0 2px var(--ink); }
+.cal-n { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.cal-cell.today .cal-n { align-self: flex-start; display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; border-radius: var(--r-pill); background: var(--ink); color: var(--paper); }
+.cal-chip { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 var(--sp-1); border-left: 3px solid var(--cal-c); font-size: var(--fs-xs); }
+.cal-chip .mono { color: var(--fg-muted); }
+.cal-more { font-size: var(--fs-xs); }
+.cal-ev { grid-template-columns: 9rem minmax(0, 1fr) auto; gap: var(--sp-3); }
+.cal-when { font-size: var(--fs-sm); color: var(--fg-muted); }
+.cal-what .t { font-weight: 600; overflow-wrap: anywhere; }
+.cal-what .s { display: block; color: var(--fg-muted); font-size: var(--fs-sm); }
+.cal-from { font-size: var(--fs-sm); text-align: right; }
+@media (max-width: 720px) { .cal-cell { min-height: 4.5rem; } .cal-ev { grid-template-columns: minmax(0, 1fr); } .cal-from { text-align: left; } }
+.cal-dt { display: flex; gap: var(--sp-2); }
+button.cal-ev { border-radius: var(--r-sm); }

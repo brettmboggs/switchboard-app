@@ -2,8 +2,9 @@
    A verdict in words, then one card per resource, then the apps. Live charts come
    from components/chart.css; this file is only the layout. */
 #sys-scrim { padding: 4vh var(--sp-4); align-items: flex-start; }
-.monitor { background: var(--bg-canvas); border-radius: var(--r-xl); box-shadow: var(--shadow-3); width: min(1180px, 100%); padding: var(--sp-6) var(--sp-7) var(--sp-7); display: grid; gap: var(--sp-5); margin-bottom: var(--sp-8); }
-.mon-top { display: flex; align-items: flex-start; gap: var(--sp-4); }
+.monitor { background: var(--bg-canvas); border-radius: var(--r-xl); box-shadow: var(--shadow-3); width: min(1180px, 100%); max-height: calc((100dvh - 8vh) / var(--zoom)); overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--sp-7) var(--sp-7); display: grid; gap: var(--sp-5); }
+/* Its head (name, Live, Close) stays at the top while the cards scroll. */
+.mon-top { display: flex; align-items: flex-start; gap: var(--sp-4); position: sticky; top: 0; z-index: 1; padding-top: var(--sp-6); padding-bottom: var(--sp-3); background: var(--bg-canvas); }
 .mon-id { flex: 1; min-width: 0; display: grid; gap: var(--sp-1); }
 .mon-id h2 { margin: 0; font-size: var(--fs-xl); font-weight: 700; }
 .mon-id .sub { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); overflow-wrap: anywhere; }
@@ -23,7 +24,7 @@
 .mon-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
 .mon-grid .wide { grid-column: 1 / -1; }
 #mon-gpus { display: contents; }
-@media (max-width: 860px) { .mon-grid { grid-template-columns: minmax(0, 1fr); } .monitor { padding: var(--sp-4); } }
+@media (max-width: 860px) { .mon-grid { grid-template-columns: minmax(0, 1fr); } .monitor { padding: 0 var(--sp-4) var(--sp-4); } .mon-top { padding-top: var(--sp-4); } }
 .mon-grid { align-items: start; }
 .stack { display: grid; gap: var(--sp-4); }
 .res { display: grid; gap: var(--sp-3); align-content: start; }

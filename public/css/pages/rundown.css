@@ -1,0 +1,42 @@
+/* The morning rundown (rundown.js): the day in one sentence and four figures,
+   then the schedule beside what needs you, bills, routines and packages.
+   Display face for the greeting and the figures; orange only on needs you. */
+.rundown { padding: var(--sp-6) var(--sp-7) var(--sp-6); display: grid; gap: var(--sp-3); }
+.rd-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.rd-top .actions { display: flex; gap: var(--sp-2); }
+.rundown .rd-hello { margin: var(--sp-1) 0 0; font-size: var(--fs-3xl); line-height: var(--lh-tight); }
+.rd-lead { margin: 0; max-width: 62ch; font-size: var(--fs-lg); line-height: var(--lh); color: var(--fg); text-wrap: pretty; }
+
+.rd-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: var(--sp-3) 0 var(--sp-1); border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
+.rd-fig { display: grid; align-content: start; gap: 2px; padding: var(--sp-4) var(--sp-4) var(--sp-4) 0; }
+.rd-fig + .rd-fig { padding-left: var(--sp-4); border-left: 1px solid var(--border-faint); }
+.rd-big { font-family: var(--font-display); font-weight: var(--display-weight); font-variation-settings: "SOFT" var(--display-soft); font-size: var(--fs-3xl); line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rd-label { font-weight: 600; }
+.rd-sub { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.rd-notes { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
+.rd-fig.hot .rd-big, .rd-fig.hot .rd-label { color: var(--accent-text); }
+
+.rd-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--sp-6); margin-top: var(--sp-2); }
+.rd-body.one { grid-template-columns: minmax(0, 1fr); }
+.rd-col { display: grid; align-content: start; gap: var(--sp-1); min-width: 0; }
+.rd-side { gap: var(--sp-5); }
+.rd-col h3 { margin: 0 0 var(--sp-1); }
+.rd-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.rd-row { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) var(--sp-1); border-top: 1px solid var(--border-faint); border-radius: var(--r-xs); }
+.rd-list li:first-child .rd-row { border-top: 0; }
+.rd-row:hover { background: var(--bg-hover); }
+.rd-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rd-when { color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-row.hot .rd-when { color: var(--accent-text); font-weight: 500; }
+.rd-what { font-weight: 600; overflow-wrap: anywhere; }
+.rd-amt { font-weight: 500; color: var(--fg-muted); font-variant-numeric: tabular-nums; margin-left: var(--sp-1); }
+.today .rd-open { margin-left: var(--sp-2); }
+.today .wx + .rd-open { margin-left: var(--sp-2); }
+.today .group-head h2 + .rd-open { margin-left: auto; }
+
+@media (max-width: 760px) {
+  .rundown { padding: var(--sp-5); }
+  .rd-body { grid-template-columns: minmax(0, 1fr); }
+  .rd-fig + .rd-fig { padding-left: 0; border-left: 0; }
+  .rd-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

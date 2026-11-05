@@ -1,6 +1,6 @@
 // The Notes page: the notebook (pages, in your projects, with #tags), quick
-// notes, reminders and to-dos, and routines, as tabs. Plus search in Ctrl K,
-// and Send to session: a page or a quick note into a session's message bar.
+// notes, reminders and to-dos, and routines, as tabs. Plus
+// Send to session: a page or a quick note into a session's message bar.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 let notesTab = store.get('notesTab', 'pages');
@@ -16,7 +16,7 @@ const TEMPLATES = [
   ['A log', 'Eggs log', '<p>Each line is one entry. Add with the box above, or from Ctrl K: "log eggs 14".</p><ul class="log"></ul>']
 ];
 
-function notesHead() { return `<div class="page-head"><h1>Notes</h1>${notesTabs()}</div>`; }
+function notesHead() { return `<div class="page-head"><h1>Notes</h1>${notesTabs()}<span class="grow"></span>${projectPicker()}</div>`; }
 function notesTabs() {
   const n = {
     pages: (S.pages || []).filter(inProject).length,
@@ -24,7 +24,7 @@ function notesTabs() {
     tasks: S.items.filter((i) => i.kind === 'reminder' || i.kind === 'todo').filter(inProject).length,
     routines: (S.routines || []).filter(inProject).length
   };
-  return `<div class="chips" id="notes-tabs">${[['pages', 'Pages'], ['quick', 'Quick notes'], ['tasks', 'Reminders and to-dos'], ['routines', 'Routines']]
+  return `<div class="chips tabs" id="notes-tabs">${[['pages', 'Pages'], ['quick', 'Quick notes'], ['tasks', 'Reminders and to-dos'], ['routines', 'Routines']]
     .map(([k, l]) => `<button class="chip" type="button" data-notes-tab="${k}" aria-pressed="${notesTab === k}">${l} <span class="c">${n[k] || ''}</span></button>`).join('')}</div>`;
 }
 
@@ -142,7 +142,7 @@ document.addEventListener('click', async (e) => {
     catch (err) { toast(err.message, { kind: 'error' }); }
     return;
   }
-  if (e.target.closest('#ed-send') && editor) { sendPick({ title: $('ed-title').value.trim() || 'Untitled', text: pageText(editor.html()) }); return; }
+  if (e.target.closest('#ed-send') && editor) { sendPick({ title: $('ed-title').value.trim() || 'Untitled', text: pageText(editor.html()), parts: edSendParts }); edSendParts = null; return; }
   const sn = e.target.closest('[data-send-note]');
   if (sn) { const i = S.items.find((x) => String(x.id) === sn.dataset.sendNote); if (i) sendPick({ title: '', text: i.text }); return; }
   if (e.target.closest('#ed-pin')) { const on = $('ed-pin').getAttribute('aria-pressed') !== 'true'; $('ed-pin').setAttribute('aria-pressed', on); $('ed-pin').textContent = on ? 'Pinned' : 'Pin'; savePage({ pinned: on }); return; }
@@ -172,12 +172,14 @@ function renderNoteLists() {
   if (keep) { $('notes-input').value = keep; $('notes-input').focus(); }
 }
 
-// ---- Send to session: a page (or a quick note) into a session's message bar,
-// under a line saying what to do with it. Nothing is sent: the person reads
-// it there and presses Enter, the same as anything else they type.
-const SEND_TITLE = 'Put this in a session\'s message bar, with a line saying what to do with it. Nothing is sent until you press Enter there.';
-const SEND_PROMPTS = ['Summarise these notes into to-dos', 'Turn this into a plan', 'Just the notes'];
-let sendTo = null;   // { title, text, key, prompt } while the picker is open
+// ---- Send to session: a page, part of one, or a quick note into a session.
+// The dialog shows exactly what goes (and it can be edited there); Send puts
+// it in now if the session is free, or queues it until it is. "Edit in the
+// message bar" is for when it needs more than a line of instruction.
+const SEND_TITLE = 'Send this page, the selected text, or the line you are on to a session.';
+const SEND_PROMPTS = ['Just the notes', 'Summarise these notes into to-dos', 'Turn this into a plan'];
+let sendTo = null;      // { title, parts: { sel, line, page }, part, text, key, prompt } while the picker is open
+let edSendParts = null; // what was selected on the page, read before the button takes focus
 
 // A page as plain text an agent can read: headings marked, bullets and boxes
 // as lines, a nested list indented.
@@ -206,7 +208,32 @@ function pageText(html) {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function sendPick({ title, text }) {
+// The selection on the page and the line the caret is on, as text. Read on
+// mousedown of Send to session, while the selection is still the page's.
+function pageParts() {
+  const body = $('ed-body'), s = getSelection();
+  if (!body || !s.rangeCount || !body.contains(s.getRangeAt(0).commonAncestorContainer)) return null;
+  const r = s.getRangeAt(0), out = {};
+  if (!r.collapsed) {
+    const box = document.createElement('div');
+    box.appendChild(r.cloneContents());
+    // A selection inside one line comes out as bare text; keep it as one line.
+    out.sel = (box.querySelector('p, h1, h2, h3, li, blockquote, ul, ol') ? pageText(box.innerHTML) : box.textContent.replace(/\s+/g, ' ')).trim();
+  }
+  let n = r.startContainer; if (n.nodeType === 3) n = n.parentElement;
+  const line = n?.closest?.('li, p, h1, h2, h3, blockquote');
+  if (line && body.contains(line)) {
+    // A bullet keeps its kind (and the bullets under it) by sending its own list around it.
+    const list = line.tagName === 'LI' ? line.parentElement : null;
+    const html = list ? `<${list.tagName.toLowerCase()} class="${esc(list.className)}">${line.outerHTML}</${list.tagName.toLowerCase()}>` : line.outerHTML;
+    out.line = pageText(html);
+  }
+  return out.sel || out.line ? out : null;
+}
+document.addEventListener('mousedown', (e) => { if (e.target.closest('#ed-send')) edSendParts = pageParts(); });
+
+const SEND_PARTS = [['sel', 'Selected text'], ['line', 'The line you are on'], ['page', 'Whole page']];
+function sendPick({ title, text, parts }) {
   const terms = allTerms();
   if (!terms.length) { toast('No session is open. Start one on Sessions first.'); return; }
   if (!text.trim()) { toast('Nothing on this page yet.'); return; }
@@ -218,29 +245,51 @@ function sendPick({ title, text }) {
     document.body.appendChild(scrim);
   }
   const key = terms.length === 1 ? terms[0].key : terms.some((t) => t.key === currentTerm) ? currentTerm : null;
-  sendTo = { title, text, key, prompt: SEND_PROMPTS[0] };
+  const all = { ...(title ? parts || {} : {}), page: text };
+  const part = all.sel ? 'sel' : 'page';
+  sendTo = { title, parts: all, part, text: all[part], key, prompt: '' };
   drawSendPick(terms);
   openDialog('send-scrim');
-  $('send-prompt').focus(); $('send-prompt').select();
+  $('send-text').focus();
 }
 function drawSendPick(terms = allTerms()) {
   const one = terms.length === 1;
-  const what = sendTo.title ? `“${esc(sendTo.title)}”` : 'this note';
+  const what = sendTo.title ? `from “${esc(sendTo.title)}”` : 'this note';
+  const offered = SEND_PARTS.filter(([k]) => sendTo.parts[k]);
   $('send-scrim').innerHTML = `<div class="palette send-pal">
     <h2>Send to a session</h2>
-    <p class="send-why">Puts ${what} in ${one ? `<b>${esc(termLabel(terms[0]))}</b>’s` : 'the session’s'} message bar. Nothing is sent until you press Enter there.</p>
+    <p class="send-why">Sends ${what} to ${one ? `<b>${esc(termLabel(terms[0]))}</b>` : 'the session you pick'}. If it is busy, it waits in the queue and goes in when it is free.</p>
     ${one ? '' : `<div class="send-terms" role="radiogroup" aria-label="Session">${terms.map((t) => `<button type="button" class="send-term" role="radio" data-send-term="${esc(t.key)}" aria-checked="${t.key === sendTo.key}">${tag(t.space)}<span class="t">${esc(termLabel(t))}</span><span class="s">${esc(t.agentName || '')}${termLabel(t) !== t.name ? ' · ' + esc(t.name) : ''}${t.remote ? ' · on ' + esc(t.deviceName || t.device) : ''} · ${esc(TERM_STATE[t.state] || t.state || '')}</span></button>`).join('')}</div>`}
-    <div class="rt-chips send-chips">${SEND_PROMPTS.map((p) => `<button type="button" class="rt-idea" data-send-chip="${esc(p)}" aria-pressed="${sendTo.prompt === p || (p === 'Just the notes' && !sendTo.prompt)}">${esc(p)}</button>`).join('')}</div>
-    <label for="send-prompt" class="sr">What to do with it</label>
-    <input id="send-prompt" type="text" value="${esc(sendTo.prompt)}" placeholder="Just the notes, no instruction" autocomplete="off">
-    <div class="actions"><button class="btn btn--primary" type="button" data-send-go ${sendTo.key ? '' : 'disabled'}>Put it in the message bar</button><button class="btn" type="button" data-close="send-scrim">Cancel</button></div>
+    ${offered.length > 1 ? `<div class="send-parts" role="radiogroup" aria-label="What to send">${offered.map(([k, l]) => `<button type="button" class="rt-idea" role="radio" data-send-part="${k}" aria-checked="${sendTo.part === k}" aria-pressed="${sendTo.part === k}">${l}</button>`).join('')}</div>` : ''}
+    <label for="send-text" class="send-label">What goes <span class="muted">(you can change it here)</span></label>
+    <textarea id="send-text" class="send-text" rows="6">${esc(sendTo.text)}</textarea>
+    <label for="send-prompt" class="send-label">What to do with it</label>
+    <div class="rt-chips send-chips">${SEND_PROMPTS.map((p) => `<button type="button" class="rt-idea" data-send-chip="${esc(p)}" aria-pressed="${(p === 'Just the notes' ? '' : p) === sendTo.prompt}">${esc(p)}</button>`).join('')}</div>
+    <input id="send-prompt" type="text" value="${esc(sendTo.prompt)}" placeholder="Nothing: just the notes" autocomplete="off">
+    <div class="actions"><button class="btn btn--primary" type="button" data-send-go ${sendTo.key ? '' : 'disabled'}>Send</button><button class="btn" type="button" data-send-edit ${sendTo.key ? '' : 'disabled'}>Edit in the message bar</button><button class="btn btn--quiet" type="button" data-close="send-scrim">Cancel</button></div>
   </div>`;
 }
-async function sendToSession() {
-  const { key, title, text } = sendTo, prompt = $('send-prompt').value.trim();
-  const t = termByKey(key);
+const sendMessage = () => {
+  const prompt = $('send-prompt').value.trim(), text = $('send-text').value.trim();
+  const head = sendTo.title ? (sendTo.part === 'page' ? sendTo.title : `From my notes, “${sendTo.title}”:`) : '';
+  return [prompt, [head, text].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
+};
+async function sendToSession(edit) {
+  const key = sendTo.key, t = termByKey(key);
   if (!t) { toast('That session is gone.'); return; }
-  const msg = [prompt, [title, text].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
+  if (!$('send-text').value.trim()) { toast('Nothing to send.'); return; }
+  const msg = sendMessage();
+  if (!edit) {
+    const btn = $('send-scrim').querySelector('[data-send-go]');
+    btn.disabled = true;
+    try { await api(termPath(t, 'queue'), { text: msg, source: 'Notebook' }); }
+    catch (err) { btn.disabled = false; toast(err.message, { kind: 'error' }); return; }
+    closeDialog('send-scrim'); sendTo = null;
+    const free = t.state === 'finished' || t.state === 'idle';
+    toast(free ? `Sent to ${termLabel(t)}.` : `Queued for ${termLabel(t)}. It goes in when the agent is free.`);
+    load().catch(() => {});
+    return;
+  }
   closeDialog('send-scrim'); sendTo = null;
   currentTerm = key; store.set('term', key);
   if (!inProject(t)) { project = 'all'; store.set('space', project); }
@@ -249,54 +298,25 @@ async function sendToSession() {
   for (let i = 0; i < 60 && !(page === 'sessions' && composeFor === key && $('q-text')); i++) await new Promise((r) => setTimeout(r, 50));
   await addToComposer(msg);
   growText($('q-text'));
-  toast('In the message bar. Read it over, then Enter sends it.');
+  toast('In the message bar. Nothing is sent until you press Enter there.');
 }
 document.addEventListener('click', (e) => {
   if (!sendTo || !$('send-scrim')?.classList.contains('open')) return;
   const st = e.target.closest('[data-send-term]');
-  if (st) { sendTo.key = st.dataset.sendTerm; document.querySelectorAll('[data-send-term]').forEach((b) => b.setAttribute('aria-checked', b === st)); $('send-scrim').querySelector('[data-send-go]').disabled = false; return; }
+  if (st) { sendTo.key = st.dataset.sendTerm; document.querySelectorAll('[data-send-term]').forEach((b) => b.setAttribute('aria-checked', b === st)); $('send-scrim').querySelectorAll('[data-send-go], [data-send-edit]').forEach((b) => { b.disabled = false; }); return; }
+  const sp = e.target.closest('[data-send-part]');
+  if (sp) { sendTo.part = sp.dataset.sendPart; sendTo.text = sendTo.parts[sendTo.part]; $('send-text').value = sendTo.text; document.querySelectorAll('[data-send-part]').forEach((b) => { b.setAttribute('aria-checked', b === sp); b.setAttribute('aria-pressed', b === sp); }); return; }
   const ch = e.target.closest('[data-send-chip]');
   if (ch) { const p = ch.dataset.sendChip === 'Just the notes' ? '' : ch.dataset.sendChip; sendTo.prompt = p; $('send-prompt').value = p; document.querySelectorAll('[data-send-chip]').forEach((b) => b.setAttribute('aria-pressed', b === ch)); $('send-prompt').focus(); return; }
-  if (e.target.closest('[data-send-go]')) sendToSession();
+  if (e.target.closest('[data-send-go]')) sendToSession(false);
+  if (e.target.closest('[data-send-edit]')) sendToSession(true);
 });
 document.addEventListener('keydown', (e) => {
-  if (e.target.id === 'send-prompt' && e.key === 'Enter' && sendTo?.key) { e.preventDefault(); sendToSession(); }
+  if (e.target.id === 'send-prompt' && e.key === 'Enter' && sendTo?.key) { e.preventDefault(); sendToSession(false); }
 });
-document.addEventListener('input', (e) => { if (e.target.id === 'send-prompt' && sendTo) { sendTo.prompt = e.target.value; document.querySelectorAll('[data-send-chip]').forEach((b) => b.setAttribute('aria-pressed', (b.dataset.sendChip === 'Just the notes' ? '' : b.dataset.sendChip) === e.target.value.trim())); } });
+document.addEventListener('input', (e) => {
+  if (!sendTo) return;
+  if (e.target.id === 'send-text') sendTo.text = e.target.value;
+  if (e.target.id === 'send-prompt') { sendTo.prompt = e.target.value.trim(); document.querySelectorAll('[data-send-chip]').forEach((b) => b.setAttribute('aria-pressed', (b.dataset.sendChip === 'Just the notes' ? '' : b.dataset.sendChip) === sendTo.prompt)); }
+});
 
-// ---- Ctrl K: search everything as you type; Enter still adds what was typed unless a result is picked
-let cmdHits = [], cmdSel = -1, cmdTimer = null;
-function drawCmdResults() {
-  const host = $('cmd-results');
-  if (!host) return;
-  const label = { page: 'Page', note: 'Note', todo: 'To-do', reminder: 'Reminder', routine: 'Routine' };
-  host.innerHTML = cmdHits.map((r, i) => `<li><button type="button" class="cmd-hit ${i === cmdSel ? 'sel' : ''}" data-cmd-hit="${i}">${tag(r.space)}<span class="k">${label[r.type] || ''}</span><span class="t">${esc(r.title)}${r.line && r.line !== r.title ? `<span class="muted"> · ${esc(r.line)}</span>` : ''}</span></button></li>`).join('');
-  host.hidden = !cmdHits.length;
-}
-function cmdOpen(r) {
-  closeDialog('cmd-scrim');
-  if (r.type === 'page') return openPage(r.uid, r.line && r.line !== r.title ? r.line : null);
-  notesTab = r.type === 'note' ? 'quick' : r.type === 'routine' ? 'routines' : 'tasks';
-  store.set('notesTab', notesTab);
-  keepSel = { type: r.type === 'routine' ? 'routine' : 'item', key: String(r.id) };
-  if (page !== 'notes') location.hash = '#notes'; else { selected = keepSel; keepSel = null; render(); }
-}
-// nav.js asks this first on Enter: true when a result was picked and opened.
-function cmdPick() { if (cmdSel < 0 || !cmdHits[cmdSel]) return false; cmdOpen(cmdHits[cmdSel]); return true; }
-$('cmd-input').addEventListener('input', (e) => {
-  const q = e.target.value.trim();
-  clearTimeout(cmdTimer);
-  if (q.length < 2) { cmdHits = []; cmdSel = -1; drawCmdResults(); return; }
-  cmdTimer = setTimeout(async () => {
-    const r = await api('/api/search?q=' + encodeURIComponent(q)).catch(() => ({ results: [] }));
-    if ($('cmd-input').value.trim() !== q) return;
-    cmdHits = r.results.slice(0, 8); cmdSel = -1; drawCmdResults();
-  }, 120);
-});
-$('cmd-input').addEventListener('keydown', (e) => {
-  if (!cmdHits.length || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-  e.preventDefault();
-  cmdSel = e.key === 'ArrowDown' ? Math.min(cmdHits.length - 1, cmdSel + 1) : Math.max(-1, cmdSel - 1);
-  drawCmdResults();
-});
-document.addEventListener('click', (e) => { const h = e.target.closest('[data-cmd-hit]'); if (h) cmdOpen(cmdHits[+h.dataset.cmdHit]); });
