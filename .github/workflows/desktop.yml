@@ -40,7 +40,7 @@ jobs:
       id: ${{ steps.draft.outputs.id }}
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Version
         id: version
         run: |
@@ -92,7 +92,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # This Node is the one the app ships (desktop/scripts/stage.mjs copies it),
       # and the one that installs node-pty for it.
