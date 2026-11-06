@@ -19,6 +19,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-autostart = "2"
 
+# Linux only: the page's web engine, to let it use the microphone (talk to type).
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "=2.0.2", features = ["v2_40"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

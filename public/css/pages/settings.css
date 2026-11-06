@@ -53,6 +53,8 @@
 .rule button { border: 0; background: none; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; color: var(--fg-muted); line-height: 1; }
 .rule button:hover { background: var(--border); color: var(--fg); }
 .rule-add { flex: 1; min-width: 180px; border-style: dashed !important; font-size: var(--fs-base); }
+.proj-open { justify-self: start; font-size: var(--fs-sm); color: var(--fg-muted); }
+.proj-open:hover { color: var(--fg); }
 
 .toggles { padding: 0; overflow: hidden; }
 .toggles + .toggles { margin-top: 8px; }

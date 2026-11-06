@@ -137,7 +137,44 @@ fn stop_server(app: &AppHandle) {
     }
 }
 
+// Linux: the window is a Chrome (or Edge, Chromium, Brave) app window when one
+// is installed, because WebKitGTK, the built-in web engine, lags badly with
+// NVIDIA's driver: typing trails a letter and scrolling stutters (Nov 5 2026).
+// The app still runs the server, the tray, start at login and updates; only the
+// window comes from the browser. SWITCHBOARD_WEBVIEW=1 keeps the built-in one.
+#[cfg(target_os = "linux")]
+fn browser() -> Option<&'static std::path::Path> {
+    static FOUND: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+    FOUND.get_or_init(|| {
+        if std::env::var_os("SWITCHBOARD_WEBVIEW").is_some() { return None; }
+        let path = std::env::var_os("PATH")?;
+        ["google-chrome", "google-chrome-stable", "microsoft-edge", "chromium", "chromium-browser", "brave-browser"]
+            .iter()
+            .flat_map(|b| std::env::split_paths(&path).map(move |d| d.join(b)))
+            .find(|p| p.is_file())
+    }).as_deref()
+}
+#[cfg(not(target_os = "linux"))]
+fn browser() -> Option<&'static std::path::Path> { None }
+
+// Brings the browser's Switchboard window forward, or opens one.
+fn show_in_browser(b: &std::path::Path) {
+    let found = Command::new("wmctrl").arg("-l").output().ok().and_then(|o| {
+        String::from_utf8_lossy(&o.stdout).lines()
+            .find(|l| l.trim_end().ends_with(" Switchboard") || l.contains(") Switchboard"))
+            .and_then(|l| l.split_whitespace().next().map(str::to_string))
+    });
+    if let Some(id) = found {
+        if Command::new("wmctrl").args(["-i", "-a", &id]).status().map(|s| s.success()).unwrap_or(false) { return; }
+    }
+    // Waited on in the background, so the browser's launcher never lingers as a zombie.
+    if let Ok(mut c) = Command::new(b).arg(format!("--app=http://127.0.0.1:{PORT}/")).spawn() {
+        std::thread::spawn(move || { let _ = c.wait(); });
+    }
+}
+
 fn show(app: &AppHandle) {
+    if let Some(b) = browser() { show_in_browser(b); return; }
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
         let _ = w.show();
@@ -266,14 +303,37 @@ fn first_run_marker(app: &AppHandle) -> Option<PathBuf> {
     Some(dir.join("autostart-chosen"))
 }
 
+// Linux: the page is drawn by WebKitGTK, which has two known faults on common
+// setups (Nov 5 2026). With the IBus input method (Mint, Ubuntu) it holds back
+// the last key typed until the next one; with NVIDIA's driver its DMA-BUF
+// renderer redraws slowly and burns CPU. Both are turned off here unless the
+// person has set them: SWITCHBOARD_KEEP_IBUS=1 keeps IBus (for typing Chinese,
+// Japanese or Korean), and WEBKIT_DISABLE_DMABUF_RENDERER=0 keeps the renderer.
+#[cfg(target_os = "linux")]
+fn linux_webview_fixes() {
+    use std::env;
+    if env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+    let ibus = env::var("GTK_IM_MODULE").map(|v| v == "ibus").unwrap_or(false);
+    if ibus && env::var_os("SWITCHBOARD_KEEP_IBUS").is_none() {
+        env::set_var("GTK_IM_MODULE", "gtk-im-context-simple");
+    }
+}
+
 fn main() {
+    #[cfg(target_os = "linux")]
+    linux_webview_fixes();
     let hidden = std::env::args().any(|a| a == "--hidden");
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        // Not its link-click script: the page is a remote page with no rights to call
+        // the app, so that script failed ("open_url not allowed by ACL") and links
+        // never opened. on_navigation and on_new_window below open them instead.
+        .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_autostart::Builder::new().args(["--hidden"]).build())
         .manage(Server::default())
         .setup(move |app| {
@@ -295,7 +355,7 @@ fn main() {
                 .title("Switchboard")
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(420.0, 400.0)
-                .visible(!hidden)
+                .visible(!hidden && browser().is_none())
                 .on_navigation(move |url| {
                     // Ctrl+Q on the page: the same as Quit in the tray.
                     if ours(url) && url.path() == "/app/quit" { stop_server(&quitter); quitter.exit(0); return false; }
@@ -311,6 +371,25 @@ fn main() {
                 })
                 .build()?;
 
+            // Linux: WebKitGTK keeps the microphone off and turns down every
+            // request for it without asking, so talk to type could never start.
+            // Switched on for Switchboard's own page only, and for sound only.
+            #[cfg(target_os = "linux")]
+            let _ = window.with_webview(|wv| {
+                use webkit2gtk::{glib::prelude::*, PermissionRequestExt, SettingsExt, UserMediaPermissionRequest, UserMediaPermissionRequestExt, WebViewExt};
+                let view = wv.inner();
+                if let Some(settings) = WebViewExt::settings(&view) {
+                    settings.set_enable_media_stream(true);
+                    settings.set_enable_webrtc(false);
+                }
+                view.connect_permission_request(|view, request| {
+                    let Some(media) = request.downcast_ref::<UserMediaPermissionRequest>() else { return false };
+                    let ours = view.uri().map(|u| u.starts_with("http://127.0.0.1:4747/")).unwrap_or(false);
+                    if ours && media.is_for_audio_device() && !media.is_for_video_device() { request.allow(); } else { request.deny(); }
+                    true
+                });
+            });
+
             // The splash (frontend/index.html) shows until the server answers.
             supervise(handle.clone());
             let w = window.clone();
@@ -320,7 +399,11 @@ fn main() {
                     sleep(Duration::from_millis(250));
                 }
                 if answering() {
-                    let _ = w.navigate(Url::parse(APP_URL).unwrap());
+                    // With a browser window the built-in one stays hidden and never loads the page.
+                    match browser() {
+                        Some(b) => { if !hidden { show_in_browser(b); } }
+                        None => { let _ = w.navigate(Url::parse(APP_URL).unwrap()); }
+                    }
                 }
             });
 

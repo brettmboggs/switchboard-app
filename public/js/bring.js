@@ -67,7 +67,7 @@ const linkText = (x) => x.kind === 'teams' ? x.who : /@/.test(x.from || '') ? St
 
 function bringRow(x, t, side = false) {
   const open = bringOpen === x.key, c = bringFull[x.key];
-  const other = t.space !== 'personal' && x.space !== t.space;
+  const other = !inSpace(x, t.space);
   const link = other && linkText(x) ? `<button class="bring-more bring-link" type="button" data-bring-link="${esc(x.key)}" title="Messages from ${esc(linkText(x))} go to ${esc(spaceOf(t.space).name)} from now on">Link to ${esc(spaceOf(t.space).name)}</button>` : '';
   const head = `<div class="bring-item${open ? ' open' : ''}${x.unread ? ' unread' : ''}" draggable="true" data-bring="${esc(x.key)}">
     <button class="bring-add" type="button" data-bring-add="${esc(x.key)}" title="Add to your message"><span class="bi-who">${other ? tag(x.space) : ''}${esc(x.who)}</span><span class="bi-when">${when(x.date)}</span><span class="bi-s">${esc(x.snippet || x.subject || '')}</span></button>
@@ -84,9 +84,9 @@ function bringList(t) {
   let list = bringAllThreads().sort((a, b) => b.date - a.date);
   const q = bringQ.trim().toLowerCase();
   if (q) list = list.filter((x) => bringHay(x).includes(q));
-  const everything = t.space === 'personal';
-  const mine = everything ? list : list.filter((x) => inSpace(x, t.space));
-  const rest = everything ? [] : list.filter((x) => x.space !== t.space);
+  // Personal is a project like any other: its own first, the rest folded away.
+  const mine = list.filter((x) => inSpace(x, t.space));
+  const rest = list.filter((x) => !inSpace(x, t.space));
   const name = esc(spaceOf(t.space).name);
   const top = mine.length ? mine.slice(0, q ? 30 : 15).map((x) => bringRow(x, t)).join('')
     : `<p class="bring-none">${q ? `Nothing in ${name} matches.` : `No recent messages in ${name} yet. Open Other projects and use Link to ${name} on a conversation, and messages from that person come here from now on.`}</p>`;
@@ -119,7 +119,7 @@ function renderBringPop() {
   if (!bringShown || !t) { el.hidden = true; el.textContent = ''; return; }
   if (!el.querySelector('.bring-head') || el.dataset.term !== t.key) {
     el.dataset.term = t.key;
-    el.innerHTML = `<div class="bring-head"><b>Bring in a message</b><span>${t.space === 'personal' ? 'All your conversations.' : `${esc(spaceOf(t.space).name)} first.`} Click one to add it, or drag it in.</span><button class="btn btn--ghost btn--sm" type="button" data-bring-close>Close</button>
+    el.innerHTML = `<div class="bring-head"><b>Bring in a message</b><span>${esc(spaceOf(t.space).name)} first. Click one to add it, or drag it in.</span><button class="btn btn--ghost btn--sm" type="button" data-bring-close>Close</button>
       <label for="bring-q" class="sr">Find a conversation</label><input id="bring-q" class="bring-q" type="search" placeholder="Find a person, subject or words" autocomplete="off" value="${esc(bringQ)}"></div><div class="bring-body"></div>`;
   }
   const body = el.querySelector('.bring-body'), html = bringList(t);
@@ -146,7 +146,7 @@ function sessionMessages(t) {
   if (!t || t.remote) return '';
   const name = spaceOf(t.space).name;
   const hidden = msgHidden();
-  const all = bringAllThreads().filter((x) => t.space === 'personal' || inSpace(x, t.space));
+  const all = bringAllThreads().filter((x) => inSpace(x, t.space));
   const list = all.filter((x) => !(hidden[x.key] >= x.date)).sort((a, b) => b.date - a.date).slice(0, 6);
   const gone = all.length - all.filter((x) => !(hidden[x.key] >= x.date)).length;
   return `<section class="ses-msgs" aria-label="Messages for ${esc(name)}"><div class="ses-msgs-head"><h3 class="kicker">Messages · ${esc(name)}</h3><span>${list.length ? `<button class="btn btn--ghost btn--sm" type="button" data-msg-clear title="Hide all of these until someone writes again">Clear all</button>` : ''}<button class="btn btn--ghost btn--sm" type="button" data-bring-open>All</button></span></div>

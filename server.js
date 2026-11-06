@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, getSetting, isCleared } from './lib/db.js';
-import { spaces } from './lib/spaces.js';
+import { spaces, knowOwnAddresses } from './lib/spaces.js';
 import { profiles } from './lib/projects.js';
 import { send } from './lib/http.js';
 import { startSecrets, secretsState } from './lib/secrets.js';
@@ -60,7 +60,9 @@ let agentCache = { at: 0, list: [] };
 const agentsNow = () => { if (Date.now() - agentCache.at > 60e3) agentCache = { at: Date.now(), list: installedAgents() }; return agentCache.list; };
 import { sessionsForBoard, lastHookAt, sessionFolders } from './lib/claude.js';
 import { pollGithub, liveGithub, github, watchFolders, repoFor } from './lib/github.js';
-import { gmailStatus, pollGmail, mailThreads, moneyFromMail, sendAddresses, awaitingReply, deliveriesForBoard } from './lib/gmail.js';
+import { gmailStatus, pollGmail, mailThreads, moneyFromMail, sendAddresses, awaitingReply, deliveriesForBoard, accounts as mailAccounts } from './lib/gmail.js';
+// People on a project's About card sort its mail; your own addresses never do (lib/spaces.js).
+knowOwnAddresses(() => [...sendAddresses().map((a) => a.address), ...mailAccounts().map((a) => a.email)]);
 import { listWindows } from './lib/desktop.js';
 
 import { weather, pollWeather } from './lib/weather.js';
@@ -79,6 +81,8 @@ import { installedAgents, sampleActivity, listTerms, deliver, allLinks, feedLink
 import { microsoft, msConfig, pollMicrosoft, canWrite, chatMessages } from './lib/microsoft.js';
 import { friendlyError } from './lib/friendly.js';
 
+// Named in Activity Monitor, Task Manager and ps, instead of a bare "node".
+process.title = 'switchboard';
 const PORT = Number(process.env.SWITCHBOARD_PORT || 4747);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ALLOWED_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);

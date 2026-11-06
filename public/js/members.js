@@ -16,7 +16,9 @@ const memberIcon = (m) => m.kind === 'person' && m.label && !m.label.includes('@
 function memberTile(m, repos) {
   const note = m.kind === 'page' || m.kind === 'section';
   const tie = note && repos.length ? `<label class="mb-tie"><span class="sr">Shows beside</span><select class="field field--sm" data-mb-tie="${esc(m.key)}"><option value="">Shows in every session</option>${repos.map((r) => `<option value="${esc(r)}" ${m.repo === r ? 'selected' : ''}>Only in ${esc(r)}</option>`).join('')}</select></label>` : '';
-  const out = m.own ? '' : `<button class="mb-out" type="button" data-mb-out="${esc(m.key)}" ${m.rule != null ? `data-mb-rule="${esc(m.rule)}"` : ''} aria-label="Take ${esc(m.label)} out of this project" title="Take out of this project">×</button>`;
+  // A page whose own project this is moves to Personal; a person on the About card comes off it.
+  const what = m.from === 'page' ? 'Move to Personal' : m.from === 'card' ? 'Take off this card (it stays in Notes)' : m.from === 'about' ? 'Take off the About card' : 'Take out of this project';
+  const out = m.own && !m.from ? '' : `<button class="mb-out" type="button" data-mb-out="${esc(m.key)}" ${m.rule != null && !m.own ? `data-mb-rule="${esc(m.rule)}"` : ''} aria-label="${what}: ${esc(m.label)}" title="${what}">×</button>`;
   return `<div class="mb-tile"><span class="mb-ico">${esc(memberIcon(m))}</span><span class="mb-text"><b>${esc(m.label)}</b>${m.line ? `<small>${esc(m.line)}</small>` : ''}${tie}</span>${out}</div>`;
 }
 function membersCard(id) {
@@ -37,7 +39,7 @@ function drawAddHits() {
   const host = $('mb-hits'); if (!host) return;
   host.innerHTML = addHits.map((h, i) => `<li><button type="button" class="cmd-hit ${i === addSel ? 'sel' : ''}" data-mb-hit="${i}"><span></span><span class="k">${esc(MEMBER_KIND[h.kind] || '')}</span><span class="t">${esc(h.label)}${h.line ? `<span class="muted"> · ${esc(h.line)}</span>` : ''}</span></button></li>`).join('');
   host.hidden = !addHits.length;
-  $('mb-hint').textContent = addHits.length ? 'Enter adds it · ↑↓ to choose · Esc closes' : ($('mb-q').value ? 'Nothing by that name. Try part of a name, an address or a page title.' : '');
+  $('mb-hint').textContent = addHits.length ? 'Enter adds it · ↑↓ to choose · Esc closes' : '';
 }
 let addTimer = 0;
 function searchAddable() {
@@ -67,7 +69,11 @@ document.addEventListener('click', (e) => {
   if (o) {
     const id = openProject, m = members.list.find((x) => x.key === o.dataset.mbOut);
     api(`/api/projects/${encodeURIComponent(id)}/takeout`, { key: o.dataset.mbOut, rule: o.dataset.mbRule ?? null })
-      .then(() => { toast(`${m?.label || 'It'} is out of ${spaceOf(id).name}.`); loadMembers(id, true); load(); }).catch((err) => toast(err.message, { kind: 'error' }));
+      .then((r) => {
+        const undo = r.restore ? { action: { label: 'Undo', run: () => api(`/api/projects/${encodeURIComponent(id)}/putback`, { restore: r.restore }).then(() => { loadMembers(id, true); load(); }).catch((err) => toast(err.message, { kind: 'error' })) } } : {};
+        toast(r.restore?.onCard ? `${m?.label || 'The page'} is off this card. It is still in Notes.` : r.restore?.page ? `${m?.label || 'The page'} is in Personal now.` : r.restore?.people ? `${m?.label || 'They'} came off ${spaceOf(id).name}'s About card.` : `${m?.label || 'It'} is out of ${spaceOf(id).name}.`, undo);
+        loadMembers(id, true); load();
+      }).catch((err) => toast(err.message, { kind: 'error' }));
   }
 });
 document.addEventListener('change', (e) => {

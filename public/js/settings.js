@@ -227,10 +227,31 @@ function renderProjects() {
       <div class="proj-rules">
         <span class="field-label">Belongs here when it mentions</span>
         <div class="rule-chips">${mine.map(([r, j]) => `<span class="rule">${esc(r[0])}<button type="button" data-rule-del="${j}" aria-label="Remove ${esc(r[0])}">×</button></span>`).join('')}
-          <input class="rule-add" placeholder="${mine.length ? 'Add' : 'repo folder, window title, client@email.com or domain.com'}" data-rule-add></div>
+          <input class="rule-add" list="rule-choices" placeholder="${mine.length ? 'Add a repo, person or chat' : 'Pick a repo, person or chat, or type a name, address or domain'}" data-rule-add></div>
+        ${p.id ? `<a class="proj-open" href="#project/${esc(p.id)}" data-close="settings-scrim">Open ${esc(p.name)} to add notes and see everything in it</a>` : ''}
       </div>
     </div>`;
-  }).join('') + `<datalist id="proj-groups">${groups.map((g) => `<option value="${esc(g)}">`).join('')}</datalist>`;
+  }).join('') + `<datalist id="proj-groups">${groups.map((g) => `<option value="${esc(g)}">`).join('')}</datalist>`
+    + `<datalist id="rule-choices">${(ruleChoiceList || []).map((c) => `<option value="${esc(c.rule)}" label="${esc(c.line)}"></option>`).join('')}</datalist>`;
+  if (!ruleChoiceList) api('/api/rule-choices').then((l) => { ruleChoiceList = l; if ($('rule-choices')) renderProjects(); }).catch(() => { ruleChoiceList = []; });
+}
+// Every repo, person, chat and domain Switchboard knows (lib/sorting.js ruleChoices), offered as you type a rule.
+let ruleChoiceList = null;
+async function addRule(input) {
+  const v = input.value.trim(), p = SET.spaces[Number(input.closest('.proj').dataset.i)];
+  if (!v) return;
+  // A project just added has no id until it is saved: save it first, then add.
+  if (!p.id) {
+    await saveProjects();
+    SET.spaces = (await api('/api/settings')).spaces;
+    const fresh = SET.spaces.find((s) => s.name === p.name);
+    if (!fresh?.id) { toast('Give the project a name first, then add what belongs in it.', { kind: 'error' }); return; }
+    Object.assign(p, fresh);
+    SET.spaces = SET.spaces.map((s) => s.id === fresh.id ? p : s);
+  }
+  SET.rules = [...SET.rules.filter((r) => !(r[0].toLowerCase() === v.toLowerCase() && r[1] === p.id)), [v, p.id]];
+  renderProjects(); saveRules();
+  document.querySelector(`.proj[data-i="${SET.spaces.indexOf(p)}"] [data-rule-add]`)?.focus();
 }
 const saveProjects = () => saveSet({ spaces: SET.spaces });
 const saveRules = () => saveSet({ rules: SET.rules });
@@ -455,10 +476,12 @@ document.addEventListener('change', (e) => {
 document.addEventListener('keydown', (e) => {
   if (!e.target.matches?.('[data-rule-add]') || e.key !== 'Enter') return;
   e.preventDefault();
-  const v = e.target.value.trim(), p = SET.spaces[Number(e.target.closest('.proj').dataset.i)];
-  if (!v || !p.id) return;
-  SET.rules.push([v, p.id]); renderProjects(); saveRules();
-  document.querySelector(`.proj[data-i="${SET.spaces.indexOf(p)}"] [data-rule-add]`)?.focus();
+  addRule(e.target);
+});
+// Picking from the list adds it at once; typing waits for Enter.
+document.addEventListener('input', (e) => {
+  if (!e.target.matches?.('[data-rule-add]') || (e.inputType && e.inputType !== 'insertReplacementText')) return;
+  if ((ruleChoiceList || []).some((c) => c.rule === e.target.value)) addRule(e.target);
 });
 
 // Opens a terminal session running a setup command (install or sign in to an agent).

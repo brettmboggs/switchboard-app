@@ -589,3 +589,29 @@ it is sorted everywhere at once; anything else becomes an also-belongs row.
 Hide is a list of keys (lib/hidden.js): nothing is deleted from the computer or
 the mail. Ctrl K's note and sesh list their targets in the search results
 instead of opening a second dialog, so arrows, Enter and clicks work as before.
+
+**A session's project follows the rules as they are now (Nov 5 2026).** It was
+stamped when the session started, so a project made later never took in the
+sessions already open in its repo, and they stayed in Personal. Personal
+sessions also showed every project's messages beside them; now Personal is a
+project like any other, with the rest folded under Other projects. People
+Switchboard has not seen yet are typed into a project's Add (a name, an
+address or a domain) and saved as a rule, and Settings, Projects offers every
+known repo, person and chat as you type a rule, so nothing needs its exact name.
+
+**People on a project's About card sort its messages (Nov 5 2026).** The card
+held a name, email and phone that sorted nothing, so people added there seemed
+unknown to Add. Now their email brings their mail, their full name their Teams
+chats, and their phone their texts, after the rules (a rule still wins). A
+first name alone, someone on two projects' cards, and your own addresses sort
+nothing, since there is no telling which project a message is for.
+
+**On Linux the app's window comes from Chrome when one is installed (Nov 5 2026).**
+WebKitGTK, the web engine Linux apps get, lagged badly on Brett's NVIDIA card:
+typing trailed a letter, scrolling stuttered, and the whole desktop hitched.
+Turning off its DMA-BUF renderer did not help and turning off compositing made
+it worse; the same page in a Chrome app window was smooth. So the app keeps
+the server, tray, start at login and updates, and opens its window as a
+Chrome, Edge, Chromium or Brave app window; without one it uses its own as
+before, and SWITCHBOARD_WEBVIEW=1 forces its own. Mac and Windows use their
+system engines (WebKit, WebView2), which do not have this fault.
