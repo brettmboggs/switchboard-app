@@ -386,7 +386,7 @@ function makeEditor(host, body, { onSave } = {}) {
     const li = e.target.closest?.('ul.checklist > li');
     if (!li || e.target !== li) return;
     const box = li.getBoundingClientRect();
-    if (e.clientX - box.left > 28) return;
+    if (e.clientX - box.left > 28 * pageZoom()) return;
     e.preventDefault();
     remember();
     li.dataset.checked = li.dataset.checked === 'true' ? 'false' : 'true';

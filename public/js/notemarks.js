@@ -33,11 +33,11 @@ function drawNoteMarks() {
   if (!body || !doc || typeof edUid === 'undefined' || !edUid) return clear();
   const marks = new Map((S.noteMarks || []).filter((m) => m.page === edUid).map((m) => [m.line, m]));
   if (!marks.size) return clear();
-  const box = body.getBoundingClientRect(), edge = doc.getBoundingClientRect().right - box.left;
+  const z = pageZoom(), box = body.getBoundingClientRect(), edge = (doc.getBoundingClientRect().right - box.left) / z;
   const shown = new Set(), out = [];
   for (const el of doc.querySelectorAll('li, p, h1, h2, h3, blockquote')) {
     const k = nmKey(nmOwn(el)), m = marks.get(k);
-    if (!m || shown.has(k)) continue;
+    if (!m || shown.has(k) || el.dataset.checked === 'true') continue;   // a ticked line needs no mark
     shown.add(k);
     // After the end of the line's own last row of text, past where the line's Send button sits.
     const r = document.createRange(); r.selectNodeContents(el);
@@ -48,8 +48,8 @@ function drawNoteMarks() {
     b.type = 'button'; b.className = `note-mark ${w.cls}`; b.contentEditable = 'false';
     b.dataset.nmLine = k; b.title = w.title; b.textContent = w.text;
     b.setAttribute('aria-expanded', String(nmOpen === k));
-    b.style.top = `${last.top - box.top + body.scrollTop + last.height / 2}px`;
-    b.style.left = `${Math.min(last.right - box.left + 40, Math.max(edge - 160, 0))}px`;
+    b.style.top = `${(last.top - box.top + last.height / 2) / z + body.scrollTop}px`;
+    b.style.left = `${Math.min((last.right - box.left) / z + 40, Math.max(edge - 160, 0))}px`;
     out.push(b);
     if (nmOpen === k) out.push(nmMenu(k, b));
   }

@@ -51,6 +51,11 @@ function busyTyping() {
 
 // Errors come back in words a person can act on: the server writes them (see
 // lib/friendly.js); when it cannot answer at all, this says so.
+// The page is scaled by the text size (Settings, General: --zoom on the root).
+// getBoundingClientRect measures the scaled page, while top/left inside it are
+// in unscaled units: divide by this, or anything placed by measuring drifts
+// further off the lower it is on the page.
+function pageZoom() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom')) || 1; }
 async function api(path, body) {
   // The web board (public/js/web/): answered in the browser, from shared projects.
   if (window.WEB) { await window.WEB.ready; return window.WEB.api(path, body); }

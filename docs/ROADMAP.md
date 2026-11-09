@@ -105,6 +105,10 @@ connection has no entry. Remaining: more empty states as pages grow.
   app's task (/api/tasks/close); never connecting Todoist or Google. The sync
   service lists the phones that get pings (GET /v1/push/list) so the phone
   can stop pings to an old install or Expo Go (whose banners show Expo's icon).
+- Phone, Nov 8: Jarvis as a walkie-talkie. The phone may ask Jarvis
+  (POST /api/jarvis, waited on up to 45 seconds) and warm its model
+  (/api/jarvis/warm); it hears you on the phone and speaks the answer in the
+  phone's voice. Never Jarvis's memory or the streamed route.
 
 ## Agreed next (Brett, Nov 3), in this order
 

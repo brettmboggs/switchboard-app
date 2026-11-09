@@ -274,9 +274,9 @@ function placeLineSend() {
   const r = document.createRange(); r.selectNodeContents(line);
   const rows = [...r.getClientRects()].filter((x) => x.width), first = rows[0] || line.getBoundingClientRect();
   const row = rows.filter((x) => Math.abs(x.top - first.top) < first.height / 2), end = Math.max(...row.map((x) => x.right), first.right);
-  const box = body.getBoundingClientRect(), edge = doc.getBoundingClientRect().right - box.left;
-  btn.style.top = `${first.top - box.top + body.scrollTop + first.height / 2}px`;
-  btn.style.left = `${Math.min(end - box.left + 8, edge)}px`;
+  const z = pageZoom(), box = body.getBoundingClientRect(), edge = (doc.getBoundingClientRect().right - box.left) / z;
+  btn.style.top = `${(first.top - box.top + first.height / 2) / z + body.scrollTop}px`;
+  btn.style.left = `${Math.min((end - box.left) / z + 8, edge)}px`;
   btn.title = sel ? 'Send the selected text to a session' : 'Send this line (and the bullets under it) to a session';
   btn.querySelector('.sr').textContent = btn.title;
   btn.hidden = false;
