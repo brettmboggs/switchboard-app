@@ -75,7 +75,7 @@ body::after {
 /* ---- buttons: outlined in light; the primary is a lit cyan bar */
 .btn { border-color: var(--border); background: var(--hud-control); border-radius: var(--r-sm); letter-spacing: .01em; }
 .btn:hover { filter: none; border-color: var(--hud); box-shadow: 0 0 14px var(--hud-ring); color: var(--fg); }
-.btn--primary { color: var(--hud-fg); }
+.btn--primary { background: linear-gradient(135deg, var(--hud), var(--hud-2)); border-color: var(--hud); color: var(--hud-fg); }   /* the fill again: .btn above took it, leaving navy words on navy */
 .btn--primary:hover { filter: brightness(1.12); box-shadow: 0 0 22px var(--hud-glow); color: var(--hud-fg); }
 .btn--quiet { background: transparent; }
 .btn--quiet[aria-pressed="true"] { background: var(--hud-tint); color: var(--hud-text); border-color: var(--hud); }
