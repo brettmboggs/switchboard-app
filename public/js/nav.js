@@ -7,7 +7,7 @@ function pageFromHash() {
   const h = location.hash.replace('#', '');
   const pm = h.match(/^project\/([a-z0-9-]{1,60})$/);
   if (pm) { if (openProject !== pm[1]) projEdit = false; openProject = pm[1]; page = 'project'; }
-  else page = PAGES.some(([id]) => id === h) ? h : 'now';
+  else page = PAGES.some(([id]) => id === h) ? h : 'deck';   // the Deck is home (deck.js)
 }
 // Each page remembers where it was (scroll and the open item) for this tab, so
 // going to Inbox and back to Now lands where you left Now. A link to a given
@@ -23,25 +23,42 @@ function route() {
   const h = location.hash.replace('#', '');
   if (PAGE_MOVED[h]) { location.replace('#' + PAGE_MOVED[h]); return; }
   rememberPage();
+  const prev = page;
   pageFromHash();
   const was = pageMemory[pageKey()], fromLink = !!keepSel;
   selected = keepSel || (was?.sel && S && find(was.sel.type, was.sel.key) ? was.sel : null);
   keepSel = null; extra = { key: null, html: '' };
-  render();
+  // To and from the Deck, the module zooms between its tile and its full panel
+  // (the browser's view transitions; the tile and the panel share a name).
+  if (S && prev !== page && (prev === 'deck' || page === 'deck') && document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.startViewTransition(() => { render(); deckNames(); });
+  } else { render(); deckNames(); }
   if (S) requestAnimationFrame(() => window.scrollTo(0, fromLink ? 0 : (was?.y || 0)));
+}
+// The open module's panel carries its tile's name, so the two morph into each other.
+function deckNames() {
+  const pg = $('page'); if (!pg) return;
+  const mod = page === 'project' ? 'projects' : DECK_MODS.includes(page) ? page : railOf(page);
+  pg.style.viewTransitionName = page === 'deck' ? 'none' : 'mod-' + mod;
 }
 window.addEventListener('pagehide', rememberPage);
 window.addEventListener('hashchange', route);
 
 // ---------- command bar
-function openCmd() { cmdLoadEvents(); openDialog('cmd-scrim'); $('cmd-input').value = ''; cmdHits = []; cmdSel = -1; drawCmdResults(); const to = captureSpace(); $('cmd-hint').textContent = to === 'all' ? '' : `Goes to ${spaceOf(to).name} unless you add @project`; $('cmd-input').focus(); }
+function openCmd() { cmdLoadEvents(); openDialog('cmd-scrim'); $('cmd-input').value = ''; growText($('cmd-input')); cmdHits = []; cmdSel = -1; drawCmdResults(); const to = captureSpace(); $('cmd-hint').textContent = to === 'all' ? '' : `Goes to ${spaceOf(to).name} unless you add @project`; $('cmd-input').focus(); }
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openCmd(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && document.activeElement?.id === 'r-text') { e.preventDefault(); act('send', document.querySelector('[data-act="send"]')); }
   if (e.key === 'Escape' && topDialog()) closeDialog(topDialog());   // only the one on top
 });
+// Talking: Enter stops the mic first and the words are there to check; Enter
+// again sends. Caught before every other Enter on this box (search.js picks a result on Enter).
+$('cmd-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && rec?.target === e.target) { e.preventDefault(); e.stopImmediatePropagation(); stopDictation(); }
+}, true);
 $('cmd-input').addEventListener('keydown', async (e) => {
-  if (e.key !== 'Enter') return;
+  if (e.key !== 'Enter' || e.defaultPrevented) return;   // taken: the mic stopped on it (above)
+  e.preventDefault();   // the box is a textarea so long lines wrap; Enter still sends, never a new line
   if (cmdPick()) return;   // a search result was picked (search.js)
   const line = e.target.value.trim();
   if (!line) return;

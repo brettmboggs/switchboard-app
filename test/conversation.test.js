@@ -54,3 +54,37 @@ test('keys, and unknown ones refused', async () => {
   assert.equal(parseKey('nope:1'), null);
   await assert.rejects(conversation('nope:1'), /Unknown conversation/);
 });
+
+test('Teams pictures come through Switchboard, and reactions are counted per emoji', () => {
+  const pic = 'https://graph.microsoft.com/v1.0/chats/19:abc@thread.v2/messages/171/hostedContents/aWQ9eA==/$value';
+  const raw = [{
+    id: '171', messageType: 'message', createdDateTime: '2026-11-05T10:00:00Z', from: { user: { id: 'them', displayName: 'Sam Lee' } },
+    body: { contentType: 'html', content: `<p>Look</p><img src="${pic}" alt="image"><img src="https://evil.example/x.png">` },
+    reactions: [{ reactionType: 'like', user: { user: { id: 'me', displayName: 'You' } } }, { reactionType: 'like', user: { user: { id: 'them', displayName: 'Sam Lee' } } }, { reactionType: '🎉', user: { user: { id: 'them', displayName: 'Sam Lee' } } }]
+  }, {
+    id: '172', messageType: 'message', createdDateTime: '2026-11-05T10:01:00Z', from: { user: { id: 'them' } },
+    body: { contentType: 'html', content: `<img src="${pic.replace('171', '172')}">` }
+  }];
+  const [a, b] = fromTeams(raw, 'me');
+  assert.equal(a.text, 'Look');
+  assert.deepEqual(a.pictures, ['/api/teams/picture?u=' + encodeURIComponent(pic)], 'only Graph pictures, through Switchboard');
+  assert.deepEqual(a.reactions.map((r) => [r.emoji, r.n, r.mine]), [['👍', 2, true], ['🎉', 1, false]]);
+  assert.equal(b.text, '', 'a picture alone has no "(no text)"');
+  assert.equal(b.pictures.length, 1);
+});
+
+test('a Teams picture address cannot climb out of hostedContents with .. or \\ (review M4)', async () => {
+  const { isHostedUrl } = await import('../lib/microsoft.js');
+  const good = 'https://graph.microsoft.com/v1.0/chats/19:abc@thread.v2/messages/171/hostedContents/aWQ9eA==/$value';
+  assert.equal(isHostedUrl(good), true);
+  const bad = [
+    'https://graph.microsoft.com/v1.0/chats/x/messages/y/hostedContents/..\\..\\..\\..\\..\\me\\messages\\ID/$value',
+    'https://graph.microsoft.com/v1.0/chats/../messages/../hostedContents/../$value',
+    'https://graph.microsoft.com/v1.0/chats/x/messages/y/hostedContents/%2e%2e/$value',
+    'https://graph.microsoft.com/v1.0/chats/x/messages/y/hostedContents/./$value',
+    'https://graph.microsoft.com@evil.example/v1.0/chats/x/messages/y/hostedContents/z/$value'
+  ];
+  for (const u of bad) assert.equal(isHostedUrl(u), false, u);
+  const [m] = fromTeams([{ id: '1', messageType: 'message', createdDateTime: '2026-11-05T10:00:00Z', from: { user: { id: 'them' } }, body: { contentType: 'html', content: `<img src="${bad[0]}"><img src="${good}">` } }], 'me');
+  assert.deepEqual(m.pictures, ['/api/teams/picture?u=' + encodeURIComponent(good)], 'the page is never handed the climbing one');
+});

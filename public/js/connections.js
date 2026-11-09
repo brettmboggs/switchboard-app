@@ -8,18 +8,18 @@
 // What comes next, and what each needs. "free account" means someone has to
 // make one (a developer app or key); nothing here costs money.
 const CONN_NEXT = [
-  { cat: 'messages', name: 'Slack', what: 'Messages and mentions in Inbox, reply from Switchboard.', needs: 'A free Slack app for your workspace.' },
-  { cat: 'messages', name: 'Discord', what: 'Mentions and messages in servers you run, in Inbox.', needs: 'A free Discord application (a bot you add to your servers). Discord gives no way in to personal DMs.' },
-  { cat: 'messages', name: 'Telegram', what: 'Messages sent to your own Telegram bot, in Inbox.', needs: 'A bot from @BotFather in Telegram, free, a minute.' },
-  { cat: 'messages', name: 'Outlook.com and Hotmail', what: 'Personal Microsoft mail next to Gmail.', needs: 'Nothing: through Sign in with Microsoft.' },
-  { cat: 'money', name: 'Bank accounts', what: 'Balances, bills due and big charges, from your bank itself.', needs: 'A free Teller developer account (100 bank connections free).' },
-  { cat: 'money', name: 'Stripe, Square or PayPal', what: 'Payments from your customers and invoices paid.', needs: 'A key from the account you already have (each is free to read).' },
-  { cat: 'coding', name: 'Vercel, Netlify, Cloudflare', what: 'Deploys next to GitHub builds: building, live or failed.', needs: 'A token from the account you already have.' },
-  { cat: 'automation', name: 'Home Assistant', what: 'Sensors and alerts (freezer, gate, water) on Now.', needs: 'A long-lived token from your Home Assistant.' }
+  { cat: 'messages', name: 'Slack', what: 'Messages and mentions in Inbox, reply from Switchboard.', needs: 'A free Slack app for your workspace (made in a few clicks on Slack\'s site).' },
+  { cat: 'messages', name: 'Discord', what: 'Mentions and messages in servers you run, in Inbox.', needs: 'A free Discord helper (a bot) that you add to your servers. Discord gives no way in to your private messages.' },
+  { cat: 'messages', name: 'Telegram', what: 'Messages sent to your own Telegram bot, in Inbox.', needs: 'Your own Telegram helper (a bot): Telegram makes one for you in a minute, free.' },
+  { cat: 'messages', name: 'Outlook.com and Hotmail', what: 'Personal Microsoft mail next to Gmail.', needs: 'Nothing: you sign in with Microsoft.' },
+  { cat: 'money', name: 'Bank accounts', what: 'Balances, bills due and big charges, from your bank itself.', needs: 'A free Teller account, the service that links to your bank (up to 100 bank links free).' },
+  { cat: 'money', name: 'Stripe, Square or PayPal', what: 'Payments from your customers and invoices paid.', needs: 'A key from your Stripe, Square or PayPal account (each hands one out free).' },
+  { cat: 'coding', name: 'Vercel, Netlify, Cloudflare', what: 'Site updates (deploys) next to GitHub builds: building, live or failed.', needs: 'A key from your Vercel, Netlify or Cloudflare account.' },
+  { cat: 'automation', name: 'Home Assistant', what: 'Sensors and alerts (freezer, gate, water) on Now.', needs: 'A key from your Home Assistant (your Profile, Long-lived access tokens).' }
 ];
 
 function renderConnections() {
-  renderLocalAI(); renderFeedsCard(); renderTasksCard();
+  renderLocalAI(); renderFeedsCard(); renderTasksCard(); renderGranolaCard();
   // Bank and card alerts come from email, so they are on as soon as an email account is.
   const line = $('money-mail-line');
   if (line) line.textContent = S.status.gmail.length ? `On: read from ${S.status.gmail.length === 1 ? 'your email' : S.status.gmail.length + ' email accounts'}. Turn on alert emails in your bank's app or website and the charges show on Money.` : 'Read from your email once one is connected above: charges, receipts, payments in.';
@@ -101,6 +101,22 @@ document.addEventListener('click', async (e) => {
 // models (each starts a session from New session) and a few to download.
 // LM Studio's downloaded models are listed and start sessions too; other local
 // servers (llama.cpp, Jan) are listed when they answer.
+// A model's id (llama3.2:3b, qwen2.5-coder:7b) as a name and a size word: "Llama 3.2 · small".
+// The id stays in the tooltip, for anyone who wants to run it by name.
+const MODEL_FAMILY = { llama: 'Llama', codellama: 'Code Llama', qwen: 'Qwen', gemma: 'Gemma', mistral: 'Mistral', mixtral: 'Mixtral', phi: 'Phi', deepseek: 'DeepSeek', 'gpt-oss': 'GPT-OSS', granite: 'Granite', smollm: 'SmolLM' };
+function modelName(id, hint = '') {
+  const [base, tag = ''] = String(id).split(':');
+  const short = base.split('/').pop();
+  const name = MODEL_FAMILY[short.toLowerCase()] || short.split('-').map((w) => {
+    const m = w.match(/^([a-z]+?)([\d.]*)$/i);
+    if (!m) return w.toUpperCase() === w ? w : w[0].toUpperCase() + w.slice(1);
+    const fam = MODEL_FAMILY[m[1].toLowerCase()] || (m[1].length <= 2 ? m[1].toUpperCase() : m[1][0].toUpperCase() + m[1].slice(1));
+    return fam + (m[2] ? (m[1].length > 1 ? ' ' : '') + m[2] : '');
+  }).join(' ');
+  const b = Number((tag.match(/^(\d+(?:\.\d+)?)b/i) || String(hint).match(/\b(\d+(?:\.\d+)?)B\b/) || [])[1]);
+  const size = !b ? '' : b <= 4 ? 'small' : b <= 9 ? 'medium' : b <= 20 ? 'large' : 'very large';
+  return size ? `${name} · ${size}` : name;
+}
 const OLLAMA_INSTALL = { linux: 'curl -fsSL https://ollama.com/install.sh | sh', darwin: 'brew install ollama && brew services start ollama', win32: 'winget install Ollama.Ollama' };
 function renderLocalAI() {
   const el = $('local-ai-card'), L = SET?.localAI; if (!el || !L) return;
@@ -110,8 +126,8 @@ function renderLocalAI() {
   if (ollama) {
     line = ollama.models.length ? `Running, ${ollama.models.length} model${ollama.models.length === 1 ? '' : 's'}. Start one from New session: Agent, Local model (Ollama).` : 'Running, no models yet. Get one below.';
     const have = new Set(ollama.models.map((m) => m.id.replace(/:latest$/, '')));
-    wide = (ollama.models.length ? `<div class="lai-list">${ollama.models.map((m) => `<span class="mono">${esc(m.id)}${size(m.size)}</span>`).join('')}</div>` : '')
-      + `<div class="lai-get"><span class="muted small">Get a model (downloads once, then runs offline):</span>${L.starters.filter((s) => !have.has(s.model)).map((s) => `<div class="lai-row"><span><b class="mono">${esc(s.model)}</b> <span class="muted small">${esc(s.what)}</span></span><button class="btn" type="button" data-term-cmd="${esc('ollama pull ' + s.model)}">Get</button></div>`).join('')}</div>`;
+    wide = (ollama.models.length ? `<div class="lai-list">${ollama.models.map((m) => `<span title="${esc(m.id)}">${esc(modelName(m.id))}${size(m.size)}</span>`).join('')}</div>` : '')
+      + `<div class="lai-get"><span class="muted small">Get a model (downloads once, then runs offline):</span>${L.starters.filter((s) => !have.has(s.model)).map((s) => `<div class="lai-row"><span><b title="${esc(s.model)}">${esc(modelName(s.model, s.what))}</b> <span class="muted small">${esc(String(s.what).split(': ').slice(1).join(': ') || s.what)}</span></span><button class="btn" type="button" data-term-cmd="${esc('ollama pull ' + s.model)}">Get</button></div>`).join('')}</div>`;
   } else if (L.ollamaInstalled) {
     line = 'Installed, but not running.';
     actions = `<button class="btn" type="button" data-term-cmd="ollama serve">Start it</button>`;
@@ -126,7 +142,7 @@ function renderLocalAI() {
     const n = lm.models.length;
     if (!ollama) { line = n ? `LM Studio has ${n} model${n === 1 ? '' : 's'}. Start one from New session: Agent, Local model (LM Studio).` : 'LM Studio is installed, with no models yet: download one in LM Studio.'; actions = ''; }
     else line += ` LM Studio: ${n} model${n === 1 ? '' : 's'}, from New session: Agent, Local model (LM Studio).`;
-    if (n) wide += `<div class="lai-list">${lm.models.map((m) => `<span><b>${esc(m.name)}</b> <span class="mono muted small">${esc(m.id)}</span>${size(m.size)}</span>`).join('')}</div>`;
+    if (n) wide += `<div class="lai-list">${lm.models.map((m) => `<span title="${esc(m.id)}"><b>${esc(m.name)}</b>${size(m.size)}</span>`).join('')}</div>`;
   }
   const rest = others.filter((s) => !(lm && s.id === 'lmstudio'));
   if (rest.length) wide += `<div class="lai-list">${rest.map((s) => `<span>${esc(s.name)}: ${s.models.length} model${s.models.length === 1 ? '' : 's'} running</span>`).join('')}</div>`;

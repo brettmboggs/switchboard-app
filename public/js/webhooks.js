@@ -14,7 +14,7 @@ function hookLine(h) {
   if (t?.busy) return { text: 'Testing…' };
   if (t) {
     const bad = [t.local, t.public].find((x) => x && !x.ok);
-    if (bad) return { text: 'Test failed: ' + bad.error, bad: true };
+    if (bad) return { text: 'The test did not go through: ' + (bad.error || 'no answer came back.'), bad: true };
     return { text: 'Test worked' + (t.public ? `: from anywhere in ${(Number(t.public.ms) / 1000).toFixed(1)} s, and from this computer` : ' from this computer') };
   }
   if (h.pending) return { text: 'Setting up the link that works from anywhere…' };
@@ -53,7 +53,7 @@ function renderHookShow() {
   box.innerHTML = `<div class="hook-links"><b>Links for ${esc(h.name)}</b>
     ${l.public ? line(l.public, 'From anywhere: IFTTT, Zapier, your phone') : '<p class="hint">Sign in to your Switchboard account (top of this page) for a link that works from anywhere: IFTTT, Zapier, your phone.</p>'}
     ${line(l.local, 'From this computer: scripts, Home Assistant running here')}
-    <details class="small cal-help"><summary class="muted">How to use it</summary>
+    <details class="small cal-help"><summary class="muted">How to use it (for IFTTT, Zapier, scripts)</summary>
       <p>Send a POST with some text. Plain text works, or JSON like <code class="mono">{"text": "Gate left open", "kind": "needs", "project": "Home", "due": "tomorrow 9am"}</code>. <b>kind</b> is needs, todo, reminder or note; <b>project</b> and <b>due</b> are optional. Leave them out and it goes to ${esc(spaceOf(h.space).name)} as ${esc((HOOK_KINDS.find(([v]) => v === h.kind) || HOOK_KINDS[0])[1])}.</p>
       <p><b>IFTTT:</b> add the Webhooks action "Make a web request". URL: the link above. Method: POST. Content type: application/json. Body: <code class="mono">{"text": "…"}</code> with the ingredient you want.</p>
       <p><b>Zapier:</b> add "Webhooks by Zapier", POST. URL: the link above. Data: a field named <code class="mono">text</code>.</p>

@@ -9,11 +9,11 @@ function renderRemove(done) {
   if (done) {
     const data = done.data ? ' Your data is deleted too.' : ' Your data is kept, in case you come back.';
     el.innerHTML = done.app
-      ? `<div class="form-row"><span class="acct-line">Switchboard's hooks and tools are out of your coding agents. Quit and finish stops the app and turns off start at login.${esc(data)} Then drag Switchboard from Applications (or your Programs list) to the Trash.</span><button class="btn btn--danger" type="button" id="remove-finish" data-data="${done.data ? 1 : 0}">Quit and finish</button></div>`
-      : `<div class="form-row"><span class="acct-line">Done. Switchboard has stopped and will not start at login.${esc(data)} Its folder can go to the Trash now: <span class="mono">${esc(done.folder || '')}</span></span></div>`;
+      ? `<div class="form-row"><span class="acct-line">Switchboard's links into Claude Code and your other coding agents are taken out. Quit and finish stops the app and turns off start at login.${esc(data)} Then drag Switchboard from Applications (or your Programs list) to the Trash.</span><button class="btn btn--danger" type="button" id="remove-finish" data-data="${done.data ? 1 : 0}">Quit and finish</button></div>`
+      : `<div class="form-row"><span class="acct-line">Done. Switchboard has stopped and will not start at login.${esc(data)} Its folder can go to the Trash now: ${esc(done.folder || '')}</span></div>`;
     return;
   }
-  el.innerHTML = `<div class="form-row"><span class="acct-line">Takes out everything Switchboard added to this computer: the Claude Code hooks, its tools in your coding agents, the headless browser and start at login. Your own settings stay as they are.</span></div>`
+  el.innerHTML = `<div class="form-row"><span class="acct-line">Takes out everything Switchboard added to this computer: Switchboard's links into Claude Code and your other coding agents, the background browser for checks, and start at login. Your own settings stay as they are.</span></div>`
     + `<label class="toggle"><span>Also delete my Switchboard data: settings, connections, saved passwords, the board</span><input type="checkbox" id="remove-data"></label>`
     + `<div class="form-row"><button class="btn" type="button" id="remove-go">Remove Switchboard</button><span class="acct-line" id="remove-note"></span></div>`;
 }

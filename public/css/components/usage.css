@@ -1,0 +1,76 @@
+/* AI plans (public/js/usage.js): each plan's limits as small charts from the
+   window's start to its reset. Cyan is the interface; a window that is close
+   turns amber, one whose pace runs out before the reset turns orange (it needs
+   you). On the Deck it is a compact module of the bottom row; on Now a full card. */
+.usage { --u: var(--hud); --u-text: var(--hud-text); display: grid; gap: var(--sp-3); min-width: 0; }
+.usage--deck:hover { transform: none; }   /* a module that is read, not opened */
+.u-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.u-title { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .16em; text-transform: uppercase; color: var(--hud-text); }
+.u-asof { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); display: inline-flex; align-items: center; gap: var(--sp-1); }
+.u-asof::before { content: ""; width: .45em; height: .45em; border-radius: var(--r-pill); background: var(--ok); box-shadow: 0 0 .6em var(--ok); }
+.u-quiet { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); }
+
+.u-wins { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--sp-5); }
+
+/* one window */
+.u-win { display: grid; gap: var(--sp-1); min-width: 0; align-content: start; }
+.u-win--warn { --u: var(--warn); --u-text: var(--warn); }
+.u-win--hot { --u: var(--accent); --u-text: var(--accent-text); }
+.u-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.u-name b { font-weight: 600; color: var(--fg); margin-right: .4em; }
+.u-name { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-muted); }
+.u-reset { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.u-read { display: flex; align-items: baseline; gap: var(--sp-2); }
+.u-pct { font-family: var(--font-display); font-size: var(--fs-3xl); font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); text-shadow: 0 0 1.1em color-mix(in srgb, var(--u) 45%, transparent); }
+.u-pct small { font-size: .5em; color: var(--u-text); margin-left: .05em; }
+.u-pace { font-size: var(--fs-sm); color: var(--u-text); }
+
+/* the chart */
+.u-plot { position: relative; height: 6.5rem; margin: var(--sp-1) 0; border-bottom: 1px solid var(--border-faint); }
+.u-chart { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.u-chart path { fill: none; vector-effect: non-scaling-stroke; }
+.u-g1 { stop-color: var(--u); stop-opacity: .38; }
+.u-g2 { stop-color: var(--u); stop-opacity: 0; }
+.u-chart .u-area { stroke: none; }
+.u-line { stroke: var(--u); stroke-width: 2; stroke-linejoin: round; filter: drop-shadow(0 0 .25rem var(--u)); }
+.u-proj { stroke: var(--u); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .8; }
+.u-limit { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 2 4; opacity: .6; }
+.u-even { stroke: var(--fg-muted); stroke-width: 1; opacity: .25; }
+.u-guess { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 1 4; opacity: .5; }
+.u-now { stroke: var(--u); stroke-width: 1; opacity: .25; }
+.u-hit { position: absolute; top: 0; width: .5rem; height: .5rem; border-radius: var(--r-pill); background: var(--accent); transform: translate(-50%, -50%); box-shadow: 0 0 .7rem var(--accent); }
+.u-dot { position: absolute; width: .55rem; height: .55rem; border-radius: var(--r-pill); background: var(--u); transform: translate(-50%, -50%); box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--u) 25%, transparent), 0 0 .8rem var(--u); animation: u-pulse 2.4s ease-in-out infinite; }
+@keyframes u-pulse { 50% { box-shadow: 0 0 0 .35rem color-mix(in srgb, var(--u) 10%, transparent), 0 0 1.2rem var(--u); } }
+@media (prefers-reduced-motion: reduce) { .u-dot { animation: none; } }
+
+/* a weekly window's days */
+.u-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-1); height: 2.4rem; align-items: end; }
+.u-day { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100%; align-items: end; justify-items: center; gap: .15rem; }
+.u-day i { width: min(60%, .8rem); border-radius: var(--r-xs) var(--r-xs) 0 0; background: color-mix(in srgb, var(--u) 35%, transparent); }
+.u-day.u-today i { background: var(--u); box-shadow: 0 0 .5rem var(--u); }
+.u-day.u-none::before { content: ""; align-self: end; width: min(60%, .8rem); border-top: 1px dashed var(--border); }
+.u-day.u-today b { color: var(--u-text); }
+.u-day b { font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); }
+.u-line { margin: 0; font-size: var(--fs-sm); color: var(--fg); }
+.u-win--hot .u-line { color: var(--accent-text); }
+
+/* the session bar's gauges (Sessions): a hairline track, the used part lit, a tick where an even pace would be */
+.u-chip { display: inline-flex; align-items: center; gap: var(--sp-3); margin-left: var(--sp-2); white-space: nowrap; }
+.u-mini { --u: var(--hud); --u-text: var(--hud-text); display: inline-flex; align-items: center; gap: var(--sp-1); font: 500 var(--fs-xs) var(--font-mono); color: var(--u-text); }
+.u-mini b { font-weight: 500; color: var(--con-muted, var(--fg-muted)); }
+.u-gauge { position: relative; width: 2.6rem; height: .3rem; border-radius: var(--r-pill); background: var(--border-faint); overflow: visible; }
+.u-gauge i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--u); box-shadow: 0 0 .4rem var(--u); }
+.u-gauge em { position: absolute; top: -.15rem; bottom: -.15rem; width: 1px; background: var(--fg-muted); opacity: .7; }
+.u-mini.u-win--warn { --u: var(--warn); --u-text: var(--warn); }
+.u-mini.u-win--hot { --u: var(--accent); --u-text: var(--accent-text); }
+
+/* On the Deck it is one module of the bottom row, so the Deck fits one screen:
+   smaller numbers, a short chart, no day bars (Now has the full card). */
+.usage--deck { gap: var(--sp-2); }
+.usage--deck .u-wins { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-3); }
+.usage--deck .u-pct { font-size: var(--fs-2xl); }
+.usage--deck .u-pace { font-size: var(--fs-xs); }
+.usage--deck .u-plot { height: 2.6rem; }
+.usage--deck .u-days { display: none; }
+.usage--deck .u-line { font-size: var(--fs-xs); color: var(--fg-muted); }
+.usage--deck .u-win--hot .u-line { color: var(--accent-text); }

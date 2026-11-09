@@ -44,7 +44,7 @@ function hideWaiting() {
 function doLater(id, msg, path, body) {
   const send = (keepalive) => fetch(path, { method: 'POST', keepalive, headers: { 'Content-Type': 'application/json', 'X-Switchboard': '1' }, body: JSON.stringify(body) });
   const timer = setTimeout(async () => {
-    try { const r = await send(false); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText); }
+    try { const r = await send(false); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || HTTP_WORDS[r.status] || 'That did not go through. Try again.'); }
     catch (e) { toast(e.message, { kind: 'error' }); }
     finally { undoWaiting.delete(id); load(); }
   }, UNDO_MS);
@@ -84,7 +84,7 @@ async function act(name, btn) {
       toast(l ? 'Unlinked.' : 'Linked. New messages from this chat get queued into the session.');
     }
     else if (name === 'focus') await api('/api/focus', { windowId: x.windowId, sessionId: x.id });
-    else if (name === 'seen') await api('/api/seen', { sessionId: x.id });
+    else if (name === 'seen') { await api('/api/seen', { sessionId: x.id }); selected = null; toast('Cleared. It comes back when the session asks for you again.'); }
     else if (name === 'clear') {
       if (t === 'run') { for (const r of S.runs.filter((r) => r.repo === x.repo && r.title === x.title)) await api('/api/clear', { key: `run:${r.id}` }); }
       else await api('/api/clear', { key: t === 'review' ? `pr:${x.id}` : x.key });

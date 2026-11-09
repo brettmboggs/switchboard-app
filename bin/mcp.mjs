@@ -2,8 +2,8 @@
 // Switchboard as an MCP server: the tools any coding agent (Claude Code, Codex,
 // Gemini CLI, Cursor…) can use to see what needs the user, put things on the
 // board, see sessions and GitHub Actions runs, set up and read browser checks,
-// and queue a message into another session. `npm run setup` registers it with
-// each agent that is installed.
+// and work with other sessions: start one, message it, read what it said, end
+// one it started. `npm run setup` registers it with each agent that is installed.
 //
 // MCP over stdio: one JSON-RPC message per line on stdin and stdout; anything
 // else goes to stderr. It talks only to Switchboard on this computer
@@ -14,6 +14,8 @@ import { execFileSync } from 'node:child_process';
 
 const PORT = Number(process.env.SWITCHBOARD_PORT || 4747);
 const BASE = `http://127.0.0.1:${PORT}`;
+// The Switchboard session this agent runs in, if any (every session's processes carry it).
+const ME = process.env.SWITCHBOARD_TERM || null;
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 let client = 'An agent';
 
@@ -39,9 +41,38 @@ function cwdRepo() {
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 const STATE = { running: 'working', waiting: 'needs the user', finished: 'finished, the user\'s turn', idle: 'ready', starting: 'starting' };
 const allSessions = (s) => [
-  ...(s.terms || []).map((t) => ({ key: t.id, name: t.name, where: 'this computer', repo: t.ci?.fullName || null, branch: t.ci?.branch || null, state: t.state, agent: t.agentName, queued: t.queued?.length || 0, cwd: t.cwd })),
+  ...(s.terms || []).map((t) => ({ key: t.id, name: t.name, where: 'this computer', repo: t.ci?.fullName || null, branch: t.ci?.branch || null, state: t.state, agent: t.agentName, queued: t.queued?.length || 0, cwd: t.cwd, openedBy: t.opened_by || null })),
   ...(s.remoteTerms || []).map((t) => ({ key: `r:${t.device}:${t.id}`, name: t.name, where: t.deviceName, repo: null, branch: null, state: t.state, agent: t.agentName, queued: t.queued?.length || 0, cwd: t.cwd, device: t.device, id: t.id }))
 ];
+
+// One session by its name or [key]; local: only sessions on this computer.
+function findSession(list, want, { local = false } = {}) {
+  want = String(want || '').trim();
+  const pool = local ? list.filter((t) => !t.device) : list;
+  const hits = pool.filter((t) => t.key === want || t.name === want);
+  if (hits.length === 1) return hits[0];
+  if (hits.length) throw new Error(`More than one session is called "${want}". Use its key: ${hits.map((t) => t.key).join(', ')}.`);
+  if (local && list.some((t) => t.device && (t.key === want || t.name === want))) throw new Error(`"${want}" runs on another computer; from here you can only message it (switchboard_send_to_session).`);
+  throw new Error(`No session "${want}" is open. Open ones: ${pool.map((t) => t.name).join(', ') || 'none'}. To start one, use switchboard_start_session with its folder.`);
+}
+const mark = (t) => t.key === ME ? ' (this is you)' : ME && t.openedBy === ME ? ' (you opened it)' : '';
+
+// What a session said, newest last: its messages and the user's, one line per tool it used.
+function chatLines(messages, last) {
+  const lines = [];
+  for (const m of messages) {
+    if (m.k === 'user') lines.push(`[user] ${m.t}`);
+    else if (m.k === 'text') lines.push(`[agent] ${m.t}`);
+    else if (m.k === 'tool') lines.push(`  · ${m.name}${m.sum ? ': ' + m.sum : ''}`);
+    else if (m.k === 'note') lines.push(`  (${m.t})`);
+  }
+  // Keep the last `last` messages (user or agent), with the tool lines between them.
+  let n = 0, from = 0;
+  for (let i = lines.length - 1; i >= 0; i--) if (/^\[/.test(lines[i]) && ++n >= last) { from = i; break; }
+  return lines.slice(from).join('\n').slice(-12000);
+}
+const BUSY = new Set(['running', 'starting']);
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const TOOLS = [
   {
@@ -102,7 +133,7 @@ const TOOLS = [
       if (!list.length) return 'No notes are tied to this project or repo. The user ties them on the project\'s page in Switchboard (In this project).';
       const out = [];
       for (const n of list.slice(0, 6)) {
-        try { const t = await sb(`/api/note-text?uid=${encodeURIComponent(n.uid)}${n.section ? '&section=' + encodeURIComponent(n.section) : ''}`); out.push(`# ${t.title}${t.section ? ' → ' + t.section : ''}\n${t.text.slice(0, 8000)}`); } catch {}
+        try { const t = await sb(`/api/note-text?uid=${encodeURIComponent(n.uid)}${n.section ? '&section=' + encodeURIComponent(n.section) : ''}`); out.push(`# ${t.title}${t.section ? ' → ' + t.section : ''}\n${t.text.length > 40000 ? t.text.slice(0, 40000) + '\n(The rest of this page is cut off here.)' : t.text}`); } catch {}
       }
       return out.join('\n\n') + (list.length > 6 ? `\n\n(${list.length - 6} more notes not shown.)` : '');
     }
@@ -115,27 +146,96 @@ const TOOLS = [
     annotations: { readOnlyHint: true },
     async run() {
       const list = allSessions(await sb('/api/state'));
-      return list.length ? list.map((t) => `- ${t.name} [${t.key}] · ${t.agent} · ${t.where} · ${STATE[t.state] || t.state}${t.repo ? ` · ${t.repo}${t.branch ? '@' + t.branch : ''}` : ''}${t.queued ? ` · ${t.queued} queued` : ''}${t.cwd ? ` · ${t.cwd}` : ''}`).join('\n') : 'No sessions are open.';
+      return list.length ? list.map((t) => `- ${t.name} [${t.key}] · ${t.agent} · ${t.where} · ${STATE[t.state] || t.state}${t.repo ? ` · ${t.repo}${t.branch ? '@' + t.branch : ''}` : ''}${t.queued ? ` · ${t.queued} queued` : ''}${t.cwd ? ` · ${t.cwd}` : ''}${mark(t)}`).join('\n') : 'No sessions are open.';
     }
   },
   {
     name: 'switchboard_send_to_session',
     title: 'Queue a message into another session',
-    description: 'Queue a message into another agent session (by its name or [key] from switchboard_sessions). It is typed in when that session is free, labelled as coming from you. Use it to hand work to a session in another repo; the user sees it in that session\'s queue.',
+    description: 'Queue a message into another agent session (by its name or [key] from switchboard_sessions). It is typed in when that session is free, labelled as coming from you; the user sees it in that session\'s queue. Read the answer with switchboard_read_session. No session open for that folder? Start one with switchboard_start_session (only when the user asked you to work with other sessions).',
     inputSchema: {
       type: 'object',
       properties: { session: { type: 'string', description: 'Session name or key.' }, text: { type: 'string' } },
       required: ['session', 'text'], additionalProperties: false
     },
     async run(a) {
-      const list = allSessions(await sb('/api/state'));
-      const want = String(a.session).trim();
-      const hits = list.filter((t) => t.key === want || t.name === want);
-      if (hits.length !== 1) throw new Error(hits.length ? `More than one session is called "${want}". Use its key: ${hits.map((t) => t.key).join(', ')}.` : `No session "${want}". Open ones: ${list.map((t) => t.name).join(', ') || 'none'}.`);
-      const t = hits[0], source = `${client} (agent)`;
+      const t = findSession(allSessions(await sb('/api/state')), a.session), source = `${client} (agent)`;
+      if (t.key === ME) throw new Error('That session is you. Send to another one.');
       if (t.device) await sb(`/api/remote/${t.device}/${encodeURIComponent(t.id)}/queue`, { text: a.text, source });
       else await sb(`/api/terms/${encodeURIComponent(t.key)}/queue`, { text: a.text, source });
-      return `Queued into ${t.name}. It goes in when that session is free.`;
+      return `Queued into ${t.name}. It goes in when that session is free.${t.device ? '' : ' Read its answer with switchboard_read_session (wait_seconds to wait for it).'}`;
+    }
+  },
+  {
+    name: 'switchboard_start_session',
+    title: 'Start a session',
+    description: 'Start a new agent session on this computer, in a folder, with an optional first message. It opens in the user\'s Switchboard (Sessions) like one they started, and is marked as opened by you, so you can end it later. Only start sessions when the user has asked you to work with other sessions. folder is a full path or the name of a folder in the user\'s code folders (e.g. "my-app"). Then talk to it with switchboard_send_to_session and read it with switchboard_read_session.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        folder: { type: 'string', description: 'Full path, or a folder name from the user\'s code folders.' },
+        message: { type: 'string', description: 'The first message, typed in once the agent is ready.' },
+        agent: { type: 'string', description: 'claude (default), codex or gemini.' }
+      },
+      required: ['folder'], additionalProperties: false
+    },
+    async run(a) {
+      const want = String(a.folder || '').trim();
+      if (!want) throw new Error('Say which folder.');
+      let cwd = want;
+      if (!/^([/~]|[A-Za-z]:[\\/])/.test(want)) {
+        const list = await sb('/api/folders');
+        const hits = list.filter((f) => f.name.toLowerCase() === want.toLowerCase() && f.kind !== 'copy');
+        if (hits.length !== 1) throw new Error(hits.length ? `More than one folder is called "${want}": ${hits.map((f) => f.path).join(', ')}. Give the full path.` : `No folder "${want}" in the user's code folders. Give the full path.`);
+        cwd = hits[0].path;
+      }
+      const r = await sb('/api/terms', { cwd, agent: a.agent || 'claude', openedBy: ME, text: a.message, source: `${client} (agent)` });
+      return `Started session [${r.id}] in ${cwd}${a.message ? '; your message goes in as soon as it is ready' : ''}. Read it with switchboard_read_session (wait_seconds to wait until it finishes); end it with switchboard_end_session when its work is done.`;
+    }
+  },
+  {
+    name: 'switchboard_read_session',
+    title: 'Read a session',
+    description: 'What another agent session on this computer is doing and has said: its state and its last messages (the user\'s and the agent\'s), with the tools it used. wait_seconds (up to 600) waits until it is no longer working, for when you sent it something and want the answer. Read-only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session: { type: 'string', description: 'Session name or key.' },
+        wait_seconds: { type: 'number', description: 'Wait up to this long for it to finish working (0, the default, reads now).' },
+        last: { type: 'number', description: 'How many messages to show (default 6, up to 40).' }
+      },
+      required: ['session'], additionalProperties: false
+    },
+    annotations: { readOnlyHint: true },
+    async run(a) {
+      let t = findSession(allSessions(await sb('/api/state')), a.session, { local: true });
+      const until = Date.now() + Math.min(Math.max(Number(a.wait_seconds) || 0, 0), 600) * 1000;
+      // Busy while it works, or while a message for it is still in its queue.
+      while (Date.now() < until && (BUSY.has(t.state) || t.queued)) {
+        await pause(3000);
+        const now = allSessions(await sb('/api/state')).find((x) => x.key === t.key);
+        if (!now) return `${t.name} has ended.`;
+        t = now;
+      }
+      const chat = await sb(`/api/terms/${encodeURIComponent(t.key)}/chat`).catch(() => ({ messages: [] }));
+      const last = Math.min(Math.max(Number(a.last) || 6, 1), 40);
+      const head = `${t.name} [${t.key}] · ${t.agent} · ${STATE[t.state] || t.state}${t.queued ? ` · ${t.queued} queued` : ''}${t.cwd ? ` · ${t.cwd}` : ''}${mark(t)}`;
+      const body = chatLines(chat.messages || [], last);
+      return `${head}\n\n${body || (chat.why === 'starting' ? 'It is still starting.' : 'Nothing to read from this session yet.')}${BUSY.has(t.state) ? '\n\n(Still working.)' : ''}`;
+    }
+  },
+  {
+    name: 'switchboard_end_session',
+    title: 'End a session you opened',
+    description: 'End an agent session you opened with switchboard_start_session, when its work is done: it stops, with everything it started. Sessions you did not open are the user\'s; ask them instead.',
+    inputSchema: { type: 'object', properties: { session: { type: 'string', description: 'Session name or key.' } }, required: ['session'], additionalProperties: false },
+    annotations: { destructiveHint: true },
+    async run(a) {
+      const t = findSession(allSessions(await sb('/api/state')), a.session, { local: true });
+      if (t.key === ME) throw new Error('That session is you.');
+      if (!ME || t.openedBy !== ME) throw new Error(`You did not open ${t.name}, so it is the user's to end. Ask them.`);
+      await sb(`/api/terms/${encodeURIComponent(t.key)}/close`, { by: ME });
+      return `Ended ${t.name}.`;
     }
   },
   {

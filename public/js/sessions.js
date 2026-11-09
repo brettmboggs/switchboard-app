@@ -23,6 +23,7 @@ function openTerm(id) {
 const visibleTerms = () => allTerms().filter((t) => inProject(t) || t.key === currentTerm);
 
 function renderSessions() {
+  if (window.WEB) return renderWebSessions();
   const terms = allTerms();
   if (currentTerm && !terms.some((t) => t.key === currentTerm)) currentTerm = null;
   if (currentTerm && project !== 'all' && !inProject(termByKey(currentTerm))) currentTerm = null;
@@ -52,7 +53,8 @@ function sessionLines() {
     if (name === t.name) {
       // A folder name: without the repo's name repeated, and two alike told apart by their id.
       if (name.startsWith(p) && name.length > p.length) name = name.slice(p.length);
-      if (list.filter((o) => termLabel(o) === t.name).length > 1) name = t.id.replace(/^sb-/, '') || name;
+      const alike = list.filter((o) => termLabel(o) === t.name);
+      if (alike.length > 1) name = `${name} (${(/-(\d+)$/.exec(t.id) || [])[1] || alike.indexOf(t) + 1})`;
     }
     const ask = t.state === 'waiting' || t.state === 'finished';
     const more = [t.queued.length ? `${t.queued.length} queued` : '', sessionBuildWord(t), t.agent !== 'claude' ? esc(t.agentName) : '', t.remote ? 'on ' + esc(t.deviceName) : ''].filter(Boolean).join(' · ');
@@ -90,14 +92,14 @@ function renderTermBar() {
   const meta = [
     t.agent !== 'claude' ? `<span>${esc(t.agentName)}</span>` : '',
     liveReadout(t),
-    branch ? `<span class="mono" title="Branch">⎇ ${esc(branch)}</span>` : '',
+    branch && !/^(main|master)$/.test(branch) ? `<span title="The branch: a separate line of work in this folder">on ${esc(branch)}</span>` : '',
     devChips(t),
     t.queued.length ? `<span class="hot">${t.queued.length} queued</span>` : '',
     t.remote ? `<span>on ${esc(t.deviceName)}</span>` : '',
     termBuild(t),
     ...(t.links || []).map((l) => `<span title="${l.auto ? 'New messages go in by themselves' : 'Linked; new messages wait for you'}">with ${esc(l.who || 'Teams chat')}${l.auto ? ' (auto)' : ''}</span>`),
-    t.mode === 'direct' ? `<span title="This session ends if Switchboard restarts or updates.${S.platform === 'darwin' ? ' Install tmux (brew install tmux) to keep it running.' : ''}">ends on restart</span>` : '',
-    `<span class="tb-path mono" title="${esc(t.cwd || '')}">${esc((t.cwd || '').replace(/^\/home\/[^/]+|^\/Users\/[^/]+|^[A-Za-z]:\\Users\\[^\\]+/, '~'))}</span>`].filter(Boolean).join('');
+    t.mode === 'direct' ? `<span title="This session ends if Switchboard restarts or updates.${S.platform === 'darwin' ? ' Install the free tool tmux to keep it running (Homebrew: brew install tmux).' : ''}">ends on restart</span>` : '',
+    t.cwd ? `<span class="tb-path" title="${esc(t.cwd)}">in ${esc(String(t.cwd).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || t.cwd)}</span>` : ''].filter(Boolean).join('');
   const html = `<div class="tb-id"><b class="tb-name" title="${esc(t.name)}">${esc(termLabel(t))}</b>
       <span class="tb-state ${esc(t.state)}">${esc(TERM_STATE[t.state] || t.state)}${t.updatedAt ? ` · <span data-tick="${Number(t.updatedAt) || 0}">${dur(Date.now() - t.updatedAt)}</span>` : ''}</span></div>
     <div class="tb-meta">${meta}</div>
@@ -111,7 +113,7 @@ function renderTermBar() {
       <button class="tb-btn end" type="button" data-end-session title="Close this session for good">End</button>`}
       <details class="tb-more"><summary class="tb-btn" title="More">More</summary><div class="tb-menu">
         ${t.remote ? '' : `<button type="button" data-rename="${esc(t.key)}">Rename</button>`}
-        ${t.mode === 'tmux' && !t.remote ? `<button type="button" data-tcopy-attach="${esc(t.id)}">Copy tmux attach</button>` : ''}
+        ${t.mode === 'tmux' && !t.remote ? `<button type="button" data-tcopy-attach="${esc(t.id)}" title="tmux attach -t ${esc(t.id)}">Copy the command to open it in your own terminal</button>` : ''}
         ${(t.links || []).map((l) => `<label class="tb-check"><input type="checkbox" data-auto="${esc(l.chat_key)}" ${l.auto ? 'checked' : ''}> Send ${esc(l.who || 'chat')}'s new messages in</label><button type="button" data-unlink="${esc(l.chat_key)}">Unlink ${esc(l.who || 'chat')}</button>`).join('')}
       </div></details></div>`;
   if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
@@ -134,6 +136,7 @@ document.addEventListener('click', (e) => {
 });
 
 let tv = { id: null, term: null, fit: null, ws: null, ro: null };
+let termMouse = null;   // the open terminal's listeners on the window, removed with it
 function closeTerminal() { closeChat(); closeXterm(); }
 function closeXterm() {
   if (!tv.term && !tv.ws) return;
@@ -141,9 +144,27 @@ function closeXterm() {
   try { tv.ro?.disconnect(); } catch {}
   if (tv.ro?.front) { window.removeEventListener('focus', tv.ro.front); document.removeEventListener('visibilitychange', tv.ro.front); }
   try { tv.term?.dispose(); } catch {}
+  termMouse?.abort(); termMouse = null;
   tv = { id: null, term: null, fit: null, ws: null, ro: null };
   $('term-host').innerHTML = '';
 }
+// A finished session open on screen for a few seconds counts as seen: its
+// "Your turn" leaves Now without a click (lib/claude.js boardState). A
+// question or permission prompt stays until it is answered or cleared.
+let seeTimer = null;
+function seeOpenSession() {
+  const t = page === 'sessions' && !document.hidden ? termByKey(currentTerm) : null;
+  const s = t && !t.remote && t.claude_id && (S.sessions || []).find((x) => x.id === t.claude_id);
+  if (!s || s.state !== 'finished') { clearTimeout(seeTimer); seeTimer = null; return; }
+  if (seeTimer) return;
+  seeTimer = setTimeout(() => {
+    seeTimer = null;
+    const n = termByKey(currentTerm);
+    if (page === 'sessions' && !document.hidden && n?.claude_id === s.id) api('/api/seen', { sessionId: s.id }).catch(() => {});
+  }, 3000);
+}
+document.addEventListener('visibilitychange', () => { if (S) seeOpenSession(); });
+
 function syncTerminal() {
   if (!currentTerm) { closeTerminal(); return; }
   // The Chat view (chat.js) replaces the terminal; the terminal's connection
@@ -163,25 +184,48 @@ function syncTerminal() {
   term.open(host);
   // File names on the screen open the reader (fileview.js), here or from the computer the session runs on.
   termFileLinks(term, currentTerm);
-  // Selecting text belongs to this screen. A session's tmux takes the mouse
-  // (for the wheel), so a plain drag would be tmux's selection: drawn on every
-  // computer showing the session, and copied on the one it runs on. Here a
-  // plain left drag is made the browser's own (as Shift-drag, or Option-drag
-  // on a Mac, is in xterm), so it shows only on this screen, and letting go
-  // copies it to this computer's clipboard. The wheel still scrolls in tmux.
+  // Selecting text belongs to this screen; a click belongs to the program.
+  // A session's tmux takes the mouse (for the wheel), so a plain drag would be
+  // tmux's selection: drawn on every computer showing the session, and copied
+  // on the one it runs on. Here a left drag is made the browser's own (as
+  // Shift-drag, or Option-drag on a Mac, is in xterm), so it shows only on this
+  // screen, and letting go copies it to this computer's clipboard. A plain
+  // click (no drag) goes through to the program, so Claude Code's own clickable
+  // parts work: a running fork or agent opens with a click and Esc comes back.
+  // A double click still selects a word. The wheel scrolls in tmux.
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  let press = null;   // a left press waiting to become a click or a drag
+  termMouse?.abort(); termMouse = new AbortController();
+  const onWin = { capture: true, signal: termMouse.signal };
+  const resend = (type, e, sel) => {
+    const ev = new MouseEvent(type, { bubbles: true, cancelable: true, view: window, detail: e.detail, button: 0, buttons: type === 'mouseup' ? 0 : 1, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, shiftKey: sel && !isMac, altKey: sel && isMac });
+    ev.sbLocal = true;
+    (type === 'mousedown' ? e.target : e.target.isConnected ? e.target : term.element).dispatchEvent(ev);
+  };
   host.addEventListener('mousedown', (e) => {
     if (e.sbLocal || e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
     if (!term.element?.contains(e.target) || term.modes.mouseTrackingMode === 'none') return;
     e.stopImmediatePropagation(); e.preventDefault();
     term.clearSelection();
-    const copy = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, detail: e.detail, button: 0, buttons: e.buttons, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, shiftKey: !isMac, altKey: isMac });
-    copy.sbLocal = true;
-    e.target.dispatchEvent(copy);
     term.focus();
+    if (e.detail >= 2) { press = null; resend('mousedown', e, true); return; }   // double click: a word, here
+    press = { e, x: e.clientX, y: e.clientY, dragging: false };
   }, true);
+  window.addEventListener('mousemove', (e) => {
+    if (!press || press.dragging || e.sbLocal) return;
+    if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 4) return;
+    press.dragging = true;
+    resend('mousedown', press.e, true);   // a drag: start the selection where it began
+  }, onWin);
+  window.addEventListener('mouseup', (e) => {
+    if (!press || e.sbLocal || e.button !== 0) return;
+    const p = press; press = null;
+    if (p.dragging) return;   // the real mouseup ends the selection
+    e.stopImmediatePropagation();
+    resend('mousedown', p.e, false); resend('mouseup', p.e, false);   // a click: to the program
+  }, onWin);
   host.addEventListener('mouseup', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.sbLocal) return;
     setTimeout(() => {
       const sel = term.hasSelection() ? term.getSelection() : '';
       if (sel.trim()) navigator.clipboard.writeText(sel).then(() => toast('Copied.'), () => {});
@@ -316,6 +360,7 @@ function termGpu(term) {
 
 function termDetail() {
   const t = termByKey(currentTerm);
+  if (!t && window.WEB) return `<div class="lines-empty"><h2>Shared sessions</h2><p class="muted">Open one to follow it as the Chat view. What you send goes to whoever shares it, who lets it in.</p></div>`;
   if (!t) return `${allTerms().length ? sessionLines() : ''}<div class="lines-empty"><h2>Claude, inside Switchboard</h2><p class="muted">Start a session and it shows here: type in the terminal like always, or queue messages so they go in when Claude is free.</p></div>`;
   const rename = renaming === t.key ? `<form class="rename-form" id="rename-form"><label for="rename-input" class="sr">Session name</label><input id="rename-input" type="text" maxlength="60" value="${esc(renameVal ?? (t.named ? t.name : ''))}" placeholder="${esc(termLabel(t))}" autocomplete="off"><button class="btn btn--primary" type="submit">Save</button><button class="btn" type="button" data-rename-cancel>Cancel</button></form>` : '';
   return rename + sessionLines() + sessionMessages(t) + sessionNotes(t);
@@ -364,7 +409,10 @@ function renderTermCompose() {
   if (!free && !qs.querySelector('.ql')) qs.insertAdjacentHTML('afterbegin', '<span class="ql">Queue</span>');
   if (free) qs.querySelector('.ql')?.remove();
   $('q-hint').textContent = asking ? 'Enter sends this instead (answers No)' : free ? 'Enter to send · Shift+Enter for a new line' : `${t.agentName} is working · Enter queues it`;
-  $('term-queue').innerHTML = t.queued.map((q, i) => `<div class="qline ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="qn">${q.held ? 'Held' : 'Next' + (i ? ' +' + i : '')}</span><span class="txt">${esc(q.text)}</span><span class="src">${esc(q.source)}</span>${q.held ? `<button type="button" class="go" data-q="${esc(q.id)}" data-qa="release">Send when free</button>` : ''}<button type="button" data-q="${esc(q.id)}" data-qa="drop" title="Remove from the queue">Remove</button></div>`).join('');
+  // Drawn again only when it changes: a redraw under the mouse swallowed clicks on its buttons.
+  const qHtml = t.queued.map((q, i) => `<div class="qline ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="qn">${q.held ? 'Held' : 'Next' + (i ? ' +' + i : '')}</span><span class="txt">${esc(q.text)}</span><span class="src">${esc(q.source)}</span>${q.held ? `<button type="button" class="go" data-q="${esc(q.id)}" data-qa="release">Send when free</button>` : ''}${q.held && / asks$/.test(q.source || '') ? `<button type="button" data-letin="${esc(q.id)}" title="Send this, and let their messages into this session from now on without asking">Always let them in</button>` : ''}<button type="button" data-q="${esc(q.id)}" data-qa="now" title="Send it in right now: stops what ${esc(t.agentName)} is doing first, like Ctrl+Enter">Send now</button>${q.source === 'You' ? `<button type="button" data-q="${esc(q.id)}" data-qa="back" title="Take it out of the queue and back into the message bar, to change it or send it later">Edit</button>` : `<button type="button" data-q="${esc(q.id)}" data-qa="drop" title="Remove from the queue">Remove</button>`}</div>`).join('');
+  const qEl = $('term-queue');
+  if (qEl.dataset.drawn !== qHtml) { qEl.innerHTML = qHtml; qEl.dataset.drawn = qHtml; }
 }
 function growText(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 180) + 'px'; }
 document.addEventListener('input', (e) => { if (e.target.id === 'q-text') growText(e.target); });
@@ -452,13 +500,24 @@ document.addEventListener('keydown', (e) => {
 // ---------- the session's readout: model, effort, context used and cost, as
 // Claude Code reports them live (its status line and hooks, lib/claude.js);
 // before it has, what the session was started with.
-const modelWord = (id) => { const m = String(id || '').match(/^(sonnet|opus|haiku|fable)(\[1m\])?$/i); return m ? m[1][0].toUpperCase() + m[1].slice(1) + (m[2] ? ' 1M' : '') : String(id || ''); };
+// A model id in words: opus[1m] is "Opus, 1M memory", claude-sonnet-4-5-20250929 is "Sonnet 4.5".
+function modelWord(id) {
+  let s = String(id || '').trim();
+  if (!s) return '';
+  const long = /\[1m\]|\(1M context\)/i.test(s);
+  s = s.replace(/\[1m\]|\s*\(1M context\)/ig, '').trim();
+  const m = /^(?:claude-)?(sonnet|opus|haiku|fable)(?:-(\d+)(?:-(\d{1,2}))?)?(?:-\d{8})?$/i.exec(s);
+  if (m) s = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() + (m[2] ? ` ${m[2]}${m[3] ? '.' + m[3] : ''}` : '');
+  return s + (long ? ', 1M memory' : '');
+}
+const EFFORT_WORD = { xhigh: 'extra high', max: 'maximum' };
 function liveReadout(t) {
   const l = t.live || {};
-  const parts = [l.model || modelWord(t.model), l.effort || t.effort, l.context != null ? `${l.context}%` : '', l.cost != null ? `$${Number(l.cost).toFixed(2)}` : ''].filter(Boolean);
+  const parts = [modelWord(l.model || t.model), EFFORT_WORD[l.effort || t.effort] || l.effort || t.effort, l.context != null ? `${l.context}%` : '', l.cost != null ? `$${Number(l.cost).toFixed(2)}` : ''].filter(Boolean);
   if (!parts.length) return '';
-  const title = t.live ? 'Model · effort · context used · cost this session, from Claude Code' : 'Model and effort asked for at start';
-  return `<span class="mono tb-live" title="${title}">${esc(parts.join(' · '))}</span>`;
+  const title = t.live ? `Model · how hard it thinks · how full its memory is · cost this session, from Claude Code${t.model || l.model ? ` (${l.model || t.model})` : ''}` : `Model and how hard it thinks, asked for at start${t.model ? ` (${t.model})` : ''}`;
+  // A Claude Code session also shows the plan's limits, each a tiny gauge (usage.js).
+  return `<span class="mono tb-live" title="${title}">${esc(parts.join(' · '))}</span>${t.live ? usageChip('claude') : ''}`;
 }
 
 // ---------- the "/" menu in the message bar. A message that starts with "/"
@@ -469,7 +528,7 @@ function liveReadout(t) {
 // changes what Enter does when the text does not start with "/".
 const SLASH_BUILTIN = [
   ['model', 'Pick the model (Claude\'s picker, shown as buttons in Chat)'],
-  ['effort', 'How hard it thinks: /effort low, medium, high, xhigh or max (the slider opens in the terminal)'],
+  ['effort', 'How hard it thinks, from low to maximum (the slider opens in the terminal)'],
   ['clear', 'Start the conversation over, same folder'],
   ['compact', 'Fold the conversation down to a summary to free context'],
   ['context', 'What is taking up the context window'],
@@ -479,7 +538,7 @@ const SLASH_BUILTIN = [
   ['resume', 'Pick an earlier conversation to continue'],
   ['help', 'Claude Code\'s own help'],
   ['status', 'Version, model, account and what is connected'],
-  ['diff', 'What has changed in the working tree'],
+  ['diff', 'What has changed in the files'],
   ['review', 'Review a pull request or the changes'],
   ['security-review', 'Look over the changes for security problems']
 ].map(([name, description]) => ({ name, description, where: '' }));
@@ -581,16 +640,35 @@ async function openNewTerm() {
   const shown = list.filter((f) => !f.hidden);
   const mains = shown.filter((f) => f.kind === 'repo' || (!f.kind && !f.copyOf)), plain = shown.filter((f) => f.kind === 'none'), copies = shown.filter((f) => f.copyOf);
   const opt = (f, note) => `<option value="${esc(f.path)}">${esc(f.name)}${note ? ' · ' + esc(note) : ''}</option>`;
-  $('nt-folder').innerHTML = mains.map((f) => opt(f, f.fork ? 'fork' : f.others ? 'from ' + f.owner : '')).join('')
-    + (plain.length ? `<optgroup label="Folders that are not repos (${plain.length})">${plain.map((f) => opt(f)).join('')}</optgroup>` : '')
-    + (copies.length ? `<optgroup label="Agents' work copies (${copies.length})">${copies.map((f) => opt(f, 'copy of ' + f.copyOf)).join('')}</optgroup>` : '');
+  $('nt-folder').innerHTML = '<option value="__new">New folder…</option>' + mains.map((f) => opt(f, f.fork ? 'your copy' : f.others ? 'from ' + f.owner : '')).join('')
+    + (plain.length ? `<optgroup label="Other folders (${plain.length})">${plain.map((f) => opt(f)).join('')}</optgroup>` : '')
+    + (copies.length ? `<optgroup label="Copies the agents made (${copies.length})">${copies.map((f) => opt(f, 'copy of ' + f.copyOf)).join('')}</optgroup>` : '');
   $('nt-agent').innerHTML = agents.map((a) => `<option value="${esc(a.id)}" ${a.installed ? '' : 'disabled'}>${esc(a.name)}${a.installed ? '' : ' (not installed)'}</option>`).join('');
   $('nt-agent').value = store.get('lastAgent', 'claude');
   if ($('nt-agent').selectedOptions[0]?.disabled) $('nt-agent').value = 'claude';
   syncAgentFields();
+  // The list opens on the first repo, not on New folder.
+  if ($('nt-folder').value === '__new' && $('nt-folder').options.length > 1) $('nt-folder').selectedIndex = 1;
+  syncNewFolder();
   $('nt-msg').textContent = '';
   openDialog('newterm-scrim');
 }
+// New folder…: a name, where it goes (when there is more than one code folder), and git / GitHub.
+let ntRoots = null;
+function syncNewFolder() {
+  const on = $('nt-folder').value === '__new';
+  document.querySelectorAll('.nt-new').forEach((el) => { el.hidden = !on; });
+  if (!on) return;
+  const fill = () => {
+    $('nt-root').innerHTML = (ntRoots || []).map((r) => `<option value="${esc(r)}">${esc(r.replace(/^\/home\/[^/]+|^\/Users\/[^/]+/, '~'))}</option>`).join('');
+    document.querySelectorAll('.nt-roots').forEach((el) => { el.hidden = (ntRoots || []).length < 2; });
+  };
+  if (ntRoots) fill(); else api('/api/folders/roots').then((r) => { ntRoots = r.roots || []; fill(); }).catch(() => {});
+  $('nt-gh').disabled = !$('nt-git').checked;
+  $('nt-newname').focus();
+}
+$('nt-folder').addEventListener('change', syncNewFolder);
+$('nt-git').addEventListener('change', () => { $('nt-gh').disabled = !$('nt-git').checked; if (!$('nt-git').checked) $('nt-gh').checked = false; });
 function syncAgentFields() {
   const a = ntAgent(), custom = $('nt-agent').value === 'custom';
   document.querySelectorAll('.nt-custom').forEach((el) => { el.hidden = !custom; });
@@ -614,7 +692,7 @@ function syncLongBox() {
   const box = $('nt-1m');
   box.disabled = !ok;
   if (!ok) box.checked = false;
-  box.parentElement.title = ok ? 'The 1M-token context window' : 'Pick Sonnet or Opus for the 1M-token context window';
+  box.parentElement.title = ok ? 'Lets it keep far more of the conversation and your files in mind at once (the 1M-token context window)' : 'Pick Sonnet or Opus to give it long memory (the 1M-token context window)';
 }
 $('nt-agent').addEventListener('change', syncAgentFields);
 $('nt-folder').addEventListener('change', syncAgentFields);
@@ -631,10 +709,23 @@ $('newterm-form').addEventListener('submit', async (e) => {
     const mem = store.get('ntChoices', {});
     mem[ntKey()] = { model: picked, long, effort };
     store.set('ntChoices', mem);
-    const r = await api('/api/terms', { cwd: $('nt-folder').value, agent, command: $('nt-command').value, model: picked + (long ? a.long : ''), effort });
+    let cwd = $('nt-folder').value;
+    if (cwd === '__new') {
+      if (!$('nt-newname').value.trim()) { $('nt-msg').textContent = 'Give the new folder a name.'; $('nt-newname').focus(); return; }
+      $('nt-msg').textContent = $('nt-gh').checked ? 'Making the folder and its private copy on GitHub…' : 'Making the folder…';
+      const f = await api('/api/folders/new', { name: $('nt-newname').value, root: $('nt-root').value || null, git: $('nt-git').checked, github: $('nt-gh').checked });
+      cwd = f.path;
+      // Made: from here on it is in the list like any other folder, so a retry starts there instead of making another.
+      $('nt-folder').insertAdjacentHTML('beforeend', `<option value="${esc(f.path)}">${esc(f.name)}</option>`);
+      $('nt-folder').value = f.path; $('nt-newname').value = ''; syncNewFolder();
+      toast(f.warning || `Made ${f.name}${f.git ? `, with change history${f.github ? ' and a private copy on GitHub' : ''}` : f.github ? ', with a private copy on GitHub' : ''}. It shows on Unsorted to put in a project.`, f.warning ? { kind: 'error' } : undefined);
+      $('nt-msg').textContent = 'Starting…';
+    }
+    const r = await api('/api/terms', { cwd, agent, command: $('nt-command').value, model: picked + (long ? a.long : ''), effort });
     // A message from Ctrl K "sesh … → New session" waits in its box (cmdtarget.js).
     if (ntDraft) { draft['term:' + r.id] = ntDraft; ntDraft = null; }
-    closeDialog('newterm-scrim'); openTerm(r.id); await load();
+    // The list has to know the new session before it opens, or the page falls back to the first one.
+    closeDialog('newterm-scrim'); currentTerm = r.id; store.set('term', r.id); await load(); openTerm(r.id);
   } catch (err) { $('nt-msg').textContent = err.message; }
 });
 

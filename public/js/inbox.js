@@ -3,8 +3,8 @@
 // (convo.js); the list then narrows to a column, like Teams or Discord.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
-const VIA = { mail: 'Email', 'voice-text': 'Text', 'voice-mail': 'Voicemail', 'voice-call': 'Missed call', teams: 'Teams', outlook: 'Outlook' };
-const SOURCE = { all: () => true, email: (t) => t.kind === 'mail', texts: (t) => t.kind.startsWith('voice'), teams: (t) => t.kind === 'teams', outlook: (t) => t.kind === 'outlook' };
+const VIA = { mail: 'Email', 'voice-text': 'Text', 'voice-mail': 'Voicemail', 'voice-call': 'Missed call', teams: 'Teams', outlook: 'Outlook', team: 'Team chat' };
+const SOURCE = { all: () => true, email: (t) => t.kind === 'mail', texts: (t) => t.kind.startsWith('voice'), teams: (t) => t.kind === 'teams', outlook: (t) => t.kind === 'outlook', team: (t) => t.kind === 'team' };
 
 let inboxShown = '';   // the list as last drawn: the board refreshes often, and an unchanged list is left alone
 
@@ -25,8 +25,8 @@ function renderInbox() {
     if (html !== inboxShown || el.dataset.view !== 'inbox') { el.innerHTML = html; inboxShown = html; el.dataset.view = 'inbox'; }
     return;
   }
-  html += `<div class="chips">${[['all', 'All'], ['email', 'Email'], ['texts', 'Texts and calls'], ['teams', 'Teams'], ['outlook', 'Outlook']].filter(([k]) => k === 'all' || srcCount(k) || (inboxTab === 'business' && S.recent.filter(inProject).some(SOURCE[k]))).map(([k, n]) => `<button class="chip" type="button" data-source="${k}" aria-pressed="${inboxSource === k}">${n} <span class="c">${srcCount(k)}</span></button>`).join('')}</div>
-    ${draftsSection()}<section class="card"><div class="list">`;
+  html += `<div class="chips">${[['all', 'All'], ['email', 'Email'], ['texts', 'Texts and calls'], ['teams', 'Teams'], ['outlook', 'Outlook'], ['team', 'Team chat']].filter(([k]) => k === 'all' || srcCount(k) || (k === 'team' && S.chat?.channels?.length) || (inboxTab === 'business' && S.recent.filter(inProject).some(SOURCE[k]))).map(([k, n]) => `<button class="chip" type="button" data-source="${k}" aria-pressed="${inboxSource === k}">${n} <span class="c">${srcCount(k)}</span></button>`).join('')}</div>
+    ${tcStartHtml()}${draftsSection()}<section class="card"><div class="list">`;
   const sub = (t) => t.kind === 'mail' || t.kind === 'outlook' ? `${t.subject}${t.snippet ? ' · ' + t.snippet : ''}` : (t.snippet || t.subject);
   const threadRow = (t) => row({ type: 'thread', key: t.key, space: t.space, title: t.who, via: VIA[t.kind] || 'Email', sub: sub(t), right: `<span class="mono muted">${ago(t.date)}</span>` });
   const recent = inboxTab === 'business' ? S.recent.filter(inProject).filter(SOURCE[inboxSource]).filter((r) => !list.some((t) => t.key === r.key)) : [];

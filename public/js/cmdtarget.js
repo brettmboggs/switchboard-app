@@ -41,6 +41,9 @@ function cmdTargets(q) {
   $('cmd-hint').textContent = kind === 'note' ? 'Pick the page · Enter adds it · you stay where you are' : 'Pick the session · Enter sends it · you stay where you are';
   return true;
 }
+// A new page's title from a long note: cut at a word with an ellipsis, never
+// mid-word; the whole note is the page's first checkbox either way.
+function shortTitle(s, n = 80) { return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, '') + '…'; }
 async function runTarget(r) {
   try {
     if (r.act === 'note-page') {
@@ -48,9 +51,9 @@ async function runTarget(r) {
       store.set('lastNotePage', r.uid);
       toast(`Added to ${res.title}.`, { action: { label: 'Open', run: () => openPage(r.uid) } });
     } else if (r.act === 'note-new') {
-      const p = await api('/api/pages', { title: r.newTitle || r.item.slice(0, 80), body: `<ul class="checklist"><li data-checked="false">${esc(r.item)}</li></ul>`, space: captureSpace() === 'all' ? 'personal' : captureSpace() });
+      const p = await api('/api/pages', { title: r.newTitle || shortTitle(r.item), body: `<ul class="checklist"><li data-checked="false">${esc(r.item)}</li></ul>`, space: captureSpace() === 'all' ? 'personal' : captureSpace() });
       store.set('lastNotePage', p.uid);
-      toast(`New page "${p.title}".`, { action: { label: 'Open', run: () => openPage(p.uid) } });
+      toast(`New page "${p.title}", your whole note as its first checkbox.`, { action: { label: 'Open', run: () => openPage(p.uid) } });
     } else if (r.act === 'note-quick') {
       const item = await api('/api/capture', { line: 'note ' + r.text, space: captureSpace() });
       toast(`Note saved · ${spaceOf(item.space).name}`);

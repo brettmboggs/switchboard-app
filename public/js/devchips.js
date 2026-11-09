@@ -19,14 +19,14 @@ function devChips(t) {
   const g = c.data?.git, pr = c.data?.pr;
   let h = '';
   if (g) {
-    if (g.changed) h += `<span class="dev" title="${Number(g.changed)} file${g.changed === 1 ? '' : 's'} changed and not committed">${Number(g.changed)} changed</span>`;
-    if (g.ahead || g.behind) h += `<span class="mono dev" title="${esc(`${Number(g.ahead)} commit${g.ahead === 1 ? '' : 's'} to push, ${Number(g.behind)} to pull (${g.upstream})`)}">${g.ahead ? '↑' + Number(g.ahead) : ''}${g.ahead && g.behind ? ' ' : ''}${g.behind ? '↓' + Number(g.behind) : ''}</span>`;
-    else if (g.branch && !g.upstream) h += `<span class="dev" title="This branch is not on GitHub (or any remote) yet">not pushed</span>`;
-    if (!t.ci?.branch && g.branch) h += `<span class="mono" title="Branch">⎇ ${esc(g.branch)}</span>`;
+    if (g.changed) h += `<span class="dev" title="${Number(g.changed)} file${g.changed === 1 ? '' : 's'} changed and not saved to the history yet (not committed)">${Number(g.changed)} changed</span>`;
+    if (g.ahead || g.behind) h += `<span class="dev" title="${esc(`↑${Number(g.ahead)} ↓${Number(g.behind)}: ${Number(g.ahead)} saved change${g.ahead === 1 ? '' : 's'} (commits) to send to GitHub (push), ${Number(g.behind)} to get from it (pull). Compared with ${g.upstream}`)}">${[g.ahead ? `${Number(g.ahead)} to send` : '', g.behind ? `${Number(g.behind)} to get` : ''].filter(Boolean).join(', ')}</span>`;
+    else if (g.branch && !g.upstream) h += `<span class="dev" title="This branch is not on GitHub (or any remote) yet">not on GitHub yet</span>`;
+    if (!t.ci?.branch && g.branch && !/^(main|master)$/.test(g.branch)) h += `<span title="The branch: a separate line of work in this folder">on ${esc(g.branch)}</span>`;
   }
   if (pr) {
     const checks = pr.checks ? { success: 'checks passed', failure: 'checks failed', running: 'checks running' }[pr.checks] : 'no checks';
-    h += `<a class="pr" href="${safeHref(pr.url)}" target="_blank" rel="noopener noreferrer" title="${esc(`#${Number(pr.number)} ${pr.title}${pr.draft ? ' (draft)' : ''} · ${checks}`)}">${pr.checks ? ciDot(pr.checks, checks) : ''}PR #${Number(pr.number)}${pr.draft ? ' · draft' : ''}</a>`;
+    h += `<a class="pr" href="${safeHref(pr.url)}" target="_blank" rel="noopener noreferrer" title="${esc(`#${Number(pr.number)} ${pr.title}${pr.draft ? ' (draft)' : ''} · ${checks}`)}">${pr.checks ? ciDot(pr.checks, checks) : ''}Pull request #${Number(pr.number)}${pr.draft ? ' · draft' : ''}</a>`;
   }
   return h;
 }

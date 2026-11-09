@@ -13,7 +13,7 @@ const at = (y, mo, d, h = 9, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();
 const p = (line) => parseRoutine(line, TUE);
 
 test('the way people say it', () => {
-  assert.deepEqual(p('feed the animals every day at 6am and 6pm'), { text: 'Feed the animals', rule: { kind: 'daily', at: ['06:00', '18:00'] } });
+  assert.deepEqual(p('walk the dog every day at 6am and 6pm'), { text: 'Walk the dog', rule: { kind: 'daily', at: ['06:00', '18:00'] } });
   assert.deepEqual(p('change the furnace filter every 90 days'), { text: 'Change the furnace filter', rule: { kind: 'every', n: 90, unit: 'day', at: ['09:00'] } });
   assert.deepEqual(p('trash every tue at 7pm'), { text: 'Trash', rule: { kind: 'weekly', days: [2], at: ['19:00'] } });
   assert.deepEqual(p('flea meds monthly on the 1st'), { text: 'Flea meds', rule: { kind: 'monthly', day: 1, at: ['09:00'] } });
@@ -78,7 +78,7 @@ test('every built-in idea reads as a routine', () => {
 
 test('done moves to the next time; early, late, and skip', () => {
   const now = at(2026, 11, 3, 14);
-  const a = addRoutine('feed the animals every day at 6am and 6pm', 'farm', now);
+  const a = addRoutine('walk the dog every day at 6am and 6pm', 'home', now);
   assert.equal(a.due_at, at(2026, 11, 3, 18));
   // Done late (it was due at 6pm, done at 8pm): next is tomorrow 6am.
   assert.equal(advance(a.id, { now: at(2026, 11, 3, 20) }), at(2026, 11, 4, 6));

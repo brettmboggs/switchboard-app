@@ -7,7 +7,7 @@ function find(type, key) {
   if (type === 'run') return S.runs.find((r) => String(r.id) === key);
   if (type === 'ci') return ciRun(key);
   if (type === 'review') return S.reviews.find((r) => String(r.id) === key);
-  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent].find((t) => t.key === key) || convoThread(key) || searchPool.find((t) => t.key === key) || draftThread(key);
+  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent].find((t) => t.key === key) || convoThread(key) || searchPool.find((t) => t.key === key) || draftThread(key) || tcThread(key);
   if (type === 'awaiting') return S.awaiting.find((t) => t.key === key);
   if (type === 'invoice') return S.money.invoices.find((i) => String(i.id) === key);
   if (type === 'item') return [...S.items, ...S.money.bills, ...S.money.paid].find((i) => String(i.id) === key);
@@ -24,6 +24,8 @@ function find(type, key) {
 
 let extra = { key: null, html: '' };
 const loadingExtra = new Set();
+// How a GitHub run ended, in words (GitHub's own word is in the tooltip).
+const RUN_WORD = { success: 'Passed', failure: 'Failed', timed_out: 'Took too long', startup_failure: 'Could not start', action_required: 'Waiting for approval', cancelled: 'Cancelled', skipped: 'Skipped', neutral: 'Finished', stale: 'Out of date' };
 function loadExtra(key, url, fmt) {
   if (extra.key === key || loadingExtra.has(key)) return;
   loadingExtra.add(key);
@@ -76,28 +78,28 @@ function renderDetail() {
   if (t === 'session') {
     html = kick('Claude session') + `<h2>${esc(x.repo || 'Claude')}</h2>
       <dl class="facts"><dt>State</dt><dd>${esc({ waiting: 'Needs you', finished: 'Your turn', running: 'Working', idle: 'Idle' }[x.state] || x.state)}${x.detail ? ' · ' + esc(x.detail) : ''}</dd>
-      <dt>Folder</dt><dd class="mono">${esc(x.cwd || '')}</dd><dt>Window</dt><dd>${esc(x.windowTitle || 'Not found yet. Send it a prompt and it is remembered.')}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
-      ${x.prompt ? `<div class="mono muted">You asked</div><div class="quote">${esc(x.prompt)}</div>` : ''}
-      ${x.lastMessage ? `<div class="mono muted" style="margin-top:10px">Claude's last words</div><div class="quote">${esc(x.lastMessage)}</div>` : ''}
-      <div class="actions">${x.termId ? `<button class="btn btn--primary" data-act="open-term" type="button">Open in Sessions</button>` : x.windowId ? `<button class="btn btn--primary" data-act="focus" type="button">Jump to window</button>` : ''}${x.state === 'finished' ? `<button class="btn" data-act="seen" type="button">Got it</button>` : ''}
+      ${x.cwd ? `<dt>Folder</dt><dd title="${esc(x.cwd)}">${esc(x.cwd.split(/[\\/]/).filter(Boolean).pop() || x.cwd)}</dd>` : ''}${x.termId ? '' : `<dt>Window</dt><dd>${esc(x.windowTitle || 'Not found yet. It is found the next time you send this session a message.')}</dd>`}<dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      ${x.prompt ? `<div class="mono muted">Last message to it</div><div class="quote">${esc(x.prompt)}</div>` : ''}
+      ${x.lastMessage ? `<div class="mono muted" style="margin-top:10px">Its last reply</div><div class="quote">${esc(x.lastMessage)}</div>` : ''}
+      <div class="actions">${x.termId ? `<button class="btn btn--primary" data-act="open-term" type="button">Open in Sessions</button>` : x.windowId ? `<button class="btn btn--primary" data-act="focus" type="button">Jump to window</button>` : ''}${x.state === 'finished' || x.state === 'waiting' ? `<button class="btn" data-act="seen" type="button" title="Take it off Needs you. It comes back when the session asks for you again.">Clear</button>` : ''}
       ${!x.termId && x.cwd ? `<button class="btn" data-act="move" type="button">Move into Switchboard</button>` : ''}</div>
       ${!x.termId && x.cwd ? `<p class="note-line">Move: close this session in VS Code first, then it reopens here with the same conversation.</p>` : ''}
       ${extra.key === x.id ? extra.html : ''}`;
-    loadExtra(x.id, `/api/session/${encodeURIComponent(x.id)}`, (d) => `<ul class="tl">${d.events.map((e) => `<li><span class="when">${when(e.at)}</span> ${esc(e.event)}${e.info ? ' · ' + esc(e.info) : ''}</li>`).join('')}</ul>`);
+    loadExtra(x.id, `/api/session/${encodeURIComponent(x.id)}`, (d) => `<ul class="tl">${d.events.map((e) => `<li><span class="when">${when(e.at)}</span> ${esc(e.what)}${e.more ? ' · ' + esc(e.more) : ''}</li>`).join('')}</ul>`);
   } else if (t === 'run') {
     const sib = S.runs.filter((r) => r.repo === x.repo && r.title === x.title);
     const failed = sib.filter((r) => r.state === 'failed');
     html = kick('GitHub Actions') + `<h2>${esc(x.title)}</h2>
-      <ul class="tl">${sib.map((r) => `<li><a href="${safeHref(r.url)}" target="_blank" rel="noopener">${esc(r.workflow)}</a> · ${esc(r.conclusion || 'running')}</li>`).join('')}</ul>
-      <dl class="facts"><dt>Repo</dt><dd>${esc(x.fullName)}</dd><dt>Branch</dt><dd>${esc(x.branch)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      <ul class="tl">${sib.map((r) => `<li><a href="${safeHref(r.url)}" target="_blank" rel="noopener">${esc(r.workflow)}</a> · <span${r.conclusion ? ` title="${esc(r.conclusion)}"` : ''}>${esc(RUN_WORD[r.conclusion] || (r.conclusion ? String(r.conclusion).replace(/_/g, ' ') : 'Running'))}</span></li>`).join('')}</ul>
+      <dl class="facts"><dt>Project</dt><dd title="On GitHub: ${esc(x.fullName)}">${esc(x.repo || x.fullName)}</dd><dt>Branch</dt><dd>${esc(x.branch)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
       <div class="actions">${failed.length ? `<button class="btn btn--primary" data-act="rerun" type="button">Re-run failed</button>` : ''}<a class="btn" href="${safeHref(x.url)}" target="_blank" rel="noopener">Open on GitHub</a><button class="btn" data-act="clear" type="button">Clear</button></div>`;
   } else if (t === 'ci') {
     html = ciDetail(x, kick);
   } else if (t === 'review') {
     html = kick('Pull request') + `<h2>${esc(x.title)}</h2>
-      <dl class="facts"><dt>Repo</dt><dd>${esc(x.repo)} #${Number(x.number)}</dd><dt>By</dt><dd>${esc(x.author)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
+      <dl class="facts"><dt>Project</dt><dd>${esc(x.repo)} #${Number(x.number)}</dd><dt>By</dt><dd>${esc(x.author)}</dd><dt>Updated</dt><dd>${since(x.updatedAt)}</dd></dl>
       <div class="actions"><a class="btn" href="${safeHref(x.url)}" target="_blank" rel="noopener">Read it on GitHub</a><button class="btn btn--primary" data-act="approve" type="button">Approve</button>
-      <button class="btn ${mergeArmed === x.id ? 'btn--danger' : ''}" data-act="merge" type="button">${mergeArmed === x.id ? 'Click again to squash and merge' : 'Merge'}</button><button class="btn" data-act="clear" type="button">Clear</button></div>`;
+      <button class="btn ${mergeArmed === x.id ? 'btn--danger' : ''}" data-act="merge" type="button">${mergeArmed === x.id ? 'Click again to merge' : 'Merge'}</button><button class="btn" data-act="clear" type="button">Clear</button></div>`;
   } else if (t === 'awaiting') {
     html = kick('Waiting on them') + `<h2>${esc(x.subject)}</h2>
       <dl class="facts"><dt>To</dt><dd>${esc(x.who)}</dd><dt>Sent</dt><dd>${when(x.date)} · ${since(x.date)}</dd></dl>
@@ -107,6 +109,12 @@ function renderDetail() {
       <div class="row"><button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn btn--primary" type="button" data-act="send">Send follow-up</button><span class="note-line">Goes in the same thread. Ctrl+Enter sends.</span></div></div>
       <div class="actions"><button class="btn" data-act="stop-waiting" type="button">Stop waiting</button>${x.link ? `<a class="btn" href="${safeHref(x.link)}" target="_blank" rel="noopener">Open in Gmail</a>` : ''}</div>`;
     loadExtra(x.key, `/api/thread?key=${encodeURIComponent(x.key)}`, msgsHtml);
+  } else if (x.shared && (t === 'invoice' || t === 'item')) {
+    // From a shared project (the web board): what its owner's computer shares, to read.
+    const label = t === 'invoice' ? 'Invoice out' : { bill: 'Recurring cost', paid: 'Payment' }[x.kind] || 'Item';
+    html = kick(label) + `<h2>${esc(x.text)}</h2>
+      <dl class="facts">${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}${x.kind === 'bill' ? `<dt>Next</dt><dd>${x.next ? dayOnly(x.next) : 'no date'} · ${esc(CADENCE_WORD[x.cadence] || x.cadence)}</dd>` : x.due_at ? `<dt>Due</dt><dd>${dayOnly(x.due_at)}</dd>` : ''}<dt>Project</dt><dd>${esc(spaceOf(x.space).name)}</dd></dl>
+      <p class="muted small">Shared with you from ${esc(spaceOf(x.space).name)}. Changes are made in the Switchboard of whoever shares it.</p>`;
   } else if (t === 'invoice') {
     html = kick('Invoice out') + `<h2>${esc(x.text)}</h2>
       <dl class="facts"><dt>Amount</dt><dd>${$$(x.amount)}</dd><dt>Sent</dt><dd>${when(x.created_at)}</dd>${x.due_at ? `<dt>Due</dt><dd>${dayOnly(x.due_at)}</dd>` : ''}</dl>
@@ -119,7 +127,7 @@ function renderDetail() {
   } else if (t === 'item' || t === 'done') {
     const label = { note: 'Note', todo: 'To-do', reminder: 'Reminder', paid: 'Payment', bill: 'Bill' }[x.kind] || 'Item';
     html = kick(label) + `<h2>${esc(x.text)}</h2>
-      <dl class="facts">${x.due_at && x.kind !== 'bill' ? `<dt>Due</dt><dd>${when(x.due_at)}</dd>` : ''}${x.kind === 'bill' ? `<dt>Next</dt><dd>${x.next ? dayOnly(x.next) : 'no date'} · ${esc(x.cadence)}</dd>` : ''}${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Added</dt><dd>${when(x.created_at)}</dd></dl>
+      <dl class="facts">${x.due_at && x.kind !== 'bill' ? `<dt>Due</dt><dd>${when(x.due_at)}</dd>` : ''}${x.kind === 'bill' ? `<dt>Next</dt><dd>${x.next ? dayOnly(x.next) : 'no date'} · ${esc(CADENCE_WORD[x.cadence] || x.cadence)}</dd>` : ''}${x.amount != null ? `<dt>Amount</dt><dd>${$$(x.amount)}</dd>` : ''}<dt>Added</dt><dd>${when(x.created_at)}</dd></dl>
       <div class="actions">${t === 'done' ? `<button class="btn" data-act="undo" type="button">Not done</button>` : (x.kind === 'reminder' || x.kind === 'todo') ? `<button class="btn btn--primary" data-act="done" type="button">Done</button><button class="btn" data-act="snooze" data-hours="1" type="button">1 hour</button><button class="btn" data-act="snooze" data-hours="tomorrow" type="button">Tomorrow 9am</button>` : ''}<button class="btn" data-act="delete" type="button">Delete</button></div>`;
   } else if (t === 'routine') {
     html = routineDetail(x, kick);
@@ -149,7 +157,7 @@ function renderDetail() {
 function render() {
   if (!S) return;
   renderShell();
-  ({ now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, calendar: renderCalendar, inbox: renderInbox, money: renderMoney, notes: renderNotes, project: renderProject, unsorted: renderUnsorted })[page]();
+  ({ deck: renderDeck, now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, calendar: renderCalendar, inbox: renderInbox, money: renderMoney, notes: renderNotes, project: renderProject, unsorted: renderUnsorted })[page]();
   document.body.dataset.page = page;
   syncConvo();
   $('term-host').hidden = page !== 'sessions' || !currentTerm;
@@ -161,6 +169,7 @@ function render() {
   renderImages();
   renderAccountPrompts();
   if (page === 'sessions') { syncTerminal(); renderTermCompose(); } else closeTerminal();
+  seeOpenSession();
   renderDetail();
   renderWindows();
   alignPanel();

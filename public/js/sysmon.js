@@ -75,7 +75,7 @@ function buildMonitor() {
         <div class="res-head"><h3>Processor</h3><span class="aside" id="cpu-model"></span></div>
         <div class="res-nums"><div><span class="big" id="cpu-big">–</span></div><div class="facts" id="cpu-facts"></div></div>
         ${chartHtml('cpu-chart', '', 'Processor use')}
-        <div class="cores" id="cpu-cores" aria-label="Each processor thread" role="img"></div>
+        <div class="cores" id="cpu-cores" aria-label="Each processor core" role="img"></div>
       </section>
       <section class="card res" aria-label="Memory">
         <div class="res-head"><h3>Memory</h3><span class="aside" id="mem-aside"></span></div>
@@ -114,7 +114,33 @@ function pushHist(s) {
   add(h.down, s.net ? s.net.down : 0); add(h.up, s.net ? s.net.up : 0);
   s.gpus.forEach((g, i) => add((h.gpu[i] = h.gpu[i] || []), g.pct ?? 0));
 }
-const meterRow = (name, val, pct, cls) => `<div class="mrow"><span class="name" title="${esc(name)}">${esc(name)}</span><span class="val">${esc(val)}</span><div class="meter meter--${cls}"><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div></div>`;
+const meterRow = (name, val, pct, cls, title = name) => `<div class="mrow"><span class="name" title="${esc(title)}">${esc(name)}</span><span class="val">${esc(val)}</span><div class="meter meter--${cls}"><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div></div>`;
+
+// Storage and sensors in plain names; what the system calls them (a mount path,
+// a chip and sensor like k10temp Tctl) stays in the tooltip. lib/sysprobe.js may
+// already send a plain label with the raw one in raw: those pass through.
+function diskName(d) {
+  const m = String(d.mount || '');
+  if (m === '/' || m === '/System/Volumes/Data') return 'Main disk';
+  if (/^\/boot(\/efi)?$/.test(m)) return 'Startup disk';
+  const drive = m.match(/^([A-Z]):[\\/]?$/i);
+  if (drive) return `Drive ${drive[1].toUpperCase()}:`;
+  const last = m.split(/[\\/]/).filter(Boolean).pop() || m;
+  return last[0] ? last[0].toUpperCase() + last.slice(1) : m;
+}
+function sensorName(t) {
+  const l = String(t.label || ''), chip = String(t.chip || '').toLowerCase();
+  if (/^T(ctl|die|ccd\d*)$/i.test(l) || /^package id/i.test(l) || /^(k10temp|zenpower|coretemp|cpu_thermal|cpu-thermal)$/i.test(l) || (/^(k10temp|zenpower|coretemp)$/.test(chip) && !/^core \d+/i.test(l))) return 'Processor';
+  const core = l.match(/^core (\d+)$/i);
+  if (core) return `Processor core ${Number(core[1]) + 1}`;
+  if (chip === 'nvme' || /^nvme/i.test(l) || (/^(composite|sensor \d+)$/i.test(l) && chip === 'nvme')) return 'SSD';
+  if (/^(amdgpu|radeon|nouveau)$/.test(chip) || /^(amdgpu|radeon|nouveau)$/i.test(l)) return /junction/i.test(l) ? 'Graphics, hottest spot' : /^mem$/i.test(l) ? 'Graphics memory' : 'Graphics';
+  if (/^(acpitz|acpi)$/.test(chip)) return 'Motherboard';
+  if (/^iwlwifi/.test(chip) || /^iwlwifi/i.test(l)) return 'Wi-Fi';
+  if (/^(drivetemp)$/.test(chip)) return 'Hard drive';
+  return l;
+}
+const sensorRaw = (t) => t.raw || (t.chip && String(t.chip).toLowerCase() !== String(t.label).toLowerCase() ? `${t.chip} ${t.label}` : t.label);
 
 function updateMonitor(s) {
   $('mon-sub').textContent = `${s.host} · ${PLATFORM[s.platform] || s.platform} ${s.release} · up ${fmtUp(s.uptime)}`;
@@ -126,11 +152,11 @@ function updateMonitor(s) {
   // processor
   $('cpu-big').innerHTML = `${Math.round(s.cpu.pct)}<small>%</small>`;
   $('cpu-model').textContent = s.cpu.model;
-  $('cpu-facts').innerHTML = `<span><b>${s.cpu.count}</b> threads</span>${s.cpu.mhz ? `<span><b>${(s.cpu.mhz / 1000).toFixed(1)}</b> GHz</span>` : ''}${s.cpu.load != null ? `<span>load <b>${s.cpu.load.toFixed(2)}</b></span>` : ''}`;
+  $('cpu-facts').innerHTML = `<span title="${s.cpu.count} threads"><b>${s.cpu.count}</b> processor cores</span>${s.cpu.mhz ? `<span><b>${(s.cpu.mhz / 1000).toFixed(1)}</b> GHz</span>` : ''}${s.cpu.load != null ? `<span title="Load average ${s.cpu.load.toFixed(2)}: how many tasks were waiting for the processor, over the last minute">workload <b>${s.cpu.load.toFixed(2)}</b></span>` : ''}`;
   drawChart('cpu-chart', [MON.hist.cpu], 100, pctFmt, 'Processor');
   const cores = $('cpu-cores');
   if (cores.children.length !== s.cpu.cores.length) cores.innerHTML = s.cpu.cores.map(() => '<i></i>').join('');
-  s.cpu.cores.forEach((p, i) => { const b = cores.children[i]; b.style.height = Math.max(4, p) + '%'; b.className = heat(p); b.title = `Thread ${i + 1}: ${Math.round(p)}%`; });
+  s.cpu.cores.forEach((p, i) => { const b = cores.children[i]; b.style.height = Math.max(4, p) + '%'; b.className = heat(p); b.title = `Core ${i + 1}: ${Math.round(p)}%`; });
 
   // memory
   $('mem-big').innerHTML = `${Math.round(s.mem.pct)}<small>%</small>`;
@@ -149,12 +175,13 @@ function updateMonitor(s) {
   drawChart('net-chart', [MON.hist.down, MON.hist.up], top, fmtRate, 'Network');
 
   // storage
-  $('mon-disks').innerHTML = s.disks.map((d) => { const used = (1 - d.free / d.total) * 100, left = d.free / d.total * 100; return meterRow(d.mount, `${fmtB(d.free, 0)} free of ${fmtB(d.total, 0)}`, used, left < 8 ? 'hi' : left < 15 ? 'mid' : 'lo'); }).join('') || '<p class="mon-note">No disks could be read.</p>';
+  $('mon-disks').innerHTML = s.disks.map((d) => { const used = (1 - d.free / d.total) * 100, left = d.free / d.total * 100; return meterRow(diskName(d), `${fmtB(d.free, 0)} free of ${fmtB(d.total, 0)}`, used, left < 8 ? 'hi' : left < 15 ? 'mid' : 'lo', d.mount); }).join('') || '<p class="mon-note">No disks could be read.</p>';
 
   // temperatures and fans
-  const temps = [...s.temps].sort((a, b) => b.c - a.c).slice(0, 8);
+  // Hottest first, one row per plain name (Tctl and Tdie are both the processor).
+  const seen = new Set(), temps = [...s.temps].sort((a, b) => b.c - a.c).map((t) => ({ ...t, name: sensorName(t) })).filter((t) => !seen.has(t.name) && seen.add(t.name)).slice(0, 8);
   $('temp-aside').textContent = temps.length ? `hottest ${Math.round(temps[0].c)}°C` : '';
-  $('mon-temps').innerHTML = temps.map((t) => meterRow(t.label, Math.round(t.c) + '°C', (t.c - 20) / 80 * 100, t.c >= 85 ? 'hi' : t.c >= 70 ? 'mid' : 'lo')).join('') || '<p class="mon-note">No temperature readings on this computer.</p>';
+  $('mon-temps').innerHTML = temps.map((t) => meterRow(t.name, Math.round(t.c) + '°C', (t.c - 20) / 80 * 100, t.c >= 85 ? 'hi' : t.c >= 70 ? 'mid' : 'lo', sensorRaw(t))).join('') || '<p class="mon-note">No temperature readings on this computer.</p>';
   const fans = s.fans.slice(0, 8), fmax = Math.max(3000, ...fans.map((f) => f.rpm * 1.15));
   $('fan-aside').textContent = fans.length ? `${fans.length} spinning` : '';
   $('mon-fans').innerHTML = fans.map((f) => `<div class="fanrow"><div class="dial" style="--pct:${Math.min(100, f.rpm / fmax * 100)}"><b>${Math.round(f.rpm)}</b></div><span class="mon-note">${esc(f.label)}<br>rpm</span></div>`).join('') || '<p class="mon-note">No fan readings.</p>';

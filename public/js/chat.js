@@ -2,7 +2,7 @@
 // as a clean conversation (the user, the agent, its tool calls folded to one line
 // each), the message bar as the one place to type, and the agent's questions
 // (permissions, choices) as buttons, read off its screen (lib/agentmenu.js).
-// "Chat | Terminal" on the session's bar is kept per session; Settings, Look,
+// "Chat | Terminal" on the session's bar is kept per session; Settings, General,
 // "Sessions open in" picks what they start as (Chat unless changed), and the
 // first chat asks once whether to keep it.
 // The server reads the transcript by byte offset and sends only what is new
@@ -66,7 +66,7 @@ document.addEventListener('click', (e) => {
     useSessionView(v);
     api('/api/settings', { prefs: { sessionView: v } }).catch(() => {});
     $('chat-first')?.remove();
-    if (v === 'term') toast('Sessions open in the terminal now. Change it any time in Settings, Look.');
+    if (v === 'term') toast('Sessions open in the terminal now. Change it any time in Settings, General.');
     render(); return;
   }
   const pick = e.target.closest('[data-menu-pick]');
@@ -92,7 +92,7 @@ function chatHost() {
   host = document.createElement('div');
   host.id = 'chat-host'; host.className = 'chat-host'; host.hidden = true;
   host.innerHTML = `<div class="chat-scroll" id="chat-scroll"><div class="chat-col">
-      ${store.get('viewAsked', false) ? '' : `<div class="chat-first" id="chat-first" role="note"><p><b>Sessions open as a chat now.</b> Prefer Claude's own terminal? Pick one; you can change it any time in Settings, Look, or with Chat | Terminal on a session.</p><div class="cf-btns"><button type="button" class="btn btn--primary btn--sm" data-view-pick="chat">Keep chat</button><button type="button" class="btn btn--sm" data-view-pick="term">Use the terminal</button></div></div>`}
+      ${store.get('viewAsked', false) ? '' : `<div class="chat-first" id="chat-first" role="note"><p><b>Sessions open as a chat now.</b> Prefer Claude's own terminal? Pick one; you can change it any time in Settings, General, or with Chat | Terminal on a session.</p><div class="cf-btns"><button type="button" class="btn btn--primary btn--sm" data-view-pick="chat">Keep chat</button><button type="button" class="btn btn--sm" data-view-pick="term">Use the terminal</button></div></div>`}
       <button class="btn btn--sm chat-earlier" type="button" data-chat-earlier hidden>Show earlier</button>
       <div class="chat-list" id="chat-list" aria-label="Conversation"></div>
       <div class="chat-live" id="chat-live" aria-live="polite"></div></div></div>
@@ -133,7 +133,7 @@ function openChat(key) {
   host.querySelector('[data-chat-earlier]').hidden = true;
   renderChatLive();
   fetchChat();
-  if (!window.chatStream && typeof es !== 'undefined') {
+  if (!window.chatStream && typeof es !== 'undefined' && es) {
     window.chatStream = true;
     es.addEventListener('chat', (e) => { if (cv && e.data === cv.id) fetchChat(); });
   }
@@ -310,11 +310,27 @@ function menuNoIndex() {
 
 // What the agent is doing now, from its newest tool call that has no result yet.
 const TOOL_VERB = { Bash: 'Running', Shell: 'Running', Read: 'Reading', Write: 'Writing', Edit: 'Editing', MultiEdit: 'Editing', NotebookEdit: 'Editing', Grep: 'Searching', Glob: 'Looking for files', WebFetch: 'Reading a web page', WebSearch: 'Searching the web', Task: 'Working with a helper', Agent: 'Working with a helper', TodoWrite: 'Planning' };
+// The same, said after the fact, for the line each finished call leaves.
+const TOOL_DONE = { Bash: 'Ran a command', Shell: 'Ran a command', Read: 'Read a file', Write: 'Wrote a file', Edit: 'Edited a file', MultiEdit: 'Edited a file', NotebookEdit: 'Edited a notebook', Grep: 'Searched', Glob: 'Looked for files', WebFetch: 'Read a web page', WebSearch: 'Searched the web', Task: 'Asked a helper', Agent: 'Asked a helper', TodoWrite: 'Updated the to-do list', ToolSearch: 'Looked up its tools', Skill: 'Used a skill', ExitPlanMode: 'Shared a plan', AskUserQuestion: 'Asked you' };
+// A tool's name in words: mcp__switchboard__switchboard_overview is "Switchboard: overview".
+function toolWords(name, past) {
+  const n = String(name || '');
+  const mcp = /^mcp__(.+?)__(.+)$/.exec(n);
+  if (mcp) {
+    const server = mcp[1].replace(/^(claude_ai|plugin_[^_]+)_/, '').replace(/[_-]+/g, ' ').trim();
+    const what = mcp[2].replace(new RegExp('^' + mcp[1].replace(/[^a-z0-9]/gi, '.') + '_', 'i'), '').replace(new RegExp('^' + server.replace(/[^a-z0-9]/gi, '.') + '_', 'i'), '').replace(/[_-]+/g, ' ').trim();
+    const who = server.charAt(0).toUpperCase() + server.slice(1);
+    return `${past ? 'Used' : 'Using'} ${who}${what ? `: ${what}` : ''}`;
+  }
+  const map = past ? TOOL_DONE : TOOL_VERB;
+  if (map[n]) return map[n];
+  return `${past ? 'Used' : 'Using'} ${n.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase()}`;
+}
 function chatDoing() {
   const items = cv?.items || [];
   for (let i = items.length - 1; i >= 0 && i >= items.length - 30; i--) {
     const m = items[i];
-    if (m.k === 'tool') return m.res ? null : { verb: TOOL_VERB[m.name] || `Using ${m.name}`, sum: m.sum || '' };
+    if (m.k === 'tool') return m.res ? null : { verb: toolWords(m.name), sum: m.sum || '' };
     if (m.k === 'text' || m.k === 'user') return null;
   }
   return null;
@@ -342,7 +358,7 @@ function renderChatLive() {
   } else if (t.state === 'waiting') {
     html = `<div class="chat-wait"><div class="cw-head">Needs you</div><p class="cw-q">${esc(t.detail || `${t.agentName} is asking for a decision.`)}</p><p class="cw-how">This question could not be read here. Answer it in the terminal, then come back.</p><button class="btn btn--primary btn--sm" type="button" data-chat-answer>Open the terminal</button></div>`;
   } else if (cv.why) {
-    html = `<p class="chat-empty">${esc({ starting: 'Waiting for Claude to start. The conversation shows here as soon as it does.', nofile: 'Nothing said yet. Write below and the conversation shows here.', unreadable: 'Could not read this session\'s transcript. The terminal still has everything.' }[cv.why] || 'Nothing to show yet.')}</p>`;
+    html = `<p class="chat-empty">${esc({ starting: 'Waiting for Claude to start. The conversation shows here as soon as it does.', nofile: 'Nothing said yet. Write below and the conversation shows here.', unreadable: 'Could not read this conversation. The terminal still has everything.' }[cv.why] || 'Nothing to show yet.')}</p>`;
   } else if (t.state === 'running') {
     const d = chatDoing();
     html = `<div class="chat-working"><span class="cwk-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cwk-verb">${esc(d?.verb || 'Thinking')}</span>${d?.sum ? `<span class="cwk-sum">${esc(d.sum)}</span>` : ''}</div>`;
@@ -379,7 +395,9 @@ function chatNode(m) {
   // A tool call: one line, opened to show what went in and what came back.
   const d = elt('details', 'cm cm-tool');
   const s = elt('summary');
-  s.append(elt('span', 'ct-mark'), elt('span', 'ct-name', m.name), elt('span', 'ct-sum', m.sum || ''));
+  const nm = elt('span', 'ct-name', toolWords(m.name, true));
+  nm.title = m.name;
+  s.append(elt('span', 'ct-mark'), nm, elt('span', 'ct-sum', m.sum || ''));
   d.append(s);
   d.chatItem = m;
   m.el = d;
@@ -403,9 +421,24 @@ function chatToolBody(m, again) {
   if (body && !again) return;
   if (!body) { body = elt('div', 'ct-body'); d.append(body); }
   body.textContent = '';
-  if (m.input && m.input !== '{}') { body.append(elt('div', 'ct-label', 'Input'), elt('pre', 'ct-pre', m.input)); }
+  if (m.input && m.input !== '{}') {
+    body.append(elt('div', 'ct-label', 'Details'));
+    const main = toolMain(m.input);
+    if (main) body.append(elt('p', 'ct-main', main));
+    const raw = elt('details', 'ct-raw'); raw.append(elt('summary', null, 'Everything it sent'), elt('pre', 'ct-pre', m.input));
+    body.append(raw);
+  }
   if (m.res) body.append(elt('div', 'ct-label', m.res.err ? 'Error' : 'Result'), elt('pre', 'ct-pre' + (m.res.err ? ' err' : ''), m.res.t || '(nothing)'));
   else body.append(elt('div', 'ct-label', 'No result yet'));
+}
+
+// The one field that says what a tool call was about, in words.
+function toolMain(input) {
+  let o; try { o = JSON.parse(input); } catch { return ''; }
+  if (!o || typeof o !== 'object') return '';
+  const pick = [['command', 'Command'], ['file_path', 'File'], ['notebook_path', 'File'], ['path', 'Folder'], ['pattern', 'Looking for'], ['query', 'Looking for'], ['url', 'Page'], ['description', 'About'], ['prompt', 'Asked']];
+  for (const [k, w] of pick) if (typeof o[k] === 'string' && o[k].trim()) return `${w}: ${o[k].trim().slice(0, 400)}`;
+  return '';
 }
 
 // ---------- markdown, the safe little subset: paragraphs, headings, lists,

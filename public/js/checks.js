@@ -55,11 +55,12 @@ function bcRow(c) {
 
 // Sessions, Browser checks.
 function renderChecksPage() {
+  if (window.WEB) return renderWebChecks();
   const list = bcList();
   $('page').innerHTML = `<div class="sessions-head"><h1 class="page-title">Sessions</h1>${subTabs()}<span class="grow"></span>
       <button class="btn btn--primary" type="button" data-bc="new">Add a check</button></div>
     <section class="card bc-card">${list.length ? `<div class="list">${list.map(bcRow).join('')}</div>`
-      : `<p class="empty">A check opens a page, or runs a project's Playwright tests, in a browser you never see, and puts a Needs-you card on Now when something breaks. Add one here, or ask an agent to set one up for you.</p>`}</section>`;
+      : `<p class="empty">A check opens a page, or runs your project's own browser tests (Playwright), in a browser you never see, and puts a Needs-you card on Now when something breaks. Add one here, or ask an agent to set one up for you.</p>`}</section>`;
 }
 
 function findCheck(key) {
@@ -71,13 +72,14 @@ function checkDetail(x, kick) {
   const r = (bcRun?.check === x.id && x.runs.find((y) => y.id === bcRun.run)) || bcLive(x) || bcLast(x);
   const newest = r && r === (bcLive(x) || bcLast(x));
   const fails = (r?.failures || []).map((f) => `<li><div class="bc-ft">${ciDot('failure')}<b>${esc(f.title)}</b></div>
-      <div class="mono muted">${esc(f.file)}${f.line ? ':' + Number(f.line) : ''}${f.project ? ' · ' + esc(f.project) : ''}</div>
-      <pre class="bc-err">${esc(f.error)}</pre>
+      <details class="bc-tech"><summary class="muted small">Technical details</summary>
+        <div class="mono muted">${esc(f.file)}${f.line ? ':' + Number(f.line) : ''}${f.project ? ' · ' + esc(f.project) : ''}</div>
+        <pre class="bc-err">${esc(f.error)}</pre></details>
       ${f.shots.length ? `<div class="bc-shots">${f.shots.map((n) => `<a href="${bcShot(r, n)}" target="_blank" rel="noopener"><img src="${bcShot(r, n)}" alt="Screenshot of ${esc(f.title)}" loading="lazy"></a>`).join('')}</div>` : ''}</li>`).join('');
   const pageShot = x.kind === 'page' && r?.shots ? `<a class="bc-page" href="${bcShot(r, 0)}" target="_blank" rel="noopener"><img src="${bcShot(r, 0)}" alt="The page as the check saw it" loading="lazy"></a>` : '';
   const facts = x.kind === 'page'
     ? [['Page', `<a href="${safeHref(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>`], x.expect && ['Must show', esc(x.expect)]]
-    : [['Folder', `<span class="mono">${esc(x.folder)}</span>`], ['Command', `<span class="mono">${esc(x.command)}</span>`]];
+    : [['Folder', `<span title="${esc(x.folder)}">${esc(x.folder.split(/[\\/]/).filter(Boolean).pop() || x.folder)}</span>`]];
   facts.push(['Runs', esc(BC_EVERY[x.every] || '')]);
   if (r) facts.push(['Started', `${when(r.startedAt)}${r.by === 'schedule' ? ' · on schedule' : ''}`]);
   const status = r ? `<p class="ci-status ${esc(r.state)}">${ciDot(r.state)} ${esc(CI_LABEL[r.state] || r.state)} · ${bcTime(r)}</p>` : '<p class="muted">Not run yet. Run it to see how it goes.</p>';
@@ -89,6 +91,7 @@ function checkDetail(x, kick) {
     ${pageShot}
     ${fails ? `<div class="section-label">Failed</div><ul class="bc-flist">${fails}</ul>` : ''}
     <dl class="facts">${facts.filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+    ${x.kind === 'page' ? '' : `<details class="bc-tech"><summary class="muted small">More</summary><dl class="facts"><dt>Folder</dt><dd class="mono">${esc(x.folder)}</dd><dt>Command</dt><dd class="mono">${esc(x.command)}</dd></dl></details>`}
     <div class="actions">${bcLive(x) ? `<button class="btn btn--danger" type="button" data-bc="cancel" data-id="${x.id}">Cancel run</button>` : `<button class="btn btn--primary" type="button" data-bc="run" data-id="${x.id}" ${x.signin && x.signin.state !== 'ok' ? 'disabled title="Sign in first"' : ''}>Run now</button>`}
       ${bcLast(x)?.state === 'failure' && !x.cleared ? '<button class="btn" data-act="clear" type="button">Clear</button>' : ''}
       <button class="btn" type="button" data-bc="edit" data-id="${x.id}">Change</button>
@@ -127,9 +130,9 @@ function bcSetKind(kind) {
   document.querySelectorAll('[data-bc-kind]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.bcKind === kind)));
   document.querySelectorAll('.bc-ftests').forEach((el) => { el.hidden = kind !== 'tests'; });
   document.querySelectorAll('.bc-fpage').forEach((el) => { el.hidden = kind !== 'page'; });
-  $('bc-note').textContent = kind === 'tests'
-    ? 'Runs the project\'s own Playwright tests and shows which failed, with screenshots. For a site that needs sign-in, add its sign-in page: you sign in yourself in a window on this computer, and your password never goes through Switchboard.'
-    : 'Fails if the page won\'t load or the words never show. First time: node scripts/setup.mjs browser.';
+  $('bc-note').innerHTML = kind === 'tests'
+    ? 'Runs the project\'s own browser tests (Playwright) and shows which failed, with screenshots. For a site that needs sign-in, add its sign-in page: you sign in yourself in a window on this computer, and your password never goes through Switchboard.'
+    : 'Fails if the page won\'t load or the words never show. The first time, Switchboard needs its checking browser (a one-time download of about 170 MB). <button class="btn btn--sm" type="button" data-bc-setup title="Runs node scripts/setup.mjs browser in Switchboard\'s folder">Set up the checking browser</button>';
 }
 async function bcOpen(c) {
   bcSheet();
@@ -153,6 +156,7 @@ async function bcOpen(c) {
 }
 
 document.addEventListener('click', async (e) => {
+  if (e.target.closest('[data-bc-setup]')) { closeDialog('bc-scrim'); runInTerminal('node scripts/setup.mjs browser', true); return; }
   const kind = e.target.closest('[data-bc-kind]');
   if (kind) { bcSetKind(kind.dataset.bcKind); return; }
   const pick = e.target.closest('[data-bc-pick]');
@@ -166,7 +170,7 @@ document.addEventListener('click', async (e) => {
   b.disabled = true;
   try {
     await api('/api/checks/' + act, { id });
-    if (act === 'run') { bcRun = null; if (!selected || selected.type !== 'check') selected = { type: 'check', key: String(id) }; toast('Running it, headless.'); }
+    if (act === 'run') { bcRun = null; if (!selected || selected.type !== 'check') selected = { type: 'check', key: String(id) }; toast('Running it in the background.'); }
     if (act === 'remove') { bcSure = null; selected = null; toast('Check removed.'); }
     await load();
   } catch (err) { toast(err.message, { kind: 'error' }); }
@@ -178,7 +182,7 @@ document.addEventListener('change', async (e) => {
   if (e.target.id !== 'bc-folder' || !e.target.value.trim()) return;
   try {
     const f = await api('/api/checks/inspect', { folder: e.target.value.trim() });
-    $('bc-msg').textContent = !f.exists ? 'No folder there on this computer.' : !f.config ? 'No playwright.config in that folder. Use a command that runs your tests, or pick the folder that has it.' : !f.installed ? `Found ${f.config}, but Playwright isn't installed there yet: run npm install in that folder.` : `Found ${f.config}.`;
+    $('bc-msg').textContent = f.note || (!f.exists ? 'No folder there on this computer.' : !f.config ? 'This folder has no browser tests set up yet (Playwright). Pick the folder that has them, or change the command under More.' : !f.installed ? 'This folder\'s browser tests need installing first.' : 'Found its browser tests.');
   } catch {}
 });
 

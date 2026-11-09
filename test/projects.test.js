@@ -6,8 +6,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 process.env.SWITCHBOARD_DATA = mkdtempSync(join(tmpdir(), 'sb-projects-'));
-const { db, setSetting } = await import('../lib/db.js');
-const { cleanProfile, foundPeople, saveProfile, safeName } = await import('../lib/projects.js');
+const { db, setSetting, getSetting } = await import('../lib/db.js');
+const { cleanProfile, foundPeople, saveProfile, profileOf, safeName } = await import('../lib/projects.js');
 
 test('profile: only web, mail and phone links; empty people dropped', () => {
   const p = cleanProfile({ links: [{ url: 'example.com/wp-admin' }, { url: 'javascript:alert(1)' }, { url: 'data:text/html,x' }, { url: 'mailto:a@b.co' }], people: [{}, { name: 'Pat' }] });
@@ -41,4 +41,17 @@ test('people found in the mail', () => {
   // Added to People, or hidden: no longer offered.
   saveProfile('acme', { people: [{ name: 'Pat Owner', email: 'pat@acme.test' }], hidden: ['sam@acme.test'] });
   assert.deepEqual(foundPeople('acme'), []);
+});
+
+test('an About form open a while saves only its own changes, not over newer ones (review M7)', () => {
+  setSetting('spaces', [...getSetting('spaces', []).filter((s) => s.id !== 'shop'), { id: 'shop', name: 'Shop' }]);
+  saveProfile('shop', { about: 'A shop', people: [{ name: 'Rae Kim', email: 'rae@shop.example' }, { name: 'Sam Lee', email: 'sam@shop.example' }], links: [] });
+  const was = profileOf('shop');
+  // While the form is open: × takes Sam off the card, and a shared sync adds Jordan.
+  saveProfile('shop', { ...profileOf('shop'), people: [{ name: 'Rae Kim', email: 'rae@shop.example' }, { name: 'Jordan Park', email: 'jordan@shop.example' }] });
+  // The form, as it was opened, with the about line changed and Riley added.
+  const next = { ...was, about: 'A small shop', people: [...was.people, { name: 'Riley Stone', email: 'riley@shop.example' }] };
+  const out = saveProfile('shop', { ...next, was });
+  assert.equal(out.about, 'A small shop');
+  assert.deepEqual(out.people.map((x) => x.email).sort(), ['jordan@shop.example', 'rae@shop.example', 'riley@shop.example'], 'Sam stays off, Jordan stays on, Riley comes on');
 });

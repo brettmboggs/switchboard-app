@@ -14,6 +14,8 @@
 // See desktop/README.md for why it is built this way.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod links;
+
 use std::fs::{self, OpenOptions};
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
@@ -173,6 +175,15 @@ fn show_in_browser(b: &std::path::Path) {
     }
 }
 
+// Switchboard in the person's own browser: its Chrome window on Linux when there
+// is one, otherwise the default browser. For a window that lags, or for the
+// browser's saved passwords (public/js/slowwin.js, Settings, General).
+fn open_in_browser(app: &AppHandle) {
+    if let Some(b) = browser() { show_in_browser(b); return; }
+    let _ = app.opener().open_url(format!("http://127.0.0.1:{PORT}/"), None::<&str>);
+    if let Some(w) = app.get_webview_window("main") { let _ = w.hide(); }
+}
+
 fn show(app: &AppHandle) {
     if let Some(b) = browser() { show_in_browser(b); return; }
     if let Some(w) = app.get_webview_window("main") {
@@ -183,11 +194,7 @@ fn show(app: &AppHandle) {
 }
 
 fn ours(url: &Url) -> bool {
-    match url.scheme() {
-        "tauri" | "about" | "data" | "blob" => true,
-        "http" | "https" => matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "tauri.localhost")),
-        _ => false,
-    }
+    links::is_ours(url.scheme(), url.host_str(), url.port_or_known_default(), PORT)
 }
 
 // Updates. The app asks GitHub Releases at start, every 30 minutes, and when the
@@ -361,12 +368,13 @@ fn main() {
                     if ours(url) && url.path() == "/app/quit" { stop_server(&quitter); quitter.exit(0); return false; }
                     // Remove Switchboard's last step (public/js/remove.js, lib/uninstall.js).
                     if ours(url) && url.path() == "/app/remove" { finish_removal(&quitter, url.query() == Some("data=1")); return false; }
+                    if ours(url) && url.path() == "/app/browser" { open_in_browser(&quitter); return false; }
                     if ours(url) { return true; }
-                    let _ = opener.opener().open_url(url.as_str(), None::<&str>);
+                    if links::may_open_outside(url.scheme()) { let _ = opener.opener().open_url(url.as_str(), None::<&str>); }
                     false
                 })
                 .on_new_window(move |url, _| {
-                    let _ = opener2.opener().open_url(url.as_str(), None::<&str>);
+                    if links::may_open_outside(url.scheme()) { let _ = opener2.opener().open_url(url.as_str(), None::<&str>); }
                     tauri::webview::NewWindowResponse::Deny
                 })
                 .build()?;
@@ -408,9 +416,10 @@ fn main() {
             });
 
             let open = MenuItem::with_id(app, "open", "Open Switchboard", true, None::<&str>)?;
+            let in_browser = MenuItem::with_id(app, "browser", "Open in browser", true, None::<&str>)?;
             let login = CheckMenuItem::with_id(app, "login", "Start at login", true, autostart.is_enabled().unwrap_or(false), None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Switchboard", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &login, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &in_browser, &login, &quit])?;
             let login_item = login.clone();
             TrayIconBuilder::with_id("tray")
                 .icon(app.default_window_icon().cloned().expect("icon"))
@@ -419,6 +428,7 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
                     "open" => show(app),
+                    "browser" => open_in_browser(app),
                     "login" => {
                         let al = app.autolaunch();
                         let on = al.is_enabled().unwrap_or(false);

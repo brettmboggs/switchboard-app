@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, getSetting, isCleared } from './lib/db.js';
+import { db, getSetting, setSetting, isCleared } from './lib/db.js';
 import { spaces, knowOwnAddresses } from './lib/spaces.js';
 import { profiles } from './lib/projects.js';
 import { send } from './lib/http.js';
@@ -31,6 +31,17 @@ import { route as googleRoutes } from './lib/routes/google.js';
 import { route as inboxRoutes } from './lib/routes/inbox.js';
 import { route as projectRoutes } from './lib/routes/projects.js';
 import { route as sortingRoutes } from './lib/routes/sorting.js';
+import { route as shareRoutes } from './lib/routes/share.js';
+import { route as chatRoutes } from './lib/routes/chat.js';
+import { chatThreads, chatBoard, startChat } from './lib/chat.js';
+import { shareState, changedBy, sharedBy, startShares, setRepoSource, setActivitySource, setCiSource, setSource, setLiveHandler, sharedRepos } from './lib/share.js';
+import { termRow, readChat } from './lib/chatview.js';
+import { makeSessionHandler } from './lib/sessshare.js';
+import { enqueue } from './lib/terminals.js';
+import { threadMessages } from './lib/gmail.js';
+import { listFiles } from './lib/projects.js';
+import { folders as codeFolders } from './lib/terminals.js';
+import { spaceFor } from './lib/spaces.js';
 import { belongsAll } from './lib/belongs.js';
 import { unsortedCount } from './lib/sorting.js';
 import { route as costRoutes } from './lib/routes/costs.js';
@@ -38,34 +49,41 @@ import { recurringGuesses } from './lib/costs.js';
 import { pollLocalAI } from './lib/localai.js';
 import { route as feedRoutes } from './lib/routes/feeds.js';
 import { route as taskRoutes } from './lib/routes/tasks.js';
+import { route as granolaRoutes } from './lib/routes/granola.js';
 import { route as fileRoutes } from './lib/routes/files.js';
 import { route as draftRoutes } from './lib/routes/drafts.js';
 import { readAllDrafts, drafts } from './lib/drafts.js';
 import { route as localFileRoutes } from './lib/routes/localfile.js';
+import { route as jarvisRoutes } from './lib/routes/jarvis.js';
+import { tidyNow, tidyDue } from './lib/jarvis.js';
 import { pollTasks, tasks, taskStatus } from './lib/tasks.js';
+import { pollGranola, granolaStatus } from './lib/granola.js';
+import { noteMarks } from './lib/notemarks.js';
 import { pollFeeds, reading, feeds } from './lib/feeds.js';
 import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
-const ROUTES = [boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, costRoutes, feedRoutes, taskRoutes, fileRoutes, localFileRoutes, draftRoutes];
+// Team chat first: it answers the Inbox's conversation routes for its own "team:" keys only.
+const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)
 // sessionView: how Claude sessions open, 'chat' or 'term' (each session's
 // Chat | Terminal switch overrides it). devChips, termGpu: the Sessions extras.
 // All in Settings, Look. (The old chatView switch is dropped.)
-const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true, autoUpdate: false, rundown: true, msgHidden: {}, connections: null };
+const PREFS = { theme: 'light', textSize: 'm', termSize: 13.5, startPage: 'now', voice: 'live', welcome: null, sessionView: 'chat', devChips: false, termGpu: true, autoUpdate: false, rundown: true, msgHidden: {}, connections: null, jvSpeakUp: false, jvBrief: true, jvPersona: '' };
 // Which coding agents are installed and signed in, checked at most once a minute.
 let agentCache = { at: 0, list: [] };
 const agentsNow = () => { if (Date.now() - agentCache.at > 60e3) agentCache = { at: Date.now(), list: installedAgents() }; return agentCache.list; };
 import { sessionsForBoard, lastHookAt, sessionFolders } from './lib/claude.js';
-import { pollGithub, liveGithub, github, watchFolders, repoFor } from './lib/github.js';
+import { pollGithub, liveGithub, github, watchFolders, repoFor, watchShared, ghLogin } from './lib/github.js';
 import { gmailStatus, pollGmail, mailThreads, moneyFromMail, sendAddresses, awaitingReply, deliveriesForBoard, accounts as mailAccounts } from './lib/gmail.js';
 // People on a project's About card sort its mail; your own addresses never do (lib/spaces.js).
 knowOwnAddresses(() => [...sendAddresses().map((a) => a.address), ...mailAccounts().map((a) => a.email)]);
 import { listWindows } from './lib/desktop.js';
 
 import { weather, pollWeather } from './lib/weather.js';
+import { usageForBoard, readCodexLimits } from './lib/usage.js';
 import { calendars, calendarStatus, events as calendarEvents, pollCalendars, tickEvents } from './lib/calendar.js';
 import { alert } from './lib/notify.js';
 import { voiceState } from './lib/voice.js';
@@ -108,11 +126,12 @@ async function boardState() {
   const runs = gh.runs.filter((r) => !isCleared(`run:${r.id}`, r.updatedAt));
   const reviews = gh.reviews.filter((r) => !isCleared(`pr:${r.id}`, r.updatedAt));
   const mail = mailThreads();
-  const threads = [...mail.waiting, ...microsoft().threads]
+  const team = chatThreads();
+  const threads = [...mail.waiting, ...microsoft().threads, ...team.waiting]
     .filter((t) => !isCleared(t.key, t.date))
     .sort((a, b) => b.date - a.date);
   const email = mail.email.filter((t) => !isCleared(t.key, t.date)).slice(0, 60);
-  const recent = [...mail.recent, ...microsoft().recent].sort((a, b) => b.date - a.date).slice(0, 40);
+  const recent = [...mail.recent, ...microsoft().recent, ...team.recent].sort((a, b) => b.date - a.date).slice(0, 40);
   const awaiting = awaitingReply().filter((t) => !isCleared('await:' + t.key, t.date));
   const items = db.prepare('SELECT * FROM items WHERE done_at IS NULL ORDER BY COALESCE(due_at, created_at) ASC').all();
   const recentDone = db.prepare(`SELECT * FROM items WHERE done_at > ? AND kind IN ('note', 'todo', 'reminder') ORDER BY done_at DESC LIMIT 20`).all(now - 3 * 86400e3);
@@ -122,13 +141,13 @@ async function boardState() {
   const windows = await listWindows();
   return {
     now,
-    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, belongs: belongsAll(), unsorted: unsortedCount(), voice: voiceState(), agents: agentsNow(),
+    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), granola: granolaStatus(), noteMarks: noteMarks(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, belongs: belongsAll(), unsorted: unsortedCount(), share: shareState(), chat: chatBoard(), changedBy: changedBy(), sharedBy: sharedBy(), sharedPrs: github().sharedPrs || [], voice: voiceState(), agents: agentsNow(),
     webhooks: webhookList().length,
     deliveries: deliveriesForBoard(),
     routines: routines(),
     pages: pageList(),
     checks: checksForBoard(),
-    events: calendarEvents().filter((e) => e.end > now && e.start < now + 7 * 86400e3), calendars: calendarStatus(), weather: weather(),
+    events: calendarEvents().filter((e) => e.end > now && e.start < now + 7 * 86400e3), calendars: calendarStatus(), weather: weather(), usage: usageForBoard(),
     sessions: sessions.map((x) => ({ ...x, termId: termBy.get(x.id) || null, ci: repoFor(x.cwd) })), runs, reviews, actions: gh.actions, threads, email, awaiting, recent, drafts: drafts(),
     terms: terms.map((t) => ({ ...t, ci: repoFor(t.cwd) })), links: allLinks(), remoteTerms: remoteTerms(), relay: relayState(),
     items: items.filter((i) => ['note', 'todo', 'reminder'].includes(i.kind)),
@@ -153,6 +172,10 @@ async function boardState() {
 // A fingerprint of the page's own files: an open page reloads itself when the
 // server comes back with different ones (an update, or a local change).
 const PAGE_JS = readdirSync(new URL('./public/js/', import.meta.url)).filter((f) => /^[a-z]+\.js$/.test(f)).sort();
+// The web board's modules (public/js/web/): loaded here too, where they see they are not on the board and do nothing.
+const WEB_JS = readdirSync(new URL('./public/js/web/', import.meta.url)).filter((f) => /^[a-z]+\.js$/.test(f));
+// The core both the app and the web board run (public/js/shared/): the page imports it too.
+const SHARED_JS = readdirSync(new URL('./public/js/shared/', import.meta.url)).filter((f) => /^[a-z-]+\.js$/.test(f));
 // The stylesheets: public/css and one folder down (components/, pages/), by name.
 const PAGE_CSS = readdirSync(new URL('./public/css/', import.meta.url), { recursive: true }).map((f) => String(f).replaceAll('\\', '/')).filter((f) => /^[a-z-]+(\/[a-z-]+)?\.css$/.test(f)).sort();
 // The fonts ship with Switchboard (public/fonts, licences in LICENSES.md there); static, so not in BUILD.
@@ -178,14 +201,24 @@ const STATIC = {
 const server = createServer(async (req, res) => {
   // Only this machine, and only by its own name: stops other sites in the
   // browser from reaching the board through DNS tricks.
-  if (!ALLOWED_HOSTS.has(req.headers.host || '')) return send(res, 403, { error: 'host' });
-  let url; try { url = new URL(req.url, `http://${req.headers.host}`); } catch { return send(res, 400, { error: 'url' }); }
+  if (!ALLOWED_HOSTS.has(req.headers.host || '')) return send(res, 403, { error: 'Switchboard only answers on this computer, at 127.0.0.1 or localhost. Open it from that address.' });
+  let url; try { url = new URL(req.url, `http://${req.headers.host}`); } catch { return send(res, 400, { error: 'That address is not one Switchboard can read. Check it and try again.' }); }
   const path = url.pathname;
 
   // The page's scripts: only names in public/js, nothing else on disk.
   const js = path.match(/^\/js\/([a-z]+\.js)$/);
   if (req.method === 'GET' && js && PAGE_JS.includes(js[1])) {
     try { return send(res, 200, await readFile(join(HERE, 'public', 'js', js[1])), 'text/javascript; charset=utf-8'); }
+    catch { return send(res, 404, 'missing', 'text/plain'); }
+  }
+  const wjs = path.match(/^\/js\/web\/([a-z]+\.js)$/);
+  if (req.method === 'GET' && wjs && WEB_JS.includes(wjs[1])) {
+    try { return send(res, 200, await readFile(join(HERE, 'public', 'js', 'web', wjs[1])), 'text/javascript; charset=utf-8'); }
+    catch { return send(res, 404, 'missing', 'text/plain'); }
+  }
+  const sjs = path.match(/^\/js\/shared\/([a-z-]+\.js)$/);
+  if (req.method === 'GET' && sjs && SHARED_JS.includes(sjs[1])) {
+    try { return send(res, 200, await readFile(join(HERE, 'public', 'js', 'shared', sjs[1])), 'text/javascript; charset=utf-8'); }
     catch { return send(res, 404, 'missing', 'text/plain'); }
   }
   const css = path.match(/^\/css\/([a-z-]+(?:\/[a-z-]+)?\.css)$/);
@@ -212,9 +245,14 @@ const server = createServer(async (req, res) => {
     catch (e) { console.error(e); return send(res, 500, { error: 'Switchboard could not take that message: ' + friendlyError(e, 'the sender') }); }
   }
 
+  // A read of the board's data only from its own page (or typed in, or a script with no browser
+  // around it): another site cannot even start one, with an <img> or a link (review L1).
+  const site = req.headers['sec-fetch-site'];
+  if (req.method === 'GET' && path.startsWith('/api/') && site && site !== 'same-origin' && site !== 'none') return send(res, 403, { error: 'Switchboard only shares its data with its own page. Open Switchboard itself and try there.' });
+
   // Anything that changes state must carry this header. Browsers cannot add it
   // cross-site without a preflight, which this server never approves.
-  if (req.method === 'POST' && req.headers['x-switchboard'] !== '1') return send(res, 403, { error: 'header' });
+  if (req.method === 'POST' && req.headers['x-switchboard'] !== '1') return send(res, 403, { error: 'Switchboard only takes changes from its own page. Reload Switchboard and try again.' });
 
   try {
     // Each area of the board answers its own paths (lib/routes/); the first
@@ -225,7 +263,7 @@ const server = createServer(async (req, res) => {
       if (res.headersSent || res.writableEnded) return;
     }
 
-    return send(res, 404, { error: 'not found' });
+    return send(res, 404, { error: 'Switchboard does not have that. Reload the page and try again.' });
   } catch (e) {
     console.error(e);
     return send(res, 500, { error: friendlyError(e, 'a service Switchboard uses') });
@@ -310,6 +348,54 @@ function startAll() {
   setInterval(() => pollMicrosoft().then(feedLinks).then(changed), 30e3);
   currentSha().then(() => checkForUpdate()).then(changed);
   startSync(changed);
+  // Shared projects: their repos (names only) from this computer's folders in
+  // the project, and what you are working on in it, for the others' Activity:
+  // a session's name and state, pushes and pull requests. Never what is in a terminal.
+  const projectRepos = (space) => {
+    const also = new Set(belongsAll().filter((b) => b.space === space && b.key.startsWith('repo:')).map((b) => b.key.slice(5)));
+    return codeFolders().filter((f) => f.kind === 'repo' && f.repo && (spaceFor(f.path, f.name) === space || also.has(f.name))).map((f) => f.repo);
+  };
+  setRepoSource(projectRepos);
+  const ACT = { running: 'working', starting: 'working', waiting: 'waiting', finished: 'done', idle: 'idle' };
+  setActivitySource((space) => {
+    const repos = new Set(projectRepos(space)), me = ghLogin();
+    const sessions = listTerms().filter((t) => t.space === space).map((t) => ({ kind: 'session', name: t.name, state: ACT[t.state] || 'idle', at: t.updatedAt || t.created_at }));
+    const code = !me ? [] : github().actions.filter((a) => repos.has(a.fullName)).flatMap((a) => a.runs.filter((r) => r.actor === me && (r.event === 'push' || r.event === 'pull_request'))
+      .map((r) => ({ kind: r.event === 'push' ? 'push' : 'pr', repo: a.fullName, branch: r.branch, at: r.createdAt })));
+    // One line per push or pull request: the newest run of each.
+    const seen = new Set();
+    return [...sessions, ...code.sort((x, y) => y.at - x.at).filter((c) => { const k = c.kind + c.repo + c.branch; return !seen.has(k) && seen.add(k); })];
+  });
+  // Builds and pull requests on those repos, as your GitHub sign-in sees them: published for the web board.
+  setCiSource((space, repos) => {
+    const want = new Set(repos), gh = github();
+    return { runs: gh.runs.filter((r) => want.has(r.fullName)), prs: (gh.sharedPrs || []).filter((p) => want.has(p.repo)) };
+  });
+  // What else a project has, for the people it is shared with when you give them that kind
+  // (each off until you do): browser checks' results, its conversations, calendar events, money, files.
+  const lastRun = (c) => c.runs.find((r) => r.state === 'success' || r.state === 'failure' || r.state === 'running');
+  setSource('checks', (space) => checksForBoard().filter((c) => c.space === space).map((c) => { const r = lastRun(c); return { name: c.name, state: !r ? 'never' : r.state === 'success' ? 'passed' : r.state === 'failure' ? 'failed' : 'running', at: r?.endedAt || r?.startedAt || null, detail: r?.summary || '' }; }));
+  setSource('conversations', (space) => {
+    const mail = mailThreads(), m = microsoft();
+    const seen = new Set(), list = [...mail.waiting, ...mail.email, ...mail.recent, ...(m.threads || []), ...(m.recent || [])].filter((t) => t.space === space && !seen.has(t.key) && seen.add(t.key)).sort((a, b) => b.date - a.date).slice(0, 15);
+    return list.map((t) => {
+      const [kind, ...rest] = String(t.key).split(':');
+      // Mail is on this computer; a Teams or Outlook conversation goes as its latest message.
+      const messages = kind === 'mail' ? threadMessages(rest[0], rest.slice(1).join(':'), 8).reverse().map((x) => ({ from: x.from_me ? 'Me' : x.from_name || x.from_addr, date: x.date, text: x.snippet || '' })) : [{ from: t.who, date: t.date, text: t.snippet || '' }];
+      return { key: t.key, kind: String(t.kind || kind).startsWith('voice') ? 'voice' : kind, who: t.who, subject: t.subject, date: t.date, snippet: t.snippet, messages };
+    });
+  });
+  setSource('calendar', (space) => calendarEvents().filter((e) => e.space === space && e.end > Date.now() - 86400e3).slice(0, 60).map((e) => ({ title: e.title, start: e.start, end: e.end, where: e.location || e.where || '', allDay: !!e.allDay })));
+  setSource('money', (space) => db.prepare("SELECT kind, text, amount, due_at, cadence, created_at FROM items WHERE space = ? AND kind IN ('bill', 'invoice', 'paid') AND (done_at IS NULL OR kind = 'paid') ORDER BY created_at DESC LIMIT 60").all(space).map((i) => ({ kind: i.kind, text: i.text, amount: i.amount, due_at: i.due_at, at: i.created_at, cadence: i.cadence })));
+  setSource('files', (space) => { try { return listFiles(space).map((f) => ({ name: f.name, size: f.size, at: f.at })); } catch { return []; } });
+  // Sessions, for the people a project shares them with (lib/share.js live): which sessions run in
+  // that project, a session's Chat view (the transcript as the app shows it; never the terminal
+  // itself, never keystrokes), and a message to send, which waits in the session's queue as
+  // "Jordan asks" until you release it, unless you let that person straight into that session.
+  setLiveHandler(makeSessionHandler({ listTerms, termRow, readChat, enqueue, getSetting, setSetting, changed }));
+  watchShared(sharedRepos);
+  startShares(changed);
+  startChat(changed);   // team chat (lib/chat.js): new lines also arrive over the relay
   onUnlocked(() => { restartRelay(); collectWebhooks(changed); changed(); });
   startRelay(changed);
   startWebhooks(changed);
@@ -326,12 +412,19 @@ function startAll() {
     if (sig !== lastStates) { lastStates = sig; changed(); publishTerms(); }
   }, 2e3);
   setInterval(tickReminders, 15e3);
+  // Jarvis's nightly tidy of what he knows (lib/jarvismemory.js): checked each hour, never starts LM Studio.
+  setInterval(() => { if (tidyDue()) tidyNow({ wake: false }).catch((e) => console.warn('[jarvis] tidy', e.message)); }, 60 * 60e3);
+  // Codex's plan limits, from its newest session log (Claude Code's come with its status line).
+  readCodexLimits(); setInterval(() => { if (readCodexLimits()) changed(); }, 5 * 60e3);
   // Models on this computer (Ollama, LM Studio): a quick look now and every minute.
   pollLocalAI().then((c) => c && changed()).catch(() => {});
   setInterval(() => pollLocalAI().then((c) => c && changed()).catch(() => {}), 60e3);
   // Task apps (Todoist): soon after start, then every 5 minutes.
   setTimeout(() => pollTasks().then((c) => c && changed()).catch(() => {}), 8e3);
   setInterval(() => pollTasks().then((c) => c && changed()).catch(() => {}), 5 * 60e3);
+  // Granola meeting notes into Notes (lib/granola.js): soon after start, then every 10 minutes.
+  setTimeout(() => pollGranola().then((c) => c && changed()).catch(() => {}), 20e3);
+  setInterval(() => pollGranola().then((c) => c && changed()).catch(() => {}), 10 * 60e3);
   // News and blogs: soon after start, then every 30 minutes (feeds change slowly).
   setTimeout(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 20e3);
   setInterval(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 30 * 60e3);

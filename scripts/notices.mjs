@@ -70,8 +70,8 @@ const npmBlocks = blocks.filter((b) => !seen.has(b.key) && seen.add(b.key));
 
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 const rule = '='.repeat(72);
-// The three typefaces in public/fonts, each OFL-1.1 (public/fonts/LICENSES.md).
-const FONTS = `The page's three typefaces ship in public/fonts (Latin subsets, variable
+// The typefaces in public/fonts, each OFL-1.1 (public/fonts/LICENSES.md).
+const FONTS = `The page's typefaces ship in public/fonts (Latin subsets, variable
 weight 400 to 700; see public/fonts/LICENSES.md) and are served by the local
 server. Nothing is fetched from Google Fonts or any other font service.
 
@@ -81,6 +81,10 @@ Fraunces (fraunces-normal.woff2, fraunces-italic.woff2)
 
 Public Sans (publicsans-normal.woff2, publicsans-italic.woff2)
   Copyright 2015 The Public Sans Project Authors (https://github.com/uswds/public-sans)
+  SIL Open Font License 1.1
+
+Space Grotesk (spacegrotesk-normal.woff2)
+  Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
   SIL Open Font License 1.1
 
 JetBrains Mono (jetbrainsmono-normal.woff2)

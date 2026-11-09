@@ -13,7 +13,7 @@ const CV_KEEP = 150;         // most messages kept on screen; older ones come ba
 const CV_GAP = 5 * 60e3;     // a pause this long starts a new group
 let CV = null;
 
-const cvChat = (kind) => kind === 'teams' || kind === 'voice-text';
+const cvChat = (kind) => kind === 'teams' || kind === 'team' || kind === 'voice-text';   // team: team chat (teamchat.js)
 const cvStandIn = (m) => !!m.state || /^(pending|local)-/.test(String(m.id));
 const cvGist = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 40);
 const cvSame = (a, b) => { const x = cvGist(a), y = cvGist(b); return !!x && !!y && (x.startsWith(y) || y.startsWith(x)); };
@@ -79,7 +79,9 @@ function msgHtml(m, prev, withDay = true) {
   return (withDay && newDay ? `<div class="cv-day" role="separator"><span>${cvDayLabel(m.date)}</span></div>` : '')
     + `<div class="cv-msg${head ? ' head' : ''}${m.from_me ? ' me' : ''}${m.state ? ' is-' + m.state : ''}" data-id="${esc(m.id)}">${gutter}<div class="cv-content">`
     + (head ? `<div class="cv-meta">${CV.chat && m.from_me ? '' : `<b>${esc(name)}</b>`}${stamp}${subject}</div>` : '')
-    + `<div class="cv-text${long ? ' long' : ''}">${linkify(m.text)}</div>`
+    + (CV.kind === 'team' ? tcQuote(m) : '')
+    + (m.text ? `<div class="cv-text${long ? ' long' : ''}">${CV.kind === 'team' ? tcText(m) : linkify(m.text)}</div>` : '')
+    + cvExtras(m)
     + (long ? `<button class="cv-link" type="button" data-cv="more">Show all of it</button>` : '')
     + (cut ? `<button class="cv-link" type="button" data-cv="full">Show the whole email</button>` : '')
     + (m.state === 'sending' ? `<span class="cv-state">Sending…</span>` : '')
@@ -92,11 +94,11 @@ function composerHtml(x) {
     return `<p class="note-line">Replying in ${x.kind === 'teams' ? 'Teams' : 'Outlook'} needs one more Microsoft sign-in: Settings, Microsoft 365, Connect.</p>`;
   }
   const from = x.kind === 'mail' && S.sendAs.length ? `<div class="cv-from"><label for="r-from">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>${esc(a.address)}</option>`).join('')}</select></div>` : '';
-  const hint = x.kind.startsWith('voice') ? 'Sends as a text from your Google Voice number.' : x.kind === 'teams' ? 'Sends in the Teams chat.' : x.kind === 'outlook' ? 'Replies in Outlook.' : 'Replies in the same email thread.';
+  const hint = x.kind === 'team' ? tcHint(x) : x.kind.startsWith('voice') ? 'Sends as a text from your Google Voice number.' : x.kind === 'teams' ? 'Sends in the Teams chat.' : x.kind === 'outlook' ? 'Replies in Outlook.' : 'Replies in the same email thread.';
   const ph = cvChat(x.kind) ? `Message ${x.who}` : `Reply to ${x.who}`;
-  return `${from}<div class="cv-box"><label for="r-text" class="sr">Reply</label><textarea id="r-text" rows="1" placeholder="${esc(ph)}">${esc(draft[x.key] || '')}</textarea>
+  return `${from}${x.kind === 'team' ? tcComposerTop(x) : ''}<div class="cv-box"><label for="r-text" class="sr">Reply</label><textarea id="r-text" rows="1" placeholder="${esc(ph)}">${esc(draft[x.key] || '')}</textarea>
     <button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button>
-    <button class="btn btn--primary" type="button" data-act="send">Send</button></div>
+    ${cvCanAttach(x.kind) ? cvAttachButton() : ''}<button class="btn btn--primary" type="button" data-act="send">Send</button></div>${cvCanAttach(x.kind) ? '<div class="cv-attach" id="cv-attach" hidden></div>' : ''}
     <div class="cv-hint">${hint} <kbd>Ctrl</kbd> <kbd>Enter</kbd> sends. Nothing goes until you send it.</div>`;
 }
 
@@ -153,7 +155,7 @@ function paintSide() {
   const html = `<div class="section-label">Details</div>
     <dl class="facts">${x.kind === 'mail' || x.kind === 'outlook' ? `<dt>Subject</dt><dd>${esc(x.subject)}</dd>` : ''}${x.replied ? `<dt>Last</dt><dd>You, ${since(x.date)}</dd>` : `<dt>From</dt><dd>${esc(x.from)}</dd><dt>Waiting</dt><dd>${ago(x.date)}</dd>`}</dl>
     <div class="actions">${x.unread && x.kind !== 'teams' ? `<button class="btn" data-act="read" type="button">Mark read</button>` : ''}<button class="btn" data-act="snooze-thread" data-hours="3" type="button">Snooze 3h</button><button class="btn" data-act="snooze-thread" data-hours="tomorrow" type="button">Tomorrow</button></div>
-    ${toSession(x)}`;
+    ${x.kind === 'team' ? tcSide() : toSession(x)}`;
   if (html !== CV.sideHtml) { CV.sideHtml = html; el.innerHTML = html; }
 }
 
@@ -214,7 +216,17 @@ function mergeMsgs(list) {
   let older = false, removed = false;
   for (const m of list) {
     const have = CV.byId.get(m.id);
-    if (have) { if (have.text !== m.text) { have.text = m.text; redraw(have); } continue; }
+    if (have) {
+      // Edited, or its pictures or reactions changed (teamspics.js).
+      // (A team chat message you are editing stays as it is until you save or cancel.)
+      if (CV.kind === 'team' && TC.editing === have.id) continue;
+      if (have.text !== m.text || cvExtrasKey(have) !== cvExtrasKey(m)) {
+        have.text = m.text; have.pictures = m.pictures; have.reactions = m.reactions;
+        for (const k of ['edited', 'deleted', 'pinned', 'seen', 'seenBy', 'reply']) if (k in m) have[k] = m[k];   // team chat
+        redraw(have);
+      }
+      continue;
+    }
     // Our own just-sent reply coming back from the server: the same bubble, now with its real id.
     const mine = m.from_me && CV.msgs.find((x) => x.from_me && cvStandIn(x) && cvSame(x.text, m.text));
     if (mine) { const was = mine.id; CV.byId.delete(was); Object.assign(mine, m); delete mine.state; CV.byId.set(mine.id, mine); redraw(mine, was); continue; }
@@ -260,6 +272,8 @@ async function pullConvo() {
       CV.msgs = [...d.messages, ...pending]; reindex(); drawAll('bottom');
     } else mergeMsgs(d.messages);
     noteNewest();
+    if (CV.kind === 'team') tcAfterPull(d);   // typing, pins, seen (teamchat.js)
+    cvLoadFiles();   // pictures and files in email and Outlook (mailfiles.js)
   } catch (e) {
     if (!CV || CV.key !== key) return;
     CV.fails++;
@@ -277,7 +291,7 @@ async function pullConvo() {
 function cvSchedule() {
   clearTimeout(CV.timer);
   const hidden = document.hidden;
-  let ms = CV.kind === 'teams' ? (hidden ? 30e3 : 4e3) : CV.kind === 'outlook' ? (hidden ? 120e3 : 30e3) : (hidden ? 120e3 : 20e3);
+  let ms = CV.kind === 'team' ? (hidden ? 30e3 : 3e3) : CV.kind === 'teams' ? (hidden ? 30e3 : 4e3) : CV.kind === 'outlook' ? (hidden ? 120e3 : 30e3) : (hidden ? 120e3 : 20e3);
   if (CV.fails) ms = Math.min(120e3, ms * 2 ** Math.min(CV.fails, 5));
   CV.timer = setTimeout(pullConvo, ms);
 }
@@ -288,13 +302,14 @@ async function convoSend(x) {
   stopDictation(); await dictated;
   const ta = $('r-text');
   const text = (ta?.value || '').trim();
-  if (!text) { toast('Write something first.'); return; }
+  const images = cvCanAttach(x.kind) ? cvPicsTake() : [];
+  if (!text && !images.length) { toast('Write something first.'); return; }
   const from = $('r-from')?.value;
   ta.value = ''; delete draft[x.key]; ta.focus();
-  const m = { id: 'pending-' + (++CV.seq), from_me: 1, from_name: 'You', text, date: Date.now(), state: 'sending' };
+  const m = { id: 'pending-' + (++CV.seq), from_me: 1, from_name: 'You', text, date: Date.now(), state: 'sending', ...(images.length ? { pictures: images.map((im) => `data:${im.type};base64,${im.data}`) } : {}) };
   appendMsgs([m], true);
   try {
-    const r = await api('/api/reply', { key: x.key, text, from, messageId: x.messageId });
+    const r = await api('/api/reply', { key: x.key, text, from, messageId: x.messageId, images, ...(x.kind === 'team' ? { replyTo: tcReplyTake() } : {}) });
     if (CV?.key === x.key && CV.byId.get(m.id) === m) {
       const was = m.id;
       if (r.id && !CV.byId.has(r.id)) { CV.byId.delete(was); m.id = r.id; CV.byId.set(m.id, m); }
@@ -306,6 +321,7 @@ async function convoSend(x) {
     if (CV?.key === x.key) {
       CV.msgs = CV.msgs.filter((y) => y !== m); reindex(); drawAll(CV.atBottom ? 'bottom' : 'keep');
       const box = $('r-text'); if (box && !box.value) { box.value = text; draft[x.key] = text; }
+      if (images.length) cvPicsPutBack(images);
     }
     toast('Not sent: ' + e.message);
   }

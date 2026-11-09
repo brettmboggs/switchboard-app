@@ -43,12 +43,12 @@
     },
     {
       "title": "Reply without opening the other app",
-      "cool": "Gmail, any other mail account, Teams, Outlook and Google Voice texts in one Inbox that reads like a chat app. Reply, archive or snooze from there, and close the dozen tabs: you still see everything.",
+      "cool": "Gmail, any other mail account, Teams, Outlook, Google Voice texts and your team's own end-to-end encrypted chat in one Inbox that reads like a chat app. Reply, archive or snooze from there, and close the dozen tabs: you still see everything.",
       "show": [
         "Pick a Teams chat in Inbox; it opens large beside the list.",
         "Write a reply and send it; it shows at once and is confirmed when it has gone."
       ],
-      "ids": ["conversations", "gmail", "email", "microsoft"]
+      "ids": ["conversations", "gmail", "email", "microsoft", "team-chat"]
     },
     {
       "title": "Every computer, one board",

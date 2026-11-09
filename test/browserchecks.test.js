@@ -72,15 +72,15 @@ test('reading the report: totals, failed tests, their errors and screenshots', (
 
 test('one line per run', () => {
   assert.equal(bc.testsSummary({ code: 0, output: '' }), 'Passed');
-  assert.equal(bc.testsSummary({ code: 1, output: "Error: browserType.launch: Executable doesn't exist at /x" }), "This project's Chromium isn't installed. In the folder run: npx playwright install chromium");
-  assert.equal(bc.testsSummary({ code: 127, output: 'sh: 1: playwright: not found\nnpm error could not determine executable to run' }), "Playwright isn't installed in that folder. Run npm install there first.");
+  assert.equal(bc.testsSummary({ code: 1, output: "Error: browserType.launch: Executable doesn't exist at /x" }), "This folder's browser tests need their browser installed first.");
+  assert.equal(bc.testsSummary({ code: 127, output: 'sh: 1: playwright: not found\nnpm error could not determine executable to run' }), "This folder's browser tests need installing first.");
   assert.equal(bc.testsSummary({ code: 1, timedOut: true, output: '' }), 'Stopped: it ran longer than 10 minutes');
   assert.equal(bc.testsSummary({ code: 1, counts: { passed: 0, failed: 0, flaky: 0, skipped: 0 }, failures: [], output: 'Error: No tests found' }), 'Error: No tests found');
   assert.equal(bc.pageSummary({ code: 0, expect: 'Sign in', output: '' }), 'Showed "Sign in"');
   assert.equal(bc.pageSummary({ code: 0, expect: null, output: '' }), 'Loaded');
   assert.equal(bc.pageSummary({ code: 1, expect: 'Sign in', output: "TimeoutError: Timeout 30000ms exceeded.\n  - waiting for locator('text=Sign in')" }), '"Sign in" did not show within 30 seconds');
   assert.equal(bc.pageSummary({ code: 1, output: 'Error: net::ERR_NAME_NOT_RESOLVED at https://nope.invalid/' }), 'Could not open the page (ERR_NAME_NOT_RESOLVED)');
-  assert.equal(bc.pageSummary({ code: 1, output: "Error: Executable doesn't exist at /x\nnpx playwright install" }), "The headless browser isn't installed. Run: node scripts/setup.mjs browser");
+  assert.equal(bc.pageSummary({ code: 1, output: "Error: Executable doesn't exist at /x\nnpx playwright install" }), "The browser Switchboard checks pages with is not installed yet. It comes with Switchboard's setup; run setup again to add it.");
 });
 
 test('the schedule', () => {
@@ -114,7 +114,7 @@ console.log(pass ? 'all good' : '1 failed');
 process.exit(pass ? 0 : 1);`);
   const saved = bc.saveCheck({ kind: 'tests', folder, command: `"${process.execPath}" fake.mjs`, name: 'Work smoke', space: 'work' });
   assert.ok(saved.ok, saved.error);
-  assert.deepEqual(saved.folder, { exists: true, config: null, installed: false });
+  assert.deepEqual(saved.folder, { exists: true, config: null, installed: false, note: 'This folder has no browser tests set up yet (Playwright).' });
 
   assert.ok(bc.runCheck(saved.id).ok);
   assert.equal(bc.runCheck(saved.id).already, true, 'a second click while it runs does not queue another');

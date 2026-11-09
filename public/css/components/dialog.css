@@ -8,11 +8,14 @@
 .scrim.open { display: flex; }
 .palette, .sheet, .drawer, .prefs, .welcome { background: var(--bg-surface); border-radius: var(--r-xl); box-shadow: var(--shadow-3); }
 .palette { width: min(640px, 100%); overflow: hidden; }
-.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 16px 18px; font-size: var(--fs-lg); background: var(--bg-surface); outline: none; }
-.palette .hint { margin: 0; padding: 8px 18px; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--accent-text); min-height: 1em; }
+.palette .cmd-row { display: flex; align-items: center; gap: var(--sp-2); padding-right: var(--sp-3); border-bottom: 1px solid var(--border); }
+.palette input, .palette textarea { width: 100%; border: 0; border-radius: 0; padding: 16px 18px; font-size: var(--fs-lg); background: var(--bg-surface); outline: none; }
+/* Ctrl K's box wraps and grows with what is typed, so a long line stays in view (Nov 8 2026). */
+.palette textarea { display: block; resize: none; overflow-y: auto; line-height: var(--lh-tight); box-shadow: none; }
+.palette .hint { margin: 0; padding: 8px 18px; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--hud-text); min-height: 1em; }
 .palette .examples { list-style: none; margin: 0; padding: 4px 10px 12px; display: grid; }
 .palette .examples li { padding: 6px 8px; display: flex; gap: 10px; align-items: baseline; color: var(--fg-muted); font-size: var(--fs-base); }
-.palette .examples .k { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--accent-text); min-width: 72px; }
+.palette .examples .k { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--hud-text); min-width: 72px; }
 .sheet { width: min(760px, 100%); max-height: var(--dialog-max-h); overflow-y: auto; overscroll-behavior: contain; padding: 0 22px 22px; display: grid; gap: 18px; align-content: start; }
 /* A dialog's head (its title and Close) stays at the top while the rest scrolls. */
 .sheet-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; padding: 18px 0 10px; background: var(--bg-surface); }
@@ -34,12 +37,12 @@
 .cmd-hit .tag { width: 8px; height: 8px; }
 .cmd-hit .k { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
 .cmd-hit .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cmd-hit.sel { box-shadow: inset 2px 0 0 var(--accent); }
+.cmd-hit.sel { box-shadow: inset 2px 0 0 var(--hud); background: var(--hud-tint); }
 
 /* The toast: one line at the bottom; an error gets an orange-red edge and stays longer (actions.js). */
 .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--fg); color: var(--bg-surface); padding: 10px 16px; border-radius: var(--r-lg); font-size: var(--fs-base); max-width: min(560px, calc(100% - 32px)); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: var(--z-toast); }
 .toast.show { opacity: 1; }
 .toast.has-undo { pointer-events: auto; display: flex; align-items: center; gap: var(--sp-3); }
 .toast-undo { all: unset; cursor: pointer; font-weight: 700; color: var(--bg-surface); text-decoration: underline; text-underline-offset: 3px; padding: 2px var(--sp-1); border-radius: var(--r-xs); }
-.toast-undo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toast-undo:focus-visible { outline: 2px solid var(--hud); outline-offset: 2px; }
 .toast.error { box-shadow: inset 4px 0 0 var(--bad); padding-left: 18px; }

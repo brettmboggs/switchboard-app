@@ -68,6 +68,10 @@
 .bc-out { margin-top: 14px; }
 .bc-out summary { cursor: pointer; }
 .bc-out pre { max-height: 340px; }
+/* A failed test's file, line and raw error, and a tests check's folder and command: folded, for whoever wants them. */
+.bc-tech { margin-top: var(--sp-1); }
+.bc-tech summary { cursor: pointer; }
+.bc-tech .facts { margin-top: var(--sp-1); }
 #bc-form .seg { margin-top: -6px; }
 #bc-form .form-grid input.mono { font-size: var(--fs-sm); }
 @media (max-width: 700px) { .bc-row { grid-template-columns: 1fr; } .bc-row > .btn { justify-self: start; margin: 0 0 8px 26px; } }
@@ -75,3 +79,4 @@
 #bc-form .bc-more { margin: -4px 0 8px; }
 #bc-form .bc-more summary { cursor: pointer; }
 #bc-form .bc-more .form-grid { margin-top: 10px; }
+.ci-for { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0; }

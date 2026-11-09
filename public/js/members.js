@@ -11,7 +11,7 @@ function loadMembers(id, force) {
   members = { ...members, id, at: Date.now() };
   api('/api/projects/' + encodeURIComponent(id) + '/members').then((list) => { members = { id, list, at: Date.now() }; if (page === 'project' && openProject === id) renderProject(); }).catch(() => {});
 }
-const MEMBER_ICON = { repo: 'gh', folder: '▢', person: '@', domain: '@', chat: 'T', word: 'Aa', page: '¶', section: '§' };
+const MEMBER_ICON = { repo: '▣', folder: '▢', person: '@', domain: '@', chat: 'T', word: 'Aa', page: '¶', section: '§' };
 const memberIcon = (m) => m.kind === 'person' && m.label && !m.label.includes('@') ? m.label.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() : (MEMBER_ICON[m.kind] || '·');
 function memberTile(m, repos) {
   const note = m.kind === 'page' || m.kind === 'section';
@@ -56,7 +56,7 @@ async function addMember(h) {
   const id = openProject;
   try {
     const r = await api(`/api/projects/${encodeURIComponent(id)}/file`, { key: h.key, label: h.label });
-    toast(r.main ? `${h.label} is in ${spaceOf(id).name} now.` : `${h.label} also belongs to ${spaceOf(id).name} now.`);
+    toast(r.main ? `${h.label} is in ${spaceOf(id).name} now${r.movedFrom ? `, no longer in ${r.movedFrom}` : ''}.` : `${h.label} also belongs to ${spaceOf(id).name} now.`);
     closeAdd(); loadMembers(id, true); load();
   } catch (err) { toast(err.message, { kind: 'error' }); }
 }
@@ -71,7 +71,7 @@ document.addEventListener('click', (e) => {
     api(`/api/projects/${encodeURIComponent(id)}/takeout`, { key: o.dataset.mbOut, rule: o.dataset.mbRule ?? null })
       .then((r) => {
         const undo = r.restore ? { action: { label: 'Undo', run: () => api(`/api/projects/${encodeURIComponent(id)}/putback`, { restore: r.restore }).then(() => { loadMembers(id, true); load(); }).catch((err) => toast(err.message, { kind: 'error' })) } } : {};
-        toast(r.restore?.onCard ? `${m?.label || 'The page'} is off this card. It is still in Notes.` : r.restore?.page ? `${m?.label || 'The page'} is in Personal now.` : r.restore?.people ? `${m?.label || 'They'} came off ${spaceOf(id).name}'s About card.` : `${m?.label || 'It'} is out of ${spaceOf(id).name}.`, undo);
+        toast(r.sharedBy ? `${m?.label || 'The page'} is off your card. ${r.sharedBy} shared it, so it stays in ${spaceOf(id).name} for everyone.` : r.restore?.onCard ? `${m?.label || 'The page'} is off this card. It is still in Notes.` : r.restore?.page ? `${m?.label || 'The page'} is in Personal now${r.unshared ? `, and no longer shared with the ${r.unshared === 1 ? 'other person' : `${r.unshared} others`}` : ''}.` : r.restore?.people ? `${m?.label || 'They'} came off ${spaceOf(id).name}'s About card.` : `${m?.label || 'It'} is out of ${spaceOf(id).name}.`, undo);
         loadMembers(id, true); load();
       }).catch((err) => toast(err.message, { kind: 'error' }));
   }

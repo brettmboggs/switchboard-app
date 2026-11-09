@@ -16,11 +16,11 @@
   --lh-tight: 1.25; --lh: 1.45; --lh-loose: 1.6;
 
   /* ---- the three faces (public/css/fonts.css, shipped in public/fonts) */
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-display: "Space Grotesk", "Public Sans", system-ui, sans-serif;
   --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --display: var(--font-display); --body: var(--font-body); --mono: var(--font-mono);
-  /* The one display setting: weight, optical size, and Fraunces's soft cut. */
+  /* The one display setting: weight (Space Grotesk since the HUD; the optical-size and soft values are left from Fraunces). */
   --display-weight: 600;
   --display-opsz: auto;
   --display-soft: 30;
@@ -48,81 +48,85 @@
   --prefs-h: min(820px, var(--dialog-max-h));
 }
 
-/* ---- colour, light: the counter (grey top, paper cards, ink, one signal orange) */
-:root {
-  --bg-canvas: #E4E7EB;
-  --bg-surface: #FCFCFA;
-  --bg-raised: #FFFFFF;
-  --bg-hover: #F4F5F6;
-  --bg-selected: #F1F2F4;
-  --fg: #15171C;
-  --fg-muted: #5C626C;
-  --border: #CDD1D7;
-  --border-soft: #DCDFE4;
-  --border-faint: #EAECEF;
-  --brand: #4967E8;      /* the logo's cobalt: the mark's dots and calm lamp, nothing else */
-  --brand-soft: #8EA0FF; /* the same on ink: the dock tile, dark surfaces */
+/* ---- colour: the HUD (Nov 8 2026). One theme, dark: deep navy glass, electric
+   cyan for the interface (lines, focus, actions), white text kept high
+   contrast, and signal orange still meaning "needs you" and nothing else.
+   :root[data-theme] stays on the page for older rules, with the same values. */
+:root, :root[data-theme="dark"], :root[data-theme="light"] {
+  --bg-canvas: #050911;
+  --bg-surface: #0A1220;
+  --bg-raised: #0D1728;
+  --bg-hover: #10203A;
+  --bg-selected: #132A4A;
+  --fg: #E8F2FF;
+  --fg-muted: #93A9C2;      /* 7:1 on surface */
+  --border: #24405F;
+  --border-soft: #1A3150;
+  --border-faint: #12233B;
+  --brand: #4FD8FF;
+  --brand-soft: #8FE6FF;
+  --hud: #4FD8FF;           /* the interface's own colour: lines, focus, actions */
+  --hud-2: #2B7BFF;
+  --hud-text: #7FE3FF;      /* cyan words: 10:1 on surface */
+  --hud-fg: #03101C;        /* text on a cyan fill */
+  --hud-glow: rgba(79, 216, 255, .45);
+  --hud-ring: rgba(79, 216, 255, .22);
+  --hud-tint: rgba(79, 216, 255, .07);
+  --hud-grid: rgba(79, 216, 255, .045);
+  --hud-pool-1: rgba(43, 123, 255, .16);   /* the two pools of light behind the page (hud.css) */
+  --hud-pool-2: rgba(79, 216, 255, .10);
+  --hud-scan: rgba(79, 216, 255, .035);    /* the scan line */
+  --hud-glass-top: rgba(16, 32, 58, .55);  /* a box's glass, top to bottom */
+  --hud-glass-bottom: rgba(10, 18, 32, .82);
+  --hud-edge: rgba(79, 216, 255, .06);
+  --hud-rail-1: rgba(10, 18, 32, .75); --hud-rail-2: rgba(10, 18, 32, .35);
+  --hud-faint: rgba(79, 216, 255, .05);
+  --hud-lit: rgba(79, 216, 255, .16); --hud-lit-end: rgba(79, 216, 255, .02);   /* the page you are on, in the rail */
+  --hud-field: rgba(4, 10, 20, .7);       /* inside a text box */
+  --hud-control: rgba(10, 20, 36, .6);    /* inside a button or chip */
+  --hud-grid-size: 40px; --hud-corner: 14px; --hud-frame-corner: 28px;
+  --ring-h: 56px; --ring-orb: 30px; --ring-pop-w: 260px; --ring-search-w: 200px;   /* the ring across the top (ring.css) */
+  --deck-core: clamp(200px, calc(100vh / var(--zoom, 1) - 820px), min(420px, 38vw));   /* sized so the Deck fits one screen: everything around the core takes about 820px at any text size */ --deck-side: minmax(240px, 340px);           /* the Deck (pages/deck.css) */
+  --bad-glow: rgba(255, 92, 108, .3);
   --accent: #FF4F00;
   --accent-fg: #15171C;
-  --accent-text: #B33300;
-  --accent-tint: rgba(255, 79, 0, .08);
-  --accent-ring: rgba(255, 79, 0, .12);
-  --accent-half: rgba(255, 79, 0, .5);   /* the edge of a thing that asks */
-  --ok: #1F7A4D;   --ok-tint: #E6F4EC;   /* ok on its tint 4.7:1 */
-  --bad: #B42318;  --bad-tint: #F6DEDB;
-  --info: #2F5D8A; --info-tint: #DCE6F0;
-  --warn: #6A520F; --warn-tint: #F3E9CC;
-  --ci-run: #BF8700; --ci-glow: rgba(191, 135, 0, .55);   /* GitHub's own running yellow */
-  --placeholder: #747A84;   /* 4.5:1 on paper and on white */
-  --accent-on-ink: #FFB08A; /* the orange count on an ink button */
-  --fg-on-color: #FCFCFA;   /* initials on a project colour, in both themes */
-  --knob: #FFFFFF;          /* the toggle's knob, in both themes */
-  --mail-paper: #FFFFFF; --mail-ink: #15171C;   /* an email preview is always white paper */
-  --overlay-ink: rgba(21, 23, 28, .75);
-  --border-inset: rgba(0, 0, 0, .12);
-  color-scheme: light;
-}
-:root[data-theme="dark"] {
-  --brand: #8EA0FF;
-  --bg-canvas: #0F1115;
-  --bg-surface: #191C22;
-  --bg-raised: #121419;
-  --bg-hover: #21252C;
-  --bg-selected: #262A32;
-  --fg: #ECEDEF;
-  --fg-muted: #9BA1AA;
-  --border: #2F343C;
-  --border-soft: #272B32;
-  --border-faint: #24282F;
   --accent-text: #FF8A57;
   --accent-tint: rgba(255, 79, 0, .12);
-  --accent-ring: rgba(255, 79, 0, .18);
-  --ok: #4CC38A;   --ok-tint: #18301F;
-  --bad: #F07167;  --bad-tint: #3A1F1D;
-  --info: #82AEDC; --info-tint: #1E2C3B;
-  --warn: #E2C46E; --warn-tint: #352C14;
-  --ci-run: #E3B341; --ci-glow: rgba(227, 179, 65, .5);
-  --placeholder: #8B919B;
-  --scrim: rgba(0, 0, 0, .55);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
-  --shadow-2: 0 10px 30px rgba(0, 0, 0, .45);
-  --shadow-3: 0 20px 60px rgba(0, 0, 0, .55);
+  --accent-ring: rgba(255, 79, 0, .22);
+  --accent-half: rgba(255, 79, 0, .55);   /* the edge of a thing that asks */
+  --accent-glow: rgba(255, 79, 0, .45);
+  --ok: #3DDC97;   --ok-tint: #0E2A22;
+  --bad: #FF5C6C;  --bad-tint: #2E1218;
+  --info: #6FC3FF; --info-tint: #0F2440;
+  --warn: #FFC857; --warn-tint: #2E2410;
+  --ci-run: #FFC233; --ci-glow: rgba(255, 194, 51, .55);
+  --placeholder: #7489A3;   /* 4.6:1 on surface */
+  --accent-on-ink: #FFB08A;
+  --fg-on-color: #FCFCFA;
+  --knob: #E8F2FF;
+  --mail-paper: #FFFFFF; --mail-ink: #15171C;   /* an email preview is always white paper */
+  --overlay-ink: rgba(2, 6, 14, .8);
+  --border-inset: rgba(79, 216, 255, .12);
+  --scrim: rgba(2, 6, 14, .72);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow-2: 0 12px 32px rgba(0, 0, 0, .55), 0 0 0 1px rgba(79, 216, 255, .06);
+  --shadow-3: 0 24px 70px rgba(0, 0, 0, .65), 0 0 40px rgba(79, 216, 255, .08);
   color-scheme: dark;
 }
 
 /* ---- the console: always ink, in both themes. The terminal (sessions.js,
    TERM_THEME) reads these with getComputedStyle, so chat and terminal share one palette. */
 :root {
-  --con-bg: #121418;
-  --con-bg-2: #181B21;
-  --con-bg-3: #20242B;
-  --con-border: #2A2F38;
-  --con-border-2: #3A404B;
-  --con-fg: #E4E6E9;
-  --con-fg-strong: #F6F7F8;
-  --con-fg-soft: #C8CBD0;
-  --con-muted: #8B919B;        /* 5.9:1 on --con-bg: fine for hints and placeholders */
-  --con-faint: #4E545E;        /* separators and dots only, never text */
+  --con-bg: #060C17;
+  --con-bg-2: #0A1322;
+  --con-bg-3: #0F1C30;
+  --con-border: #1A3150;
+  --con-border-2: #2A4C72;
+  --con-fg: #E3EEFB;
+  --con-fg-strong: #F4F9FF;
+  --con-fg-soft: #C3D3E6;
+  --con-muted: #8AA0B8;        /* 5.9:1 on --con-bg: fine for hints and placeholders */
+  --con-faint: #3A5170;        /* separators and dots only, never text */
   --con-accent-text: #FF8A57;
   --con-ok: #5FC98E;
   --con-ok-2: #80DEA9;
@@ -132,11 +136,11 @@
   --con-info: #78A5DE;
   --con-info-2: #9BC1F1;
   --con-warn: #E6B657;
-  --con-code-bg: #0D0F12;
-  --con-selection: rgba(255, 79, 0, .30);
-  --con-thumb: rgba(255, 255, 255, .12);
-  --con-fg-dim: #AEB3BB;       /* tool buttons and the bar's words: 7:1 on --con-bg-2 */
-  --con-inline: rgba(255, 255, 255, .07);
+  --con-code-bg: #040910;
+  --con-selection: rgba(79, 216, 255, .28);
+  --con-thumb: rgba(79, 216, 255, .2);
+  --con-fg-dim: #A9BCD2;       /* tool buttons and the bar's words: 7:1 on --con-bg-2 */
+  --con-inline: rgba(79, 216, 255, .09);
   --con-lit: rgba(120, 165, 222, .20);   /* the line a file link points at (fileview.css); blue, as orange means "needs you" */
   --con-shadow: 0 0 40px rgba(0, 0, 0, .45);
 }
@@ -151,4 +155,21 @@
   --run: var(--info); --wait: var(--warn);
   --tint-run: var(--info-tint); --tint-ok: var(--ok-tint); --tint-bad: var(--bad-tint); --tint-wait: var(--warn-tint);
   --con: var(--con-bg); --con-2: var(--con-bg-2); --con-3: var(--con-bg-3); --con-line: var(--con-border); --con-ink: var(--con-fg);
+}
+
+/* ---- Jarvis: the voice (components/jarvis.css). Its own electric cyan, in
+   both themes, on ink glass: it is never orange, which still means "needs you". */
+:root {
+  --jv-core: #4FD8FF;
+  --jv-core-2: #2B7BFF;
+  --jv-glow: rgba(79, 216, 255, .55);
+  --jv-glow-soft: rgba(79, 216, 255, .18);
+  --jv-glass: rgba(10, 16, 28, .86);
+  --jv-line: rgba(79, 216, 255, .28);
+  --jv-fg: #E6F7FF;
+  --jv-muted: #8FB3C7;
+  --jv-wave-3: #B45CFF;   /* the third wave: a violet, as in Siri */
+  --jv-wave-h: 150px;
+  --jv-orb: 56px;
+  --jv-panel-w: 420px;
 }

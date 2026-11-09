@@ -1,0 +1,163 @@
+/* The HUD (Nov 8 2026): the layer that makes Switchboard look like what it is,
+   a console. Loaded after every other stylesheet, so it only adds: the grid and
+   glow behind everything, bracket corners on boxes, cyan lines and light on the
+   interface, a slow scan line. Words never get effects: text stays plain, high
+   contrast and in its normal size; the light is on frames, lines and numbers.
+   Colours are tokens (tokens.css); reduced motion stops everything that moves. */
+
+/* ---- the room: deep navy, a faint grid, two pools of light */
+body {
+  background:
+    radial-gradient(ellipse 70% 50% at 85% -10%, var(--hud-pool-1), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 10% 110%, var(--hud-pool-2), transparent 60%),
+    linear-gradient(var(--hud-grid) 1px, transparent 1px) 0 0 / var(--hud-grid-size) var(--hud-grid-size),
+    linear-gradient(90deg, var(--hud-grid) 1px, transparent 1px) 0 0 / var(--hud-grid-size) var(--hud-grid-size),
+    var(--bg-canvas);
+  background-attachment: fixed;
+}
+/* the scan line: one soft band drifting down the window every few seconds */
+body::after {
+  content: ""; position: fixed; left: 0; right: 0; top: -20vh; height: 20vh; pointer-events: none; z-index: var(--z-bar);
+  background: linear-gradient(to bottom, transparent, var(--hud-scan) 50%, transparent);
+  animation: hud-scan 9s linear infinite;
+}
+@keyframes hud-scan { to { transform: translateY(140vh); } }
+
+/* ---- boxes: glass with bracket corners */
+.card, .tile, .acct-card, .proj, .toggles, .w-use, .w-conn, .unlock-way, .prompt-card, .job, .convo, .rt-ideas, .ed-logsum {
+  --c: var(--hud); --cl: var(--hud-corner);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--cl) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 1px var(--cl) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--cl) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 1px var(--cl) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--cl) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 1px var(--cl) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--cl) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 1px var(--cl) no-repeat,
+    linear-gradient(180deg, var(--hud-glass-top), var(--hud-glass-bottom));
+  border-color: var(--border-soft);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px 0 var(--hud-edge), var(--shadow-1);
+  backdrop-filter: blur(6px);
+}
+.card h2 { letter-spacing: .02em; }
+/* the box's title gets a small lit tick before it */
+.card > h2::before { content: ""; width: 3px; height: .9em; align-self: center; background: var(--hud); box-shadow: 0 0 8px var(--hud-glow); flex: none; }
+
+/* ---- the rail: a control column with a lit edge */
+.rail { border-right-color: transparent; background: linear-gradient(90deg, var(--hud-rail-1), var(--hud-rail-2)); box-shadow: inset -1px 0 0 var(--border-soft), 1px 0 24px var(--hud-faint); }
+.rail h3 { color: var(--hud-text); opacity: .75; letter-spacing: .16em; }
+.page-link, .space { border-radius: var(--r-xs); position: relative; }
+.page-link:hover, .space:hover { background: var(--hud-tint); }
+.page-link[aria-current="page"], .space[aria-pressed="true"], .space[aria-current="page"] {
+  background: linear-gradient(90deg, var(--hud-lit), var(--hud-lit-end)); box-shadow: inset 2px 0 0 var(--hud); color: var(--fg);
+}
+.page-link[aria-current="page"]::after { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; box-shadow: 0 0 10px 1px var(--hud-glow); pointer-events: none; }
+.mark { letter-spacing: .04em; }
+.cmd { background: var(--hud-field); border-color: var(--border); border-radius: var(--r-sm); }
+.cmd:hover { border-color: var(--hud); box-shadow: 0 0 14px var(--hud-ring); }
+.cmd kbd { border-color: var(--border); color: var(--hud-text); }
+/* needs you: an orange warning light that breathes while the count is above 0 */
+.needs { border-radius: var(--r-sm); box-shadow: 0 0 18px var(--accent-ring); }
+.needs i { box-shadow: 0 0 10px 2px var(--accent-glow); animation: hud-lamp 1.8s ease-in-out infinite; }
+.needs.zero { box-shadow: none; background: var(--hud-tint); }
+.needs.zero i { box-shadow: 0 0 8px var(--ok); animation: none; }
+@keyframes hud-lamp { 50% { box-shadow: 0 0 3px 0 var(--accent-glow); } }
+.rail-foot { border-top-color: var(--border-soft); }
+.rail-tool:hover { background: var(--hud-tint); color: var(--hud-text); }
+
+/* ---- headings: the page title is a lit readout */
+.page-title, .page-head h1, .sessions-head h1 { color: var(--fg); }
+.kicker, .facts dt, .section-label { color: var(--hud-text); opacity: .85; }
+.tile .big, .ls-v { color: var(--fg); text-shadow: 0 0 16px var(--hud-glow); font-variant-numeric: tabular-nums; }
+
+/* ---- buttons: outlined in light; the primary is a lit cyan bar */
+.btn { border-color: var(--border); background: var(--hud-control); border-radius: var(--r-sm); letter-spacing: .01em; }
+.btn:hover { filter: none; border-color: var(--hud); box-shadow: 0 0 14px var(--hud-ring); color: var(--fg); }
+.btn--primary { color: var(--hud-fg); }
+.btn--primary:hover { filter: brightness(1.12); box-shadow: 0 0 22px var(--hud-glow); color: var(--hud-fg); }
+.btn--quiet { background: transparent; }
+.btn--quiet[aria-pressed="true"] { background: var(--hud-tint); color: var(--hud-text); border-color: var(--hud); }
+.btn--ghost, .btn--ghost:hover { background: none; box-shadow: none; }
+.btn--danger:hover, .btn[data-sure]:hover { box-shadow: 0 0 14px var(--bad-glow); border-color: var(--bad); }
+.mic { background: var(--hud-control); border-color: var(--border); }
+.mic svg { stroke: var(--hud-text); }
+.mic svg rect { fill: var(--hud-text); }
+.mic:hover { border-color: var(--hud); box-shadow: 0 0 12px var(--hud-ring); }
+
+/* ---- chips and tabs */
+.chip { background: var(--hud-control); border-radius: var(--r-xs); }
+.chip:hover { border-color: var(--hud); }
+.chip[aria-pressed="true"] { background: var(--hud-tint); color: var(--hud-text); border-color: var(--hud); box-shadow: 0 0 12px var(--hud-ring); }
+.chip[aria-pressed="true"] .c { color: var(--hud-text); }
+.tabs .chip[aria-pressed="true"], .tabs .chip[aria-current="page"] { color: var(--fg); border-bottom-color: var(--hud); box-shadow: 0 6px 10px -8px var(--hud-glow); background: none; }
+.tabs .chip { letter-spacing: .02em; }
+
+/* ---- fields */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { background-color: var(--hud-field); border-color: var(--border); }
+input:focus, select:focus, textarea:focus { border-color: var(--hud); box-shadow: 0 0 0 3px var(--hud-ring); outline: none; }
+
+/* ---- lists and the detail panel */
+.quote { background: var(--hud-faint); border-left: 2px solid var(--border); border-radius: var(--r-xs); }
+.tl { background: linear-gradient(var(--border), var(--border)) 6px 0 / 2px 100% no-repeat; background-attachment: local; }
+.tl li::before { background: var(--bg-canvas); border-color: var(--hud); box-shadow: 0 0 6px var(--hud-ring); }
+
+/* ---- dialogs float in light */
+.scrim { backdrop-filter: blur(4px); }
+.toast { background: var(--bg-raised); color: var(--fg); border: 1px solid var(--hud); box-shadow: 0 0 24px var(--hud-ring), var(--shadow-2); border-radius: var(--r-sm); }
+
+/* ---- scrollbars: thin lit rails */
+* { scrollbar-color: var(--border) transparent; }
+
+@media (prefers-reduced-motion: reduce) { body::after { display: none; } }
+
+/* ---- the HUD strip (public/js/hud.js): the time and the board in lit readouts */
+.hud-bar { display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap; padding: var(--sp-2) var(--sp-4); margin-top: calc(-1 * var(--sp-2));
+  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-muted);
+  border: 1px solid var(--border-soft); border-radius: var(--r-xs); background: linear-gradient(90deg, var(--hud-lit), var(--hud-lit-end) 60%, transparent); position: relative; }
+.hud-bar::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--hud); box-shadow: 0 0 10px var(--hud-glow); }
+.hud-time { font-size: var(--fs-md); font-weight: 600; color: var(--hud-text); letter-spacing: .08em; text-shadow: 0 0 12px var(--hud-glow); font-variant-numeric: tabular-nums; }
+.hud-r { color: var(--fg-muted); text-decoration: none; white-space: nowrap; }
+.hud-r b { color: var(--fg); font-weight: 600; font-size: var(--fs-sm); }
+a.hud-r:hover { color: var(--hud-text); }
+.hud-r.live b { color: var(--hud-text); text-shadow: 0 0 10px var(--hud-glow); }
+.hud-r.hot b, .hud-r.hot { color: var(--accent-text); }
+.hud-r.hot b { text-shadow: 0 0 10px var(--accent-glow); }
+.hud-r.ok b { color: var(--ok); }
+.hud-r.dim { opacity: .8; }
+.hud-sys { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.hud-sys i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: hud-lamp 2.4s ease-in-out infinite; }
+@media (max-width: 860px) { .hud-bar { gap: var(--sp-3); } .hud-sys { display: none; } }
+
+/* ---- Now: section labels as lit readouts, rows that light up */
+.now-gh h2 { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; text-transform: uppercase; color: var(--hud-text); }
+.now-gh .c { color: var(--hud-text); opacity: .7; }
+.now-group.hot .now-gh h2 { color: var(--accent-text); text-shadow: 0 0 10px var(--accent-glow); }
+.now-row { transition: background-color .15s, box-shadow .15s; }
+.now-row:hover { background: var(--hud-tint); box-shadow: inset 2px 0 0 var(--hud); }
+.now-row.sel { background: var(--bg-selected); box-shadow: inset 3px 0 0 var(--hud), inset 0 0 30px var(--hud-tint); }
+.now-group.hot .now-row.sel { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* the rail's head: the wordmark, and What's new under it when there is something */
+.rail-top { flex-wrap: wrap; row-gap: var(--sp-1); }
+.rail { overflow-x: hidden; }
+/* Sessions gives the whole height to the session: its own bar is the readout there. */
+body[data-page="sessions"] .hud-bar { display: none; }
+/* segmented choices (Settings): the one picked is lit */
+.seg button { border-radius: var(--r-xs); }
+.seg button[aria-pressed="true"] { background: var(--hud-tint); color: var(--hud-text); box-shadow: inset 0 0 0 1px var(--hud), 0 0 12px var(--hud-ring); }
+/* The strip always spans the whole main column, whatever grid a page gives it
+   (an open conversation in Inbox makes the column two wide). */
+.hud-bar { grid-column: 1 / -1; }
+body[data-convo] .main { grid-template-rows: auto minmax(0, 1fr); }
+
+/* Fills that were ink on paper read as bright slabs on the HUD: lit glass instead. */
+body[data-convo] #page .item.sel { background: var(--hud-lit); color: var(--fg); box-shadow: inset 2px 0 0 var(--hud); }
+.cv-chat .cv-msg.me .cv-text { background: linear-gradient(135deg, var(--bg-selected), var(--hud-glass-top)); color: var(--fg); border: 1px solid var(--border); }
+.msg.me, .cv-mail .cv-msg.me { border-left-color: var(--hud); }
+.cv-pill { background: var(--hud); color: var(--hud-fg); border-color: var(--hud); }
+.chip[aria-pressed="true"], .btn--quiet[aria-pressed="true"] { color: var(--hud-text); }
+.rt-idea[aria-pressed="true"], .nb-tag[aria-pressed="true"], .tb[aria-pressed="true"] { background: var(--hud-tint); color: var(--hud-text); border-color: var(--hud); box-shadow: inset 0 0 0 1px var(--hud); }
+.chart .tip { background: var(--bg-raised); color: var(--fg); border: 1px solid var(--hud); }
+.tl li.me::before { background: var(--hud); border-color: var(--hud); }

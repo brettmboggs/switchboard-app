@@ -27,7 +27,7 @@ function routinesCard() {
   return `<section class="card"><div class="rt-head"><h2>Routines <span class="count">${list.length || ''}</span></h2><button class="btn" type="button" data-rt-ideas>${ideasOpen ? 'Close ideas' : 'Ideas'}</button></div>
     ${ideas}
     <div class="list">${list.map((r) => row({ type: 'routine', key: String(r.id), space: r.space, title: r.text, via: r.every, sub: '', right: dueNow(r) ? '<span class="mono late">due</span>' : `<span class="mono muted">${esc(when(r.due_at))}</span>` })).join('')
-      || empty('Things that come back: type "feed the animals every day at 6am and 6pm" or "change the filter every 90 days" above, or pick from Ideas.')}</div></section>`;
+      || empty('Things that come back: type "walk the dog every day at 6am and 6pm" or "change the filter every 90 days" above, or pick from Ideas.')}</div></section>`;
 }
 
 function findRoutine(key) { return (S.routines || []).find((r) => String(r.id) === key); }

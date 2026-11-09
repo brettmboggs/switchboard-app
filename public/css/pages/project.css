@@ -21,6 +21,13 @@
 .pf-list { display: grid; gap: var(--sp-2); }
 .pf-person, .pf-link { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border-faint); }
 .pf-link { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+/* A person's addresses and numbers: one box each with Remove, then Add email,
+   Add phone and Merge with… under them. Each list takes the row's width. */
+.pf-many, .pf-acts { grid-column: 1 / -1; display: grid; gap: var(--sp-1); }
+.pf-one { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1); align-items: center; }
+.pf-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.pf-acts select { max-width: 100%; }
+.pf-hint { font-size: var(--fs-sm); }
 .proj-profile textarea { width: 100%; resize: vertical; }
 /* Files: the whole page takes a drop; this card shows where it lands. */
 .proj-drop { border: 1px dashed transparent; transition: border-color .15s; }

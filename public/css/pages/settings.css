@@ -65,7 +65,7 @@
 .toggles > * + * { border-top: 1px solid var(--border-faint); }
 .toggle input { appearance: none; width: 40px; height: 24px; border-radius: var(--r-pill); background: var(--border); position: relative; cursor: pointer; transition: background .15s; flex: none; margin: 0; }
 .toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--knob); transition: transform .15s; box-shadow: var(--shadow-1); }
-.toggle input:checked { background: var(--accent); }
+.toggle input:checked { background: var(--hud); box-shadow: 0 0 10px var(--hud-ring); }
 .toggle input:checked::after { transform: translateX(16px); }
 .quiet-times { display: flex; align-items: center; gap: 10px; padding: 0 16px 14px; font-size: var(--fs-base); color: var(--fg-muted); }
 

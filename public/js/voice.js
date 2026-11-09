@@ -8,6 +8,17 @@
 // as it is ready, in order.
 // The last dictation's unfinished words: sending waits for them.
 let rec = null, dictated = Promise.resolve();
+// How loud the microphone is right now while talk to type listens (0 when it does not), for Jarvis's wave.
+let micLevel = 0;
+// Which microphone: '' is the computer's default. Kept in this browser only, as
+// the browser's ids for devices mean nothing anywhere else (Settings, General).
+let micId = store.get('micId', '');
+const micPicked = () => !!micId;
+async function openMic() {
+  const base = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+  if (micId) { try { return await navigator.mediaDevices.getUserMedia({ audio: { ...base, deviceId: { exact: micId } } }); } catch { /* unplugged: fall back to the default */ } }
+  return navigator.mediaDevices.getUserMedia({ audio: base });
+}
 const WORKLET = `registerProcessor('sb-tap', class extends AudioWorkletProcessor {
   constructor() { super(); this.buf = []; this.n = 0; }
   process(inputs) {
@@ -21,6 +32,11 @@ const WORKLET = `registerProcessor('sb-tap', class extends AudioWorkletProcessor
 function toWav16k(chunks, rate) {
   const len = chunks.reduce((n, c) => n + c.length, 0);
   const all = new Float32Array(len); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+  // A quiet microphone: raise the piece so its loudest moment is near full scale
+  // (up to 12 times), so Whisper hears words rather than near-silence.
+  let peak = 0; for (let i = 0; i < len; i++) { const a = Math.abs(all[i]); if (a > peak) peak = a; }
+  const gain = peak > 0.002 ? Math.min(12, 0.9 / peak) : 1;
+  if (gain > 1) for (let i = 0; i < len; i++) all[i] *= gain;
   const ratio = rate / 16000, n = Math.floor(len / ratio);
   const pcm = new Int16Array(n);
   for (let i = 0; i < n; i++) {
@@ -56,6 +72,8 @@ function dictSink(target) {
       target.value = base + text;
       if (target.id === 'q-text') { draft['term:' + currentTerm] = target.value; growText(target); }
       if (target.id === 'r-text' && selected) draft[selected.key] = target.value;
+      // Ctrl K reads what is typed as you go (search results, which session): spoken words count too.
+      if (target.id === 'cmd-input') target.dispatchEvent(new Event('input', { bubbles: true }));
       target.scrollTop = target.scrollHeight;
     },
     end() {}
@@ -77,12 +95,12 @@ function startBrowserSpeech(btn, target) {
   const finish = () => {
     if (done) return; done = true;
     clearTimeout(watchdog);
-    btn.classList.remove('on'); if (rec?.r === r) rec = null; sink.end();
+    btn.classList.remove('on'); if (rec?.r === r) rec = null; sink.end(); micLevel = 0;
   };
   const refused = (msg) => { try { r.abort(); } catch {} finish(); toast(msg, { kind: 'error' }); };
   r.onstart = r.onaudiostart = () => { heard = true; };
   r.onresult = (e) => {
-    heard = true;
+    heard = true; micLevel = 0.06 + Math.random() * 0.06;   // the browser's speech gives no level: each word it hears is a pulse
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finals += t; else interim += t; }
     sink.set((finals + interim).replace(/\s+([,.?!])/g, '$1'));
@@ -104,12 +122,17 @@ function startBrowserSpeech(btn, target) {
 }
 
 function stopDictation() { rec?.stop(); }
-async function startDictation(btn) {
+// opts.private: Whisper on this computer even when Live is picked (when it is set up).
+// Jarvis asks for it when a microphone is picked in Settings; plain talk to type
+// stays on the browser's live speech, which shows words as you say them (Nov 8 2026).
+// opts.hold: you hold a key while you talk, so everything until you let go is
+// speech; no loudness test that a quiet microphone could stay under.
+async function startDictation(btn, opts = {}) {
   const target = $(btn.dataset.mic);
   if (!target) return;
   if (rec) { const same = rec.btn === btn; rec.stop(); if (same) return; }
   const v = S?.voice || {};
-  const live = (S?.prefs?.voice || 'live') === 'live';
+  const live = (S?.prefs?.voice || 'live') === 'live' && !(opts.private && v.ready);
   if (live && browserSpeech && startBrowserSpeech(btn, target)) return;   // Private never sends audio to the browser's service
   if (!v.ready) {
     if (v.running) { toast(`Talk to type is still setting up: ${v.step || 'starting'}${v.progress ? ' ' + v.progress + '%' : ''}.`); return; }
@@ -118,7 +141,7 @@ async function startDictation(btn) {
     return;
   }
   let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } }); }
+  try { stream = await openMic(); }
   catch { toast('Allow the microphone for Switchboard to talk to type.'); return; }
   const ctx = new AudioContext();
   const url = URL.createObjectURL(new Blob([WORKLET], { type: 'text/javascript' }));
@@ -155,7 +178,8 @@ async function startDictation(btn) {
     const block = e.data;
     let sum = 0; for (let i = 0; i < block.length; i++) sum += block[i] * block[i];
     const rms = Math.sqrt(sum / block.length);
-    const talking = rms > Math.max(0.012, floor * 3);
+    micLevel = rms;
+    const talking = opts.hold || rms > Math.max(0.012, floor * 3);
     if (!talking) floor = floor * 0.95 + rms * 0.05;
     if (talking) {
       if (!cur) { cur = { text: '', final: false }; pieces.push(cur); }
@@ -174,7 +198,7 @@ async function startDictation(btn) {
       flush(true);
       try { src.disconnect(); tap.disconnect(); } catch {}
       stream.getTracks().forEach((t) => t.stop());
-      ctx.close();
+      ctx.close(); micLevel = 0;
       btn.classList.remove('on');
       // The last piece is still being transcribed: the words land, then the editor's marker comes off.
       dictated = Promise.allSettled([...finals]).then(() => sink.end());
@@ -252,6 +276,19 @@ document.addEventListener('click', (e) => {
   const qi = e.target.closest('[data-qa]');
   if (qi) {
     const t = termByKey(currentTerm);
+    // Edit: out of the queue and back into the message bar, after anything already typed there.
+    if (qi.dataset.qa === 'back') {
+      const q = t?.queued.find((x) => String(x.id) === qi.dataset.q), box = $('q-text');
+      if (!q || !box) return;
+      const req = t.remote ? api(termPath(t, 'drop'), { qid: Number(q.id) }) : api(`/api/queue/${q.id}/drop`, {});
+      req.then(() => {
+        box.value = box.value.trim() ? `${box.value.trimEnd()}\n${q.text}` : q.text;
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+        box.focus(); box.setSelectionRange(box.value.length, box.value.length);
+        return load();
+      }).catch((err) => toast(err.message, { kind: 'error' }));
+      return;
+    }
     const req = t?.remote ? api(termPath(t, qi.dataset.qa), { qid: Number(qi.dataset.q) }) : api(`/api/queue/${qi.dataset.q}/${qi.dataset.qa}`, {});
     req.then(load).catch((err) => toast(err.message, { kind: 'error' })); return;
   }

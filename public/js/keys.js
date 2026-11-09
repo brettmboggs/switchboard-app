@@ -17,7 +17,7 @@ window.addEventListener('keydown', (e) => {
   location.href = '/app/quit';
 }, true);
 const KEY_GROUPS = [
-  ['Anywhere', [[[MOD, 'K'], 'Command bar: add a note, reminder, to-do or bill, or search'], [['?'], 'These shortcuts'], [['Esc'], 'Close the dialog on top'], [[MOD, 'Z'], 'Undo Done, Delete or archive (while Undo shows)'], [[','], 'Settings'], ...(IN_APP ? [[['Ctrl', 'Q'], 'Quit the Switchboard app (your sessions keep running)']] : [])]],
+  ['Anywhere', [[[MOD, 'K'], 'Command bar: add a note, reminder, to-do or bill, or search'], [['Ctrl', 'Space'], 'Hold and talk to Jarvis; let go and it answers'], [['?'], 'These shortcuts'], [['Esc'], 'Close the dialog on top'], [[MOD, 'Z'], 'Undo Done, Delete or archive (while Undo shows)'], [[','], 'Settings'], ...(IN_APP ? [[['Ctrl', 'Q'], 'Quit the Switchboard app (your sessions keep running)']] : [])]],
   ['Go to', Object.entries(GO_KEYS).map(([k, p]) => [['G', k.toUpperCase()], PAGES.find(([id]) => id === p)?.[1] || p])],
   ['Writing', [[['Enter'], 'Send a message to a session'], [['Shift', 'Enter'], 'A new line'], [[MOD, 'Enter'], 'Send a reply in Inbox'], [['/'], 'Claude\'s commands, in a session\'s message bar'], [[MOD, 'B'], 'Bold, in Notes (I italic, U underline)']]],
   ['In a Claude session\'s terminal', [[['Shift', 'Enter'], 'A new line'], [['Ctrl', 'Enter'], 'Send now, even while Claude is working'], [['Ctrl', 'Backspace'], 'Delete a word']]]

@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseMeminfo, parseProcStat, groupProcs, parseNvidia, parseVmStat, parseNetDev, parseMacNetstat, readHwmon, parseWindows, _parse } from '../lib/sysprobe.js';
-import { bottleneck, corePercents, systemSnapshot } from '../lib/sysmon.js';
+import { parseMeminfo, parseProcStat, groupProcs, parseNvidia, parseVmStat, parseNetDev, parseMacNetstat, readHwmon, parseWindows, sensorName, _parse } from '../lib/sysprobe.js';
+import { bottleneck, corePercents, systemSnapshot, diskName } from '../lib/sysmon.js';
 
 const GB = 1073741824;
 
@@ -55,7 +55,7 @@ test('Linux sensors: temperatures with their labels and fans, read from a folder
     writeFileSync(join(chip, 'name'), 'examplechip\n'); writeFileSync(join(chip, 'temp1_input'), '45500\n'); writeFileSync(join(chip, 'temp1_label'), 'Package\n');
     writeFileSync(join(chip, 'temp2_input'), '0\n'); writeFileSync(join(chip, 'fan1_input'), '1200\n');
     const { temps, fans } = readHwmon(root);
-    assert.deepEqual(temps.map((t) => [t.label, t.c]), [['Package', 45.5]]);   // a zero reading is no reading
+    assert.deepEqual(temps.map((t) => [t.label, t.raw, t.c]), [['Processor', 'examplechip Package', 45.5]]);   // a zero reading is no reading
     assert.deepEqual(fans.map((f) => [f.label, f.rpm]), [['examplechip fan 1', 1200]]);
     assert.deepEqual(readHwmon(join(root, 'missing')), { temps: [], fans: [] });
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -74,7 +74,7 @@ test('Windows answer: process change over time, network, sensors from a monitori
   const second = parseWindows(json(12), { at: 1000, ticks: first.ticks }, 6000);   // 2 s of processor time in 5 s, whatever the core count
   assert.ok(second.procs[0].cpu > 0);
   assert.deepEqual(second.net, { rx: 15, tx: 25 });
-  assert.deepEqual(second.temps.map((t) => t.label), ['CPU Package']); assert.equal(second.fans[0].rpm, 900);
+  assert.deepEqual(second.temps.map((t) => [t.label, t.raw]), [['Processor', 'CPU Package']]); assert.equal(second.fans[0].rpm, 900);
   assert.equal(parseWindows('not json', null, 1), null);
 });
 
@@ -90,7 +90,7 @@ test('the verdict says what is straining, in words, and says nothing when calm',
   const busy = { ...calm, cpu: { pct: 97 }, mem: { pct: 93, swapUsed: 0 }, temps: [{ label: 'CPU', c: 95 }], gpus: [{ pct: 99 }], disks: [{ mount: 'C:\\', total: 100 * GB, free: 4 * GB }], apps: [{ name: 'renderer', cpu: 80, mem: 6 * GB }] };
   const say = bottleneck(busy).map((x) => x.text).join(' | ');
   assert.match(say, /processor is flat out \(97%\), mostly renderer/); assert.match(say, /Memory is 93% full; renderer holds 6\.0 GB/);
-  assert.match(say, /graphics card is flat out/); assert.match(say, /CPU is running hot \(95°C\)/); assert.match(say, /C:\\ has only 4 GB left/);
+  assert.match(say, /graphics card is flat out/); assert.match(say, /CPU is running hot \(95°C\)/); assert.match(say, /Drive C: has only 4 GB left/);
 });
 
 test('a snapshot on this computer has the whole shape the page draws', async () => {
@@ -99,4 +99,13 @@ test('a snapshot on this computer has the whole shape the page draws', async () 
   assert.ok(s.mem.total > 0 && s.mem.pct >= 0 && s.mem.pct <= 100);
   for (const k of ['disks', 'gpus', 'temps', 'fans', 'apps', 'notes', 'say']) assert.ok(Array.isArray(s[k]), k);
   assert.ok(s.apps.length > 0);
+});
+
+test('sensors and disks are named for the part of the computer, not the chip or the path', () => {
+  const names = [['Tctl', 'k10temp'], ['Tccd1', 'k10temp'], ['Package id 0', 'coretemp'], ['Core 0', 'coretemp'], ['Composite', 'nvme'], ['edge', 'amdgpu'], ['junction', 'amdgpu'], ['', 'acpitz'], ['CPU Core #2', 'sensor'], ['GPU Core', 'sensor'], ['Water', 'nct6798']].map(([l, c]) => sensorName(l, c));
+  assert.deepEqual(names, ['Processor', 'Processor chiplet 1', 'Processor', 'Processor core 1', 'SSD', 'Graphics', 'Graphics (hottest spot)', 'Motherboard', 'Processor core 2', 'Graphics', 'Water']);
+  assert.deepEqual(['/', '/boot/efi', 'C:\\', 'd:', '/media/sam/photos'].map((m) => diskName(m, 'linux')), ['The main disk', 'The startup disk', 'Drive C:', 'Drive D:', 'Photos']);
+  const GB = 1073741824;
+  const say = bottleneck({ cpu: { pct: 1 }, mem: { pct: 1 }, gpus: [], temps: [], apps: [], disks: [{ mount: '/', total: 100 * GB, free: 5 * GB }] });
+  assert.equal(say[0].text, 'The main disk has only 5 GB left.');
 });

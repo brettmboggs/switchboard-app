@@ -101,7 +101,7 @@ async function bringLink(key) {
   try {
     const cur = await api('/api/settings');
     const rules = (cur.rules || []).filter((r) => r[0].toLowerCase() !== v.toLowerCase());
-    await api('/api/settings', { rules: [[v, t.space], ...rules] });
+    await api('/api/settings', { rules: [[v, t.space], ...rules], rulesWas: cur.rulesWas });
     toast(`Messages from ${v} go to ${spaceOf(t.space).name} now. Change it in Settings, Projects.`);
     await load();
     await bringFetch(true);

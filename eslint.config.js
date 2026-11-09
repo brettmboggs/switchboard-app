@@ -59,6 +59,17 @@ export default [
     languageOptions: { globals: { sanitizeHtml: 'readonly' } }
   },
   {
+    // test/webboard-e2e.test.js checks the page from inside it (page.evaluate, waitForFunction).
+    files: ['test/webboard-e2e.test.js'],
+    languageOptions: { globals: { S: 'readonly', api: 'readonly', location: 'readonly', document: 'readonly', window: 'readonly' } }
+  },
+  {
+    // The web board's modules (public/js/web/): the browser, as ES modules; tests also run them in Node.
+    files: ['public/js/web/**/*.js', 'public/js/shared/**/*.js'],
+    languageOptions: { ecmaVersion: 2024, sourceType: 'module', globals: BROWSER },
+    rules
+  },
+  {
     files: ['public/js/*.js', 'public/setup.js'],
     languageOptions: { ecmaVersion: 2024, sourceType: 'script', globals: { ...BROWSER, ...rw(page.names) } },
     // A top-level name in one page script is used from another, so only local unused names count here.

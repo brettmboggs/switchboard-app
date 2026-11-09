@@ -1,0 +1,68 @@
+/* The Deck (public/js/deck.js): Jarvis's core in the middle, what it said
+   under it and the command line, the modules around it. The modules are
+   readable first: a title, one big number, a line of words, and up to four
+   plain lines; the light is on their frames. */
+body[data-page="deck"] .hud-bar { display: none; }
+body[data-page="deck"] .main { padding-top: var(--sp-4); }
+.deck { display: grid; grid-template-columns: var(--deck-side) minmax(0, 1fr) var(--deck-side); grid-template-areas: "left center right" "bottom bottom bottom"; gap: var(--sp-5); align-items: start; min-height: calc((100vh - var(--ring-h) - var(--sp-7)) / var(--zoom, 1) - var(--sp-3)); }   /* the page is zoomed by text size: undo it here, or a larger size scrolls */
+.deck-left { grid-area: left; } .deck-right { grid-area: right; } .deck-center { grid-area: center; } .deck-bottom { grid-area: bottom; }
+.deck-side { display: grid; gap: var(--sp-4); }
+.deck-bottom { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-4); }   /* AI plans, notes, checks, projects */
+
+/* a module */
+.mod { --c: var(--hud); --cl: var(--hud-corner); display: grid; gap: var(--sp-1); padding: var(--sp-4); text-decoration: none; color: var(--fg); min-width: 0; position: relative;
+  border: 1px solid var(--border-soft); border-radius: var(--r-sm);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--cl) 1px no-repeat, linear-gradient(var(--c), var(--c)) top left / 1px var(--cl) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--cl) 1px no-repeat, linear-gradient(var(--c), var(--c)) bottom right / 1px var(--cl) no-repeat,
+    linear-gradient(180deg, var(--hud-glass-top), var(--hud-glass-bottom));
+  backdrop-filter: blur(6px); transition: border-color .15s, box-shadow .2s, transform .2s; }
+.mod:hover, .mod:focus-visible { border-color: var(--hud); box-shadow: 0 0 24px var(--hud-ring), inset 0 0 30px var(--hud-tint); transform: translateY(-2px); outline: none; }
+.mod-head { display: flex; align-items: center; justify-content: space-between; }
+.mod-t { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .16em; text-transform: uppercase; color: var(--hud-text); }
+.mod-go { color: var(--fg-muted); font-size: var(--fs-sm); transition: color .15s, transform .15s; }
+.mod:hover .mod-go { color: var(--hud-text); transform: translate(2px, -2px); }
+.mod-big { font-family: var(--font-display); font-size: var(--fs-3xl); font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px var(--hud-glow); }
+.mod-word { font-size: var(--fs-sm); color: var(--fg-muted); }
+.mod-lines { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px solid var(--border-faint); }
+.mod-l { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); min-width: 0; }
+.mod-l > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mod-l em { font-style: normal; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.mod-l i { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex: none; }
+.mod-l i.run { background: var(--hud); box-shadow: 0 0 6px var(--hud); } .mod-l i.ok { background: var(--ok); } .mod-l i.bad { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+.mod-l i.hot { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+.mod-quiet { color: var(--fg-muted); }
+/* needs you: the module itself becomes the warning light */
+.mod--hot { --c: var(--accent); border-color: var(--accent-half); box-shadow: 0 0 22px var(--accent-ring); }
+.mod--hot .mod-t, .mod--hot .mod-big { color: var(--accent-text); }
+.mod--hot .mod-big { text-shadow: 0 0 18px var(--accent-glow); }
+.mod--live .mod-big { color: var(--hud-text); }
+
+/* the centre: clock, core, what was said, the command line */
+.deck-center { display: grid; justify-items: center; gap: var(--sp-4); text-align: center; padding-top: var(--sp-2); }
+.deck-clock { display: grid; gap: var(--sp-1); }
+#deck-time { font-family: var(--font-display); font-size: var(--fs-3xl); font-weight: 500; letter-spacing: .12em; color: var(--fg); text-shadow: 0 0 20px var(--hud-glow); font-variant-numeric: tabular-nums; }
+.deck-date { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-muted); }
+.deck-core { position: relative; width: var(--deck-core); aspect-ratio: 1; border: 0; padding: 0; background: radial-gradient(circle, var(--hud-tint), transparent 70%); border-radius: 50%; cursor: pointer; }
+.deck-core:focus-visible { outline: 2px solid var(--hud); outline-offset: var(--sp-2); }
+.deck-core canvas { width: 100%; height: 100%; display: block; }
+.deck-core-word { position: absolute; left: 0; right: 0; bottom: 6%; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .4em; color: var(--hud-text); text-shadow: 0 0 10px var(--hud-glow); pointer-events: none; }
+.deck-talk { max-width: 640px; min-height: 3.2em; display: grid; gap: var(--sp-2); }
+.deck-talk p { margin: 0; }
+.dk-you { color: var(--fg-muted); font-size: var(--fs-base); }
+.dk-me { font-size: var(--fs-lg); line-height: var(--lh); color: var(--fg); }
+.dk-me kbd { font-family: var(--font-mono); font-size: var(--fs-xs); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 0 var(--sp-1); color: var(--hud-text); }
+.deck-cmd { display: flex; align-items: center; gap: var(--sp-2); width: min(640px, 100%); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--hud-field); }
+.deck-cmd:focus-within { border-color: var(--hud); box-shadow: 0 0 0 3px var(--hud-ring), 0 0 30px var(--hud-ring); }
+.deck-prompt { color: var(--hud-text); font-family: var(--font-mono); }
+.deck-cmd input { flex: 1; border: 0; background: none; font-size: var(--fs-md); color: var(--fg); padding: var(--sp-2) 0; }
+.deck-cmd input:focus { outline: none; box-shadow: none; }
+
+/* every window size: the sides fold under the core, then everything is one column */
+@media (max-width: 1280px) {
+  .deck { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "center center" "left right" "bottom bottom"; }
+  .deck-bottom { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .deck { grid-template-columns: minmax(0, 1fr); grid-template-areas: "center" "left" "right" "bottom"; }
+}

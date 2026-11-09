@@ -24,7 +24,8 @@ function localHits(q) {
     .map((t) => ({ type: 'term', key: t.key, space: t.space, title: termLabel(t), line: t.prompt || t.detail || t.cwd }));
   const people = [];
   for (const s of S.spaces) for (const p of profileOf(s.id).people) {
-    if (hit(`${p.name} ${p.role} ${p.email} ${p.phone}`)) people.push({ type: 'person', project: s.id, space: s.id, title: p.name || p.email || p.phone, line: [p.role, s.name, p.email, p.phone].filter(Boolean).join(' · ') });
+    const reach = [...emailsOf(p), ...phonesOf(p)].filter(Boolean);
+    if (hit(`${p.name} ${p.role} ${reach.join(' ')}`)) people.push({ type: 'person', project: s.id, space: s.id, title: p.name || reach[0], line: [p.role, s.name, ...reach].filter(Boolean).join(' · ') });
   }
   const projects = S.spaces.filter((s) => hit(s.name)).slice(0, 3).map((s) => ({ type: 'project', project: s.id, space: s.id, title: s.name, line: profileOf(s.id).about.slice(0, 120) }));
   const features = SETUP.filter((e) => hit(`${e.title} ${e.why}`)).sort((a, b) => hit(b.title) - hit(a.title)).slice(0, 3)
@@ -92,6 +93,9 @@ function cmdOpen(r) {
 function cmdPick() { if (cmdSel < 0 || !cmdHits[cmdSel]) return false; cmdOpen(cmdHits[cmdSel]); return true; }
 
 $('cmd-input').addEventListener('input', (e) => {
+  // One line, wrapped: a pasted new line becomes a space, and the box grows to show it all.
+  if (e.target.value.includes('\n')) e.target.value = e.target.value.replace(/\s*\n+\s*/g, ' ');
+  growText(e.target);
   const q = e.target.value.trim();
   clearTimeout(cmdTimer);
   // "note …" and "sesh …" list where it can go instead (cmdtarget.js).

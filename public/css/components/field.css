@@ -16,7 +16,7 @@
 .composer textarea { min-height: 110px; resize: vertical; }
 .sheet textarea, .sig-list textarea { font-family: var(--font-mono); font-size: var(--fs-sm); }
 ::placeholder { color: var(--placeholder); opacity: 1; }
-textarea.drop, .composer textarea.drop { outline: 2px dashed var(--accent); }
+textarea.drop, .composer textarea.drop { outline: 2px dashed var(--hud); }
 
 /* A labelled row of fields in a dialog: label column, then the field. */
 .form-grid { display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; align-items: center; margin-top: 8px; }

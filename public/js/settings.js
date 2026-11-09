@@ -4,7 +4,7 @@
 // ---------- settings
 // Sections down the left; every change saves as it is made.
 let SET = null, pane = 'accounts';
-const PANES = { accounts: 'Account', connections: 'Connections', projects: 'Projects', alerts: 'Notifications', mail: 'Mail', look: 'General', system: 'System' };
+const PANES = { accounts: 'Account', connections: 'Connections', projects: 'Projects', team: 'Team', alerts: 'Notifications', mail: 'Mail', look: 'General', system: 'System' };
 const SWATCHES = ['#FF4F00', '#2F5D8A', '#1F7A4D', '#8A6D1F', '#7A3E9D', '#B42318', '#0E7C86', '#8A8F98'];
 
 async function openSettings(to) {
@@ -21,13 +21,27 @@ function showPane(id) {
 }
 function renderSettings() {
   if (!SET) return;
-  renderAccount(); renderGmail(); renderCalendars(); renderWebhooks(); renderMsStatus(); renderDev(); renderConnections(); renderProjects(); renderAlerts(); renderSigs(); renderLook();
+  renderAccount(); renderGmail(); renderCalendars(); renderWebhooks(); renderMsStatus(); renderDev(); renderConnections(); renderProjects(); renderTeam(); renderSyncOwn(); renderAlerts(); renderSigs(); renderLook();
 }
 
 let savedTimer = null;
 async function saveSet(body) {
   try {
-    await api('/api/settings', body);
+    const r = await api('/api/settings', body);
+    // The lists as they are now, merged with anything added elsewhere.
+    if (SET && r?.spaces && (body.rules || body.rulesAdd || body.rulesRemove || body.spaces)) {
+      // A project saved just now for the first time: its id, in place, so the page and what is typed stay put.
+      // The server says which id its temporary one became; never found by name, which one made elsewhere could share (re-review L2).
+      const known = new Set(SET.spaces.map((x) => x.id).filter(Boolean));
+      for (const p of SET.spaces) if (!p.id && p.tmp && r.made?.[p.tmp]) { p.id = r.made[p.tmp]; delete p.tmp; known.add(p.id); }
+      // Something from elsewhere (a rule, a project, one gone): show it.
+      // A change still waiting in line is on the page already and not yet in this answer: its own answer brings the rules.
+      const later = setQueued > 1;
+      const elsewhere = (!later && JSON.stringify(r.rules) !== JSON.stringify(SET.rules)) || r.spaces.some((x) => !known.has(x.id)) || SET.spaces.some((q) => !r.spaces.some((x) => x.id === q.id));
+      if (!later) SET.rules = r.rules;
+      SET.rulesWas = r.rulesWas; SET.spacesWas = r.spacesWas;
+      if (elsewhere) { SET.spaces = [...r.spaces, ...SET.spaces.filter((p) => !p.id)]; renderProjects(); }   // one not saved yet stays on the page
+    }
     $('saved').textContent = 'Saved'; $('saved').className = 'saved show';
     clearTimeout(savedTimer); savedTimer = setTimeout(() => { $('saved').className = 'saved'; }, 1400);
     load();
@@ -82,12 +96,12 @@ function renderAccount() {
     $('acct').innerHTML = `<div class="acct-main"><b>Switchboard account</b><span class="acct-line ${a.ok === false ? 'bad-text' : ''}">${a.ok === false ? esc(a.error) : esc(a.email) + (via.length ? ' · signs in with ' + esc(via.join(', ')) : '')}</span></div>
       <div class="form-row"><button class="btn btn--quiet" type="button" data-account="sync">Sync now</button><button class="btn btn--quiet" type="button" data-account="signout">Sign out</button></div>
       <div class="acct-wide acct-extra">
-        ${a.info && !a.info.hasRecovery ? `<div class="nudge"><span>Make a recovery key: it opens your data if you ever lose access to your computers.</span><button class="btn btn--primary" type="button" data-account="recovery-key">Make one</button></div>` : ''}
-        <div class="form-row">${providerButtons(true)}${a.info?.hasRecovery ? '<button class="btn btn--quiet" type="button" data-account="recovery-key">New recovery key</button>' : ''}</div>
+        ${a.info && !a.info.hasRecovery && !window.WEB ? `<div class="nudge"><span>Make a recovery key: it opens your data if you ever lose access to your computers.</span><button class="btn btn--primary" type="button" data-account="recovery-key">Make one</button></div>` : ''}
+        ${window.WEB ? '<p class="muted small">Recovery keys, your computers and shared sessions are in Switchboard on a computer.</p>' : `<div class="form-row">${providerButtons(true)}${a.info?.hasRecovery ? '<button class="btn btn--quiet" type="button" data-account="recovery-key">New recovery key</button>' : ''}</div>
         <div class="devices"><span class="field-label">Your computers</span><div id="device-list" class="device-list">${deviceRows()}</div></div>
-        <label class="toggle compact"><span>Other computers can see and use sessions on this computer</span><input type="checkbox" id="allow-remote" ${S.relay?.allowRemote !== false ? 'checked' : ''}></label>
+        <label class="toggle compact"><span>Other computers can see and use sessions on this computer</span><input type="checkbox" id="allow-remote" ${S.relay?.allowRemote !== false ? 'checked' : ''}></label>`}
       </div>`;
-    loadDevices();
+    if (!window.WEB) loadDevices();
     return;
   }
   if ($('acct-email')) return;   // keep what is being typed
@@ -100,8 +114,8 @@ function renderAccount() {
     <form id="acct-form" class="acct-form" ${anyProvider ? 'hidden' : ''}>
       <label for="acct-email">Email</label><input id="acct-email" type="email" autocomplete="username" required>
       <label for="acct-pass">Password</label><input id="acct-pass" type="password" autocomplete="current-password" minlength="10" required>
-      <span></span><p class="hint">Your password also locks your data, so nobody can reset it. Keep it somewhere safe.</p>
-      <span></span><div class="form-row"><button class="btn btn--primary" type="submit" data-mode="signin">Sign in</button><button class="btn" type="submit" data-mode="signup">Create account</button><span id="acct-msg" class="small"></span></div>
+      <span></span><p class="hint">Your password also locks your data. Keep it somewhere safe.</p>
+      <span></span><div class="form-row"><button class="btn btn--primary" type="submit" data-mode="signin">Sign in</button><button class="btn" type="submit" data-mode="signup">Create account</button><button class="btn btn--ghost" type="button" id="acct-forgot">Forgot password?</button><span id="acct-msg" class="small"></span></div>
     </form>`;
 }
 
@@ -191,8 +205,10 @@ function renderMsStatus() {
 // Developer accounts: GitHub through the gh tool, and each coding agent signed in its own way.
 function renderDev() {
   const st = S.status;
+  // Not signed in: Sign in runs GitHub's own sign-in (gh auth login) in a session here, which opens GitHub in the browser.
   const gh = st.github.ok === true ? card({ name: 'GitHub', line: 'Connected', conn: 'github' })
-    : card({ name: 'GitHub', conn: 'github', line: st.github.ok === false ? 'Run <span class="mono">gh auth login</span> in a terminal' : 'Checking…', bad: st.github.ok === false });
+    : card({ name: 'GitHub', conn: 'github', line: st.github.ok === false ? 'Not signed in yet. Sign in asks a couple of questions (pick GitHub.com, then the web browser) and finishes on GitHub\'s own page.' : 'Checking…', bad: st.github.ok === false,
+      actions: st.github.ok === false ? '<button class="btn" type="button" data-term-cmd="gh auth login" title="Runs gh auth login">Sign in</button>' : '' });
   const how = {
     claude: { install: 'npm i -g @anthropic-ai/claude-code', login: 'claude' },
     codex: { install: 'npm i -g @openai/codex', login: 'codex login', note: 'Signs in with your ChatGPT account' },
@@ -202,7 +218,8 @@ function renderDev() {
     const h = how[a.id];
     const name = a.id === 'codex' ? 'ChatGPT (Codex)' : a.name;
     if (!a.installed) return card({ name, conn: a.id, line: h.note || 'Not installed', actions: `<button class="btn" type="button" data-term-cmd="${esc(h.install + ' && ' + h.login)}">Install</button>` });
-    if (a.id === 'claude') return card({ name, conn: a.id, line: st.hooks ? 'Connected' : 'Run <span class="mono">npm run setup</span> in the Switchboard folder' , bad: !st.hooks });
+    if (a.id === 'claude') return card({ name, conn: a.id, line: st.hooks ? 'Connected' : 'Installed. Finish setup links it to Switchboard, so its sessions show here and say when they need you.', bad: !st.hooks,
+      actions: st.hooks ? '' : '<button class="btn" type="button" data-finish-setup title="Runs npm run setup in the Switchboard folder">Finish setup</button>' });
     if (!a.signedIn) return card({ name, conn: a.id, line: 'Installed, not signed in', actions: `<button class="btn" type="button" data-term-cmd="${esc(h.login)}">Sign in</button>` });
     return card({ name, conn: a.id, line: 'Ready for new sessions' });
   });
@@ -218,6 +235,7 @@ function renderProjects() {
       <div class="proj-top">
         <details class="swatch"><summary style="background:${safeColor(p.color)}" aria-label="Color"></summary><div class="swatches">${SWATCHES.map((c) => `<button type="button" style="background:${c}" data-color="${c}" aria-label="${c}"></button>`).join('')}<input type="color" value="${esc(p.color)}" data-color-pick aria-label="Any color"></div></details>
         <input class="proj-name" value="${esc(p.name)}" data-field="name" aria-label="Project name">
+        ${p.id ? `<button class="btn btn--quiet" type="button" data-share-open="${esc(p.id)}">${S?.share?.projects?.[p.id] ? 'Shared' : 'Share'}</button>` : ''}
         <button class="btn btn--quiet" type="button" data-proj-del ${SET.spaces.length < 2 ? 'disabled' : ''}>Remove</button>
       </div>
       <div class="proj-fields">
@@ -237,24 +255,32 @@ function renderProjects() {
 }
 // Every repo, person, chat and domain Switchboard knows (lib/sorting.js ruleChoices), offered as you type a rule.
 let ruleChoiceList = null;
+let ruleBusy = false;
 async function addRule(input) {
-  const v = input.value.trim(), p = SET.spaces[Number(input.closest('.proj').dataset.i)];
-  if (!v) return;
-  // A project just added has no id until it is saved: save it first, then add.
-  if (!p.id) {
-    await saveProjects();
-    SET.spaces = (await api('/api/settings')).spaces;
-    const fresh = SET.spaces.find((s) => s.name === p.name);
-    if (!fresh?.id) { toast('Give the project a name first, then add what belongs in it.', { kind: 'error' }); return; }
-    Object.assign(p, fresh);
-    SET.spaces = SET.spaces.map((s) => s.id === fresh.id ? p : s);
-  }
-  SET.rules = [...SET.rules.filter((r) => !(r[0].toLowerCase() === v.toLowerCase() && r[1] === p.id)), [v, p.id]];
-  renderProjects(); saveRules();
-  document.querySelector(`.proj[data-i="${SET.spaces.indexOf(p)}"] [data-rule-add]`)?.focus();
+  const v = input.value.trim(), i = Number(input.closest('.proj').dataset.i);
+  // Enter right after picking from the list runs this twice: once is enough.
+  if (!v || ruleBusy) return;
+  ruleBusy = true;
+  try {
+    // A project just added has no id until it is saved. A save already on its way gives it one;
+    // otherwise save it now. Its id comes back from that save, never found by name (review L2).
+    await projSaving;
+    let p = SET.spaces[i];
+    if (p && !p.id) { await saveProjects(); p = SET.spaces[i]; }
+    if (!p?.id) { toast('Give the project a name first, then add what belongs in it.', { kind: 'error' }); return; }
+    SET.rules = [...SET.rules.filter((r) => !(r[0].toLowerCase() === v.toLowerCase() && r[1] === p.id)), [v, p.id]];
+    renderProjects(); await saveRules({ add: [[v, p.id]] });
+    document.querySelector(`.proj[data-i="${SET.spaces.indexOf(p)}"] [data-rule-add]`)?.focus();
+  } finally { ruleBusy = false; }
 }
-const saveProjects = () => saveSet({ spaces: SET.spaces });
-const saveRules = () => saveSet({ rules: SET.rules });
+// Each save says what the page started from, so only its own changes go in (review M7). A rule save sends
+// only its change (added, taken away), so a rule deleted elsewhere stays deleted. Project and rule saves go
+// one after another, each built when its turn comes, so two never race to make the same new project and an
+// add then delete arrive in that order.
+let projSaving = Promise.resolve(), setQueued = 0;
+const saveInLine = (body) => { setQueued++; return (projSaving = projSaving.then(() => saveSet(body())).finally(() => { setQueued--; })); };
+const saveProjects = (more = {}) => saveInLine(() => ({ spaces: SET.spaces, spacesWas: SET.spacesWas, ...more }));
+const saveRules = ({ add = [], remove = [] }) => saveInLine(() => ({ rulesAdd: add, rulesRemove: remove }));
 
 // -- notifications
 function renderAlerts() {
@@ -275,7 +301,7 @@ function saveAlerts() {
 function renderSigs() {
   $('sig-list').innerHTML = SET.sendAs.map((a, i) => {
     const html = SET.signatures[a.address.toLowerCase()] || '';
-    return `<div class="sig"><label for="sig-${i}">${esc(a.address)}</label><textarea id="sig-${i}" data-sig="${esc(a.address)}" spellcheck="false" placeholder="Paste the HTML signature">${esc(html)}</textarea>${html ? `<iframe class="sig-preview" sandbox="" referrerpolicy="no-referrer" title="Signature preview" srcdoc="${esc(html)}"></iframe>` : ''}</div>`;
+    return `<div class="sig"><label for="sig-${i}">${esc(a.address)}</label><textarea id="sig-${i}" data-sig="${esc(a.address)}" spellcheck="false" placeholder="Paste your signature (copy it from your email's settings)">${esc(html)}</textarea>${html ? `<iframe class="sig-preview" sandbox="" referrerpolicy="no-referrer" title="Signature preview" srcdoc="${esc(html)}"></iframe>` : ''}</div>`;
   }).join('') || '<p class="pane-lead">Connect an email account first.</p>';
 }
 
@@ -324,18 +350,69 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Enter') { e.preventDefault(); if (wxResults[wxActive]) pickWeather(wxResults[wxActive]); }
   else if (e.key === 'Escape' && wxResults.length) { e.stopPropagation(); wxResults = []; renderWxResults(); }
 });
+// A message from the server as it is when it reads as words; when it looks like a
+// raw system error (a path, an error code, a stack, a command's output), a plain
+// sentence instead, with the raw text folded away under Details for whoever wants it.
+const looksTechnical = (t) => /[\\/][\w.-]+[\\/]|\b(E[A-Z]{3,}|errno|exit code|status \d{3}|stderr|stack|undefined|null|TypeError|Error:)|\n|[{}[\]<>`$]/.test(String(t)) || String(t).length > 240;
+function plainOrFold(text, plain) {
+  if (!looksTechnical(text)) return esc(text);
+  return `${esc(plain)} <details class="small cal-help"><summary class="muted">Details</summary><code class="mono">${esc(text)}</code></details>`;
+}
 function renderVoice() {
   const v = S?.voice || {}, row = $('voice-row');
   if (!row) return;
   const live = (S?.prefs?.voice || 'live') === 'live';
-  const how = live ? (browserSpeech ? 'Words show as you say them. Uses this browser\'s speech service (Google in Chrome, Apple in Safari).' : 'This browser has no live speech, so it uses Whisper on this computer.')
-    : 'Whisper on this computer: nothing leaves it, and words catch up at pauses.';
+  const how = live ? (browserSpeech ? 'Words show as you say them. Uses this browser\'s speech service (Google in Chrome, Apple in Safari).' : 'This browser has no live speech, so it uses a speech model on this computer (Whisper).')
+    : 'A speech model on this computer (Whisper): nothing leaves it, and words catch up at pauses.';
   if (live && browserSpeech) { row.innerHTML = `<span class="acct-line">${how}</span>`; return; }
   row.innerHTML = v.ready ? `<span class="acct-line">${how}</span>`
-    : v.running ? `<span class="acct-line">${esc(v.step || 'Starting')}${v.progress ? ' · ' + Number(v.progress) + '%' : ''}</span>`
-    : `<button class="btn" type="button" id="voice-setup">Set up</button><span class="acct-line ${v.error ? 'bad-text' : ''}">${v.error ? esc(v.error) : 'One-time download, about 500 MB. Speech stays on this computer.'}</span>`;
+    : v.running ? `<span class="acct-line">${esc(v.step && !looksTechnical(v.step) ? v.step : v.step ? 'Setting up…' : 'Starting')}${v.progress ? ' · ' + Number(v.progress) + '%' : ''}</span>`
+    : `<button class="btn" type="button" id="voice-setup">${v.error ? 'Try again' : 'Set up'}</button><span class="acct-line ${v.error ? 'bad-text' : ''}">${v.error ? plainOrFold(v.error, 'Setting up talk to type did not finish. Check the internet connection and try again.') : 'One-time download, about 500 MB. Speech stays on this computer.'}</span>`;
 }
+// The microphone list: names show once the browser has been allowed the microphone.
+async function renderMics() {
+  const sel = $('mic-pick'); if (!sel || !navigator.mediaDevices?.enumerateDevices) return;
+  let list = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === 'audioinput' && d.deviceId && !['default', 'communications'].includes(d.deviceId));
+  sel.innerHTML = `<option value="">This computer's default</option>` + list.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === micId ? 'selected' : ''}>${esc(d.label || 'Microphone ' + (i + 1))}</option>`).join('');
+  const unnamed = list.length && !list[0].label;
+  $('mic-note').innerHTML = unnamed ? 'Use a mic button once (allow the microphone) and their names show here.'
+    : micId ? 'Jarvis listens to this one, through the speech model on this computer. Talk to type stays live and uses the computer\'s default microphone.' : 'The one your computer\'s sound settings pick. Choose yours if it is another (an audio interface, a headset).';
+}
+// What Jarvis knows (lib/jarvismemory.js): one fact per line, kept short so it
+// never crowds the model; "remember that…" adds, each night's tidy updates it,
+// Undo puts the last version back.
+async function renderJvCard(st) {
+  const ta = $('jv-card'); if (!ta) return;
+  try { st ||= await api('/api/jarvis/memory'); } catch { return; }
+  if (document.activeElement !== ta) ta.value = st.card || '';
+  $('jv-card-undo').disabled = !st.canUndo;
+  const used = Math.round(((st.card || '').length / st.max) * 100);
+  $('jv-card-note').textContent = `${used}% of the room he has for notes${st.tidiedAt ? ` · tidied ${since(st.tidiedAt)}` : ''}${st.lastChange ? ` · last change: ${st.lastChange.why}, ${since(st.lastChange.at)}` : ''}`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#jv-card-save, #jv-card-undo, #jv-card-tidy'); if (!b) return;
+  const note = $('jv-card-note');
+  b.disabled = true; if (b.id === 'jv-card-tidy') note.textContent = 'Tidying with the model on this computer…';
+  try {
+    const st = b.id === 'jv-card-save' ? await api('/api/jarvis/memory', { card: $('jv-card').value }) : await api('/api/jarvis/memory/' + (b.id === 'jv-card-undo' ? 'undo' : 'tidy'), {});
+    if (b.id !== 'jv-card-save') $('jv-card').value = st.card || '';
+    await renderJvCard(st);
+    if (b.id === 'jv-card-tidy' && !st.changed) note.textContent = 'Tidied: nothing new to add. ' + note.textContent;
+  } catch (err) { note.textContent = err.message; }
+  finally { b.disabled = false; }
+});
+// Jarvis's manner, in the person's own words (lib/jarvis.js puts it in what the model is told).
+document.addEventListener('click', async (e) => {
+  if (!e.target.closest('#jv-persona-save')) return;
+  const text = $('jv-persona').value.trim().slice(0, 1200);
+  try { await api('/api/settings', { prefs: { jvPersona: text } }); SET.prefs.jvPersona = text; S.prefs.jvPersona = text; $('jv-persona-note').textContent = text ? 'Saved. He talks this way from your next question.' : 'Saved. Back to his usual manner.'; }
+  catch (err) { $('jv-persona-note').textContent = err.message; }
+});
+document.addEventListener('change', (e) => { if (e.target.id === 'mic-pick') { micId = e.target.value; store.set('micId', micId); renderMics(); } });
 function renderLook() {
+  renderMics();
+  const pe = $('jv-persona'); if (pe && document.activeElement !== pe) pe.value = SET.prefs.jvPersona || '';
+  renderJvCard();
   renderVoice(); renderWeatherSet(); renderAbout(); if (!$('remove-row')?.childElementCount) renderRemove();
   document.querySelectorAll('.seg[data-pref]').forEach((g) => {
     const v = String(SET.prefs[g.dataset.pref]);
@@ -345,40 +422,43 @@ function renderLook() {
   document.querySelectorAll('[data-pref-bool]').forEach((i) => {
     const k = i.dataset.prefBool, noGpu = k === 'termGpu' && !gpuAvailable();
     i.checked = !noGpu && !!SET.prefs[k]; i.disabled = noGpu;
-    if (noGpu) i.closest('label').title = 'This browser has no WebGL2, so terminals use the normal renderer.';
+    if (noGpu) i.closest('label').title = 'This browser can\'t use the graphics card for this.';
   });
 }
 // -- About: which Switchboard this is, and where its updates come from.
 // version comes from server.js (package.json's version, the git SHA, the update
 // channel from lib/update.js); a copy that is not a git checkout has no channel.
 // In the app (v.app) the app's own updater does the checking and installing.
-let aboutNote = '';
+let aboutNote = '', aboutBad = false;   // aboutBad: the note is an error
 function renderAbout() {
   const el = $('about'), v = S?.version || {};
   if (!el) return;
   const os = { linux: 'Linux', darwin: 'macOS', win32: 'Windows' }[S?.platform] || S?.platform || '';
-  const line = ['Switchboard ' + (v.pkg || ''), v.sha, os].filter((x) => x && x !== 'Switchboard ').join(' · ');
-  const note = aboutNote || (v.error ? v.error : v.behind ? `${v.behind} update${v.behind > 1 ? 's' : ''} ready: ${(v.subjects || [])[0] || ''}` : '');
-  const canUpdate = !!(v.sha || v.app);
-  el.innerHTML = `<div class="form-row"><span class="mono">${esc(line)}</span>${canUpdate ? `<button class="btn" type="button" id="about-check" ${v.busy ? 'disabled' : ''}>Check for updates</button>` : ''}<span class="acct-line ${v.error ? 'bad-text' : ''}">${esc(note)}</span></div>`
+  const line = ['Switchboard ' + (v.pkg || ''), os].filter((x) => x && x !== 'Switchboard ').join(' · ');
+  const note = aboutNote || (v.error ? '' : v.behind ? `${v.behind} update${v.behind > 1 ? 's' : ''} ready: ${(v.subjects || [])[0] || ''}` : '');
+  const canUpdate = !!(v.sha || v.app), bad = aboutNote ? (aboutBad ? aboutNote : '') : v.error || '';
+  el.innerHTML = `<div class="form-row"><span${v.sha ? ` title="Version ${esc(v.pkg || '')}, build ${esc(v.sha)}"` : ''}>${esc(line)}</span>${canUpdate ? `<button class="btn" type="button" id="about-check" ${v.busy ? 'disabled' : ''}>Check for updates</button>` : ''}<span class="acct-line ${bad ? 'bad-text' : ''}">${bad ? plainOrFold(bad, 'Could not reach the updates just now. Check the internet connection and try again.') : esc(note)}</span></div>`
     + (v.channel ? `<div class="form-row"><span class="acct-line">Updates</span><div class="seg" id="about-channel"><button type="button" value="stable" aria-pressed="${v.channel === 'stable'}">Stable</button><button type="button" value="latest" aria-pressed="${v.channel === 'latest'}">Latest</button></div><span class="acct-line">${v.channel === 'stable' ? 'Releases only.' : 'Every change as it lands.'}</span></div>` : '')
     // Off by default: the Update ready button always shows; this only saves the click.
-    + (canUpdate ? `<label class="toggle"><span>Install updates on their own when no agent is working</span><input type="checkbox" data-pref-bool="autoUpdate" ${S?.prefs?.autoUpdate ? 'checked' : ''}></label>` : '');
+    + (canUpdate ? `<label class="toggle"><span>Install updates on their own when no agent is working</span><input type="checkbox" data-pref-bool="autoUpdate" ${S?.prefs?.autoUpdate ? 'checked' : ''}></label>` : '')
+    // In the app: the same Switchboard in your own browser, for when this window lags (slowwin.js).
+    + (IN_APP ? `<div class="form-row"><button class="btn" type="button" data-open-browser>Open in browser</button><span class="acct-line">The same Switchboard in Chrome, Edge or Brave. Use it if this window is slow to type or scroll in, or to use your browser's saved passwords.</span></div>` : '');
 }
 document.addEventListener('click', async (e) => {
+  if (e.target.closest('[data-open-browser]')) { openInBrowser(); return; }
   if (e.target.closest('#about-check')) {
     aboutNote = 'Checking…'; renderAbout();
     try { const r = await api('/api/update/check', {}); aboutNote = r.error ? '' : r.behind ? '' : 'Up to date.'; await load(); }
-    catch (err) { aboutNote = err.message; }
-    renderAbout(); aboutNote = '';
+    catch (err) { aboutNote = err.message; aboutBad = true; }
+    renderAbout(); aboutNote = ''; aboutBad = false;
     return;
   }
   const ch = e.target.closest('#about-channel button');
   if (ch && ch.getAttribute('aria-pressed') !== 'true') {
     aboutNote = 'Switching…'; renderAbout();
     try { const r = await api('/api/update/channel', { channel: ch.value }); aboutNote = r.note || (r.channel === 'stable' ? 'Updates now come from releases.' : 'Updates now come from every change.'); await load(); }
-    catch (err) { aboutNote = err.message; }
-    renderAbout(); aboutNote = '';
+    catch (err) { aboutNote = err.message; aboutBad = true; }
+    renderAbout(); aboutNote = ''; aboutBad = false;
   }
 });
 document.addEventListener('change', (e) => {
@@ -394,8 +474,8 @@ const SIZES = { s: 0.92, m: 1, l: 1.1, xl: 1.22 };
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 function applyPrefs(p) {
   if (!p) return;
-  const dark = p.theme === 'dark' || (p.theme === 'system' && darkQuery.matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  // One theme since the HUD (Nov 8 2026): always dark. The old Light/Dark setting is ignored.
+  document.documentElement.dataset.theme = 'dark';
   document.documentElement.style.setProperty('--zoom', SIZES[p.textSize] || 1);
   const fs = Number(p.termSize) || 13.5;
   if (tv.term && tv.term.options.fontSize !== fs) { tv.term.options.fontSize = fs; tv.ro?.claim?.(); }
@@ -430,6 +510,7 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-ms-open]')) { $('ms-connect').hidden = false; return; }
   const tc = e.target.closest('[data-term-cmd]');
   if (tc) { runInTerminal(tc.dataset.termCmd); return; }
+  if (e.target.closest('[data-finish-setup]')) { finishSetup(); return; }
   const proj = e.target.closest('.proj');
   if (proj) {
     const i = Number(proj.dataset.i), p = SET.spaces[i];
@@ -438,16 +519,17 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('[data-proj-del]')) {
       const b = e.target.closest('[data-proj-del]');
       if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Remove ' + p.name + '?'; b.classList.add('btn--danger'); return; }
+      const its = SET.rules.filter((r) => r[1] === p.id);
       SET.rules = SET.rules.filter((r) => r[1] !== p.id); SET.spaces.splice(i, 1);
-      renderProjects(); saveSet({ spaces: SET.spaces, rules: SET.rules }); return;
+      renderProjects(); saveProjects({ rulesRemove: its }); return;
     }
     const rd = e.target.closest('[data-rule-del]');
-    if (rd) { SET.rules.splice(Number(rd.dataset.ruleDel), 1); renderProjects(); saveRules(); return; }
+    if (rd) { const gone = SET.rules.splice(Number(rd.dataset.ruleDel), 1); renderProjects(); saveRules({ remove: gone }); return; }
   }
   if (e.target.closest('#proj-add')) {
     let name = 'New project', n = 2;
     while (SET.spaces.some((s) => s.name === name)) name = 'New project ' + n++;
-    SET.spaces.push({ name, color: SWATCHES[SET.spaces.length % SWATCHES.length], group: SET.spaces.at(-1)?.group || 'Mine' });
+    SET.spaces.push({ tmp: 'new-' + Math.random().toString(36).slice(2, 12), name, color: SWATCHES[SET.spaces.length % SWATCHES.length], group: SET.spaces.at(-1)?.group || 'Mine' });
     renderProjects();
     const inp = [...document.querySelectorAll('.proj-name')].at(-1); inp.focus(); inp.select();
   }
@@ -467,7 +549,7 @@ document.addEventListener('change', (e) => {
     const p = SET.spaces[Number(proj.dataset.i)], v = e.target.value.trim();
     if (e.target.dataset.field === 'name' && !v) { e.target.value = p.name; return; }
     p[e.target.dataset.field] = v;
-    saveProjects().then(() => api('/api/settings')).then((s) => { SET.spaces = s.spaces; });   // new projects get their id
+    saveProjects();   // a new project gets its id from the answer (saveSet)
     return;
   }
   if (proj && e.target.matches('[data-color-pick]')) { SET.spaces[Number(proj.dataset.i)].color = e.target.value; renderProjects(); saveProjects(); }
@@ -484,14 +566,17 @@ document.addEventListener('input', (e) => {
   if ((ruleChoiceList || []).some((c) => c.rule === e.target.value)) addRule(e.target);
 });
 
-// Opens a terminal session running a setup command (install or sign in to an agent).
-async function runInTerminal(cmd) {
+// Opens a terminal session running a setup command (install or sign in to an
+// agent). inApp: run it in Switchboard's own folder (its own setup steps).
+async function runInTerminal(cmd, inApp = false) {
   try {
-    const r = await api('/api/terms', { agent: 'custom', command: cmd, setup: true });
+    const r = await api('/api/terms', { agent: 'custom', command: cmd, setup: inApp ? 'app' : true });
     closeDialog('settings-scrim');
     openTerm(r.id); await load();
   } catch (err) { toast(err.message, { kind: 'error' }); }
 }
+// Claude Code's Finish setup: Switchboard's own setup, in a session here so the result stays on screen.
+function finishSetup() { runInTerminal('npm run setup', true); }
 
 document.addEventListener('submit', async (e) => {
   if (e.target.id !== 'acct-form') return;

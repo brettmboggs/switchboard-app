@@ -240,6 +240,80 @@ session Working until the last is back, then waits 20 s for the main agent to
 take the result up before calling it your turn. Would change if: Claude Code's
 Stop hook starts saying whether background work is still out.
 
+**Granola comes in as pages in Notes, by API key, polled (Nov 6).** A meeting
+note is notes, so it becomes a page in the project of the people in the
+meeting (the same address rules as mail), where Brett and his sessions
+(switchboard_notes) already read. Granola's public API takes a personal key
+pasted in Settings, like Todoist, so no browser sign-in is needed; its
+webhooks need an address on the internet, so Switchboard asks every 10
+minutes. A page's id comes from the note's id, so two computers make the same
+page and sync keeps one; a page edited or deleted in Switchboard is left
+alone. The transcript is not brought in (long, and the summary is what gets
+read). Would change if: Granola's keys stay Business-only and Brett's plan has
+none: then Granola's MCP server, signed in through a real window.
+
+**Note lines are marked from what sessions were sent, not from what was clicked (Nov 6).**
+Brett sends notes by Send to session and by pasting them into a session, so
+the mark comes from Claude Code's UserPromptSubmit hook, which sees every
+prompt however it got there: a note line (14 characters and three words at
+least, compared without case or punctuation) that the prompt holds is marked
+sent, and the session's next Stop marks it finished. "Finished" is all
+Switchboard can know (Brett: Claude made mistakes earlier), so it never ticks
+the line itself; Mark done is his click. Codex and other agents have no such
+hook, so only Claude Code sessions mark. The marks are drawn over the page,
+never written into it, so a synced note on another computer is unchanged.
+
+**Kept files open in the reader; PDFs unsandboxed there (Nov 6).** A
+project's files and a note's files downloaded on every click; Brett adds them
+from his own computer and wants a quick look. They now open in the same reader
+as files a session names (fileview.js), served by their own address (?view,
+?download, …/view, …/open), since locate() rightly refuses Switchboard's data
+folder for names an agent writes. A PDF is served inline only when the reader
+asks (?view) and without the sandbox CSP, because Chrome's PDF viewer will not
+run in a sandbox; HTML and SVG still never show as a page. Moving is a copy
+then, for a project's own files, a removal: a file in a note stays in the note,
+since taking it out is editing the note, done there. Sending to a session
+types the file's place, like dropping it on the session.
+
+**Granola by signing in, for every plan (Nov 6).** Brett is on the free plan,
+so the API key route above can't reach his notes. Sign in with Granola opens
+Granola's own page (OAuth with PKCE; Switchboard registers itself the first
+time, so there is no secret in the code) and Switchboard reads through
+Granola's MCP server, the way Claude and ChatGPT connect to it: list_meetings
+for what changed, get_meetings ten at a time. Its answers are tagged text, not
+JSON, so lib/granolamcp.js parses them into the API's note shape and one page
+maker serves both routes. The key route stays for Business plans. Pages from
+the two routes get different ids (meeting UUID against not_… id), so switching
+route can bring a meeting in twice. There is no one project for all of
+Granola (Brett: "it should work for whatever project i want"): a Granola
+folder named like a project picks it, then the address rules, then the title,
+else Personal, and any page moves like any other. The sign-in follows the
+OAuth pattern (button, real window, Sign out, paused and asked again when
+Granola signs it out) rather than browser checks' Done button: Granola sends
+the browser back to Switchboard itself, so no Done is needed.
+
+**One session can run others, and ends only its own (Nov 6).** Brett works by
+talking to one session that opens, briefs and closes others. The MCP server
+(bin/mcp.mjs) now has switchboard_start_session, switchboard_read_session
+(with a wait) and switchboard_end_session, through the same routes the page
+uses, so a session an agent starts is an ordinary one on Sessions. Each
+session knows itself by SWITCHBOARD_TERM; a session started by an agent keeps
+opened_by, and the server ends one for an agent only when it is that agent's
+own, so an orchestrator cannot end work the person started. Starting is
+local only (a shell on another computer stays that computer's call), and the
+tools say to use them only when the user asked. Would change if: Brett wants
+an orchestrator to end any session in its repo.
+
+**Needs you lets go of a session you have seen (Nov 5).** A session stayed on
+Needs you until it was answered, so one Brett had read and chose to leave held
+the list for hours. Now a finished session counts as seen after a few seconds
+open on Sessions (or a jump to its window), and Clear on Now takes off either
+a finished one or one waiting on a question or permission. Being looked at
+does not clear a question or permission, because the session is still stopped
+there; only Clear or an answer does. The Sessions page itself keeps showing the
+real state, and queued messages still wait for a real finish, never a
+cleared prompt. Would change if: clearing by looking proves too eager.
+
 **End is on the bar, and its question waits (Nov 4).** End session used to sit
 in More and ask by "click again within 4 seconds", four clicks with a timer.
 Now End sits beside Stop and turns into "End this session? End it | Keep" in
@@ -606,6 +680,17 @@ chats, and their phone their texts, after the rules (a rule still wins). A
 first name alone, someone on two projects' cards, and your own addresses sort
 nothing, since there is no telling which project a message is for.
 
+**A person on an About card holds any number of emails and phones (Nov 5 2026).**
+People use a work address and a Gmail, and two rows for one person split their
+mail. Each person now has `emails[]` and `phones[]`; the first of each is also
+written as the old single `email` and `phone`, and a card with only those still
+reads, so an older copy (or a shared About card read by one) sees the main
+address rather than nothing. The lists travel inside the About card as they are;
+the share bundle did not change. The ambiguity rule is per address: an address
+on two cards sorts nothing, while the same person's other addresses still sort.
+Merge with… is done in the form and saved with Save, like every other edit
+there, rather than as its own server call, so Cancel undoes it.
+
 **On Linux the app's window comes from Chrome when one is installed (Nov 5 2026).**
 WebKitGTK, the web engine Linux apps get, lagged badly on Brett's NVIDIA card:
 typing trailed a letter, scrolling stuttered, and the whole desktop hitched.
@@ -615,3 +700,475 @@ the server, tray, start at login and updates, and opens its window as a
 Chrome, Edge, Chromium or Brave app window; without one it uses its own as
 before, and SWITCHBOARD_WEBVIEW=1 forces its own. Mac and Windows use their
 system engines (WebKit, WebView2), which do not have this fault.
+
+**Teams pictures go through Switchboard, and there is no "seen" (Nov 5 2026).**
+Pictures in a Teams message live at Graph addresses only the signed-in account
+can open, so the page asks /api/teams/picture, which fetches them with that
+sign-in (only Graph chat-picture addresses, kept in memory a while). Pictures
+sent go as Teams' own inline pictures (hostedContents), so they arrive as
+pictures, not links; big ones are shrunk on the page first to fit Graph's
+request limit. Reactions use Graph's setReaction and unsetReaction. Read
+receipts: Graph gives an app only your own read time, never the other
+person's, so Switchboard cannot show Teams' eye.
+
+**Pictures and files in email and Outlook are read when a conversation is opened (Nov 5 2026).**
+Switchboard keeps only a snippet of each email, so the files are listed from
+the mail server's outline of each message (IMAP BODYSTRUCTURE) and a file is
+downloaded, that part only, when it is shown or saved; both are kept in memory
+a while, never on disk. A part must be one the outline lists, of a message in
+Switchboard's own list, so nothing can be fetched by guessing numbers. One
+connection at a time per account, since Gmail turns away too many. Inline
+pictures under 3 KB (signature logos, tracking pixels) are left out. Only PNG,
+JPEG, GIF, WebP, BMP and AVIF show as pictures; SVG, HTML and everything else
+only download. Outlook uses Graph's attachments. Pictures out go as email
+attachments (up to about 18 MB), Outlook reply attachments and Teams inline
+pictures (about 3 MB each). Google Voice texts get no paperclip: its email
+relay passes on words only and would drop a picture without a word.
+**Shared projects share one sealed document per project (Nov 5 2026).** A
+member's copy of a project is their own local project (made when they join)
+filled from one encrypted document holding the project's pages and to-dos,
+not a second view of the owner's account: that keeps sharing apart from the
+account sync, so nothing outside the project can travel by mistake, and it
+reuses the account sync's newest-wins merge. The project key is locked to each
+member's X25519 public key with the box pairing already uses (lib/sync.js),
+and each account's private half is kept on the service locked with the account
+key, so every one of a person's computers can open it and the service cannot.
+Removing or losing a member rotates the key on the owner's computer rather
+than trusting the service to keep them out. v1 invites only existing accounts,
+by email, and only the owner invites; edits to the same page are newest-wins,
+not merged.
+
+**Who runs a shared project is signed, not stored (Nov 5 2026).** Brett asked
+for admins and for choosing what each project shares. The service keeps a role
+per member only to decide who may invite and remove; every Switchboard believes
+the roster, the list of admins signed with the owner's Ed25519 key (pinned the
+first time it is seen, and never older than the last one), and follows a
+choice of what is shared only when the owner or an admin of that roster signed
+it. A switched-off kind simply stops being sent, and nothing is sent as gone
+for it, so nobody loses a copy because someone changed a switch; Only me does
+send a page as gone, but only the person who first shared it can do that.
+Repos travel as names only, so each person reads builds and pull requests with
+their own GitHub sign-in. Activity is built from fixed fields (a session's
+name, a state word, a time; a repo and branch for pushes and pull requests)
+and anything else a source gives is dropped before sealing, so no terminal
+text or prompt can ride along.
+
+**A team is people first; each kind in a project has its own key (Nov 5
+2026).** The owner asked to invite someone once and then give them any
+project, and any kind in it, to see or to edit. One key per project could not
+keep a kind from someone who has the key, so each kind is sealed with its own
+key and a person's lock holds only the keys of the kinds they may see. Edit
+cannot be a key (the whole document is rewritten by whoever saves), so every
+row, deletion, About card, repo list and activity line is signed by its writer,
+and every Switchboard checks the signature against the signed policy and drops
+what came from someone who may only see; legitimate writers then leave it out
+too. Changing who sees a kind rotates every key through the existing rekey
+route, so stage 1 needed no service change for the team itself. 0.2.6's shares
+are migrated by the owner's computer; members wait for that rather than keep
+two formats alive.
+
+**Invites by email are joining (Nov 5 2026).** The owner said an invite should
+not be two parts. The link carries a secret, so the service keeps only hashes
+(of the address and of the secret) and a list of what the person may do signed
+by whoever invited them; signing up or in with that address and following the
+link is accepting, and the inviter's computer hands over the keys when it next
+looks (nudged at once over the relay). The email goes from the inviter's own
+mail on their click, after showing it, as every send in Switchboard does.
+
+**Emails Switchboard writes use hex colours (Nov 5 2026).** Email apps cannot
+read CSS variables, so `lib/emails/layout.js` copies the counter's values from
+tokens.css; it is the one place outside tokens.css with hex. The mark is sent
+inside the email, so nothing is fetched when it is opened; the only addresses
+in it are the invite link and the download page for someone without Switchboard.
+
+**The sync service is a setting (Nov 5 2026).** Switchboard has to work for
+anyone, so the service's address is chosen in Settings, Account (before
+signing in) and the invite link's base and the download address are product
+settings; nothing in the code needs one person's domain.
+
+**Invite links open a page on the sync service for now (Nov 5 2026).** A link
+cannot point at 127.0.0.1:4747: the invitee may run Switchboard on another port,
+or not have it yet, and the web board is not built. So the link opens
+`/join` on whichever sync service the inviter uses (nothing hard-wired), a
+plain page the same for everyone that reads the invitation from after the # in
+the browser and hands it to Switchboard on that computer, or says how to paste
+it. When the web board exists, the inviteBase setting points links at it.
+
+**The web board is the same page with an adapter, not a second app (Nov 5
+2026).** The owner asked for it to be "exactly the same as on my computer". So
+the worker serves public/ as it is (Workers static assets, free plan), marks
+the page, and the page's api() goes to public/js/web/adapter.js, which answers
+from a web client that does in the browser what lib/share.js does in the app:
+the same formats, keys, signatures and rules, checked by test/web.test.js
+against the app's own code. Rather than keep two copies of the share logic in
+step by hand forever, the next change should make lib/share.js's core run in
+both. The browser's WebSocket cannot send an Authorization header, so the
+relay also takes the token as a subprotocol (`tok.<token>`, answered with
+`switchboard`, never echoed). Builds and pull requests reach the board as part
+of each member's signed repos box (names, states and links only), because the
+board has nobody's GitHub token; an older Switchboard does not believe a repos
+box that carries them, so everyone in a project should update. Integrity hashes
+are made before every deploy (scripts/board-manifest.mjs, run by wrangler.toml)
+and not kept in git.
+
+**The board is everyone's own Switchboard, and the share logic is one module
+(Nov 5 2026).** The owner found the invitee's board could not set up anything of
+its own. So the browser now keeps the account's own settings, pages, to-dos and
+the rest, synced through the very documents the app uses (lib/sync.js formats),
+and the share logic moved into public/js/shared/share-core.js, which both the
+app (over SQLite and node:crypto) and the browser (over its own store and
+WebCrypto) run, rather than a third copy. Projects shared with you appear as
+projects beside your own; nothing of yours goes into a shared bundle unless you
+share that project.
+
+**Everything a project has can be shared, kind by kind; sessions only live
+(Nov 5 2026).** For a co-founder the owner wants "everything possible, even the
+sessions". What a computer has of a project (checks, conversations, calendar,
+money, files) goes in the project's sealed document as its own box, signed by
+that computer, each off until turned on. Sessions never go in the document: a
+member asks the owner's computer through a relay room for that project, signed
+with their key and sealed to the owner's, and gets the Chat view (never the
+terminal or keystrokes) sealed back to them; Send uses the session queue's held
+items, the same Approve as a linked Teams chat. A section of a page travels as a
+read-only page that only the owner's signature makes real.
+
+**Connections on the board are the person's own, in their account (Nov 5
+2026).** Microsoft 365 signs in from the browser straight to Microsoft (a
+single-page app registration, PKCE) and Graph is called from the browser; the
+tokens go in the account's settings, sealed, so they follow the person and the
+service cannot read them. GitHub needs a secret for its exchange, so the
+service does that one step and hands the token back in the address's fragment
+without storing it. Mail by IMAP stays app-only: a browser cannot open a mail
+connection, and routing it through the service would let the service read it.
+
+**Team chat is Switchboard's own, end to end, in the Inbox (Nov 5 2026).** The
+team needed to talk where they already work, and Teams gives other apps no
+"seen", no typing and no editing of someone else's view. So each shared project
+has a channel and every pair of teammates a one-to-one chat, shown in the
+Inbox's conversation view rather than a new page. The service keeps an
+append-only log of sealed lines (`sync-worker/schema-v8.sql`, `src/chat.js`):
+a channel's key is made from the project key, one per epoch, so a removed
+person reads nothing written after and someone who joins later cannot open
+lines from before (shown as such in Details); a one-to-one key is made by the
+two computers from their sharing keys (X25519). Edits, deletions, reactions
+and pins are sealed lines like messages, so the service cannot tell them
+apart; each is signed, and only the writer's own edit or delete is believed.
+The other person's sharing key for a one-to-one chat is fetched once and kept,
+and refused unless its signing half matches what the project's signed roster
+or policy says for them. "Seen" (how far each person read) and typing are the
+only things the service sees beyond who wrote when; typing is passed on and
+never stored. Alerts and phone pushes come only for a one-to-one message or an
+@mention, never every channel line, and the push says only "A teammate wrote
+to you." Pictures are sealed into the message (made smaller first, about half
+a megabyte at most per message) instead of a separate file store; a file store
+can come later. Team chat is not the shared "conversations" kind: that kind
+publishes a project owner's own mail and Teams threads into the project's
+sealed document, while team chat is its own Inbox kind ("team:" keys), its own
+log and keys, and never goes into a project's document. Not on the web board
+yet.
+
+## Shared projects: fixes from the Nov 5 review (Nov 5, 2026)
+
+- A project counts as shared before the team only by this computer's own
+  lock (a bare key) and only until it has been seen in the team's shape;
+  never by what a document says. Every member holds the project key, so a
+  document's shape is anyone's word. The old switches are believed only
+  with the owner's signature (docs/REVIEW-2026-11-05.md H1).
+- An invitation answered on Now without its link only asks to join; the
+  owner lets them in with one click. The sync service does not check that an
+  account owns its address, so the address alone is not proof; the link's
+  secret, or the owner looking at the address, is (H2). A code sent by email
+  at sign-up would close the rest, and is left for Brett to decide.
+- A shared edit reaches only a row that is in that project here (or a page
+  added to it from another one); something moved out of the project stays
+  out, as you left it, even if a member edited their copy later (H3).
+- × on a shared page that someone else shared takes it off your own card and
+  leaves it in the project; only whoever shared a page can take it out of
+  the project for everyone (H4).
+- A shared change dated more than ten minutes ahead of this computer's clock
+  waits, and Team names whose clock is ahead. Wall time still orders
+  changes (a counter would change what is signed, for everyone at once);
+  the bound keeps one wrong clock from winning every conflict (M1).
+- The people on a shared project's About card sort messages into it, never
+  notes, sessions or repos: the card can be written on another computer,
+  and what lands in a shared project is sent to everyone (M2).
+- People's sharing keys are kept on first sight and never silently replaced:
+  a changed key is refused and shown with check codes, and only you can
+  accept it. A face-to-face check is optional (Check codes), not required,
+  since the set-once key on the service makes a real change rare (M3).
+- Undo after × uses a record the server kept for a quarter of an hour, not
+  what the page sends back, and never undoes a later move (M5). A restart
+  forgets it; Add puts things back then.
+- Settings' project and rule lists and the About form save only what the
+  page changed, merged with what is there now, rather than the page's whole
+  copy: other windows, ×, the Add picker and shared syncs change them too
+  (M7). An older page without what it started from still saves whole.
+- An /api read is refused when the browser says another site (even another
+  port here) started it, by Sec-Fetch-Site; requests without that header,
+  from scripts and the MCP tools, are unchanged (L1).
+- The desktop app's link rules live in links.rs with no dependencies, so
+  they are tested by rustc alone on any computer; only web, mail and phone
+  links leave the app, and only port 4747 is its own page (L3, L4).
+- Moving a page someone else shared to another project (the notebook's
+  project menu) makes a copy of your own there and takes theirs off your
+  card; it never moves or deletes theirs, the same rule as × (H4).
+- A signed deletion from the share removes only a page or to-do that lives in
+  that project here, of a kind the share carries. A page filed into the
+  project from another one (In this project) takes shared edits but is never
+  deleted by one: deleting reaches no further than the project (re-review H3).
+- "The codes match" takes the exact code Team showed and replaces the kept
+  keys only with that whole pair; keys that changed again since are refused,
+  so what is approved is what was compared (re-review M3).
+- Settings sends a rule change as just that change (added, taken away),
+  never its whole list, so a rule deleted elsewhere stays deleted; a new
+  project carries a temporary id that the save maps to its real one, never
+  matched by name (re-review M7, L2).
+
+## Forgot password (Nov 6, 2026)
+
+- Brett asked for a reset (Nov 6) when the test account's password was lost,
+  with nothing for him to set up. The code comes from a teammate: the owner
+  or an admin of a shared project the person is in makes it in Settings,
+  Team, and hands it over by text or in person. Email needs either a Resend
+  account (only Brett can make one) or Cloudflare's Email Sending, which is
+  paid-plan only; sending from Brett's Gmail would break his "every send is
+  my click" rule. The admin could use the code themselves, but the reset wipes
+  the account and its memberships, so they gain nothing and the person sees
+  they were signed out. Email stays built and switches on with RESEND_API_KEY
+  and MAIL_FROM (one `fetch`, no npm package).
+- A code, not only a link (when email is on): the app runs on 127.0.0.1, which a link in an
+  email opened on a phone cannot reach. The link is for the web board and fills
+  the code in. 12 characters (60 bits), one waiting per account, 30 minutes,
+  five wrong tries, five sends an hour per email; the start answer is the same
+  for every email, so it does not tell who has an account.
+- The password is the data key, so a reset cannot keep the synced copy. It
+  clears the documents, the recovery key and the sharing key and signs out
+  every computer and browser. Each keeps its local copy and uploads it, locked
+  with the new password, when it signs in again: so the data lives on
+  wherever it was.
+- The person stays in their projects (Brett, Nov 6: "the team is the one
+  resetting him"). The first build took them out, which emptied the test
+  account; wrong. Now the computer that made the code remembers it, and when
+  the new sharing key appears (the service tells owners and admins at once)
+  it takes the new keys without check codes, since that person started the
+  reset, and makes each project it runs a new key locked to them with the
+  same access. Projects run by someone else keep the check-code step: their
+  owner did not start this reset.
+- The button lives in the sign-in form only: the setup rule's "a button, with
+  the result in plain words" holds; the service's mail settings are a deploy
+  step for whoever runs it, like the provider sign-in secrets.
+
+## The web board shows every page that has data (Nov 6, 2026)
+
+- Brett: "I want the full product there." The board had been cut to Now,
+  Inbox and Notes, while shared projects already carried sessions, money,
+  calendar, checks and builds to it, shown only as cards on a project's page.
+  Now Sessions, Builds, Browser checks, Calendar and Money are on its rail,
+  drawn by the app's own pages from the shared data
+  (public/js/web/adapter.js sharedViews; public/js/websessions.js for the two
+  that have no computer behind them). Published money now carries its cadence,
+  so Recurring costs and next dates work there.
+- Read-only for money, calendar and checks, as their sharing levels already
+  said: a bill lives in its owner's database. Editing them from the board is
+  the next step (ROADMAP), and needs its own signed rows like pages and to-dos.
+
+## Microsoft 365, Google and GitHub on the board, for anyone (Nov 6, 2026)
+
+- Brett: anyone with Microsoft 365 connects their own; nobody locked out. The
+  Switchboard Entra app (in Brett's own Microsoft tenant) now takes any work,
+  school or personal Microsoft account, with the board as a single-page-app
+  redirect; the board asks a personal account for mail only (no Teams there)
+  when Microsoft turns the Teams permissions away.
+- Google needs a "Web application" client for a browser (the app's is a
+  desktop client), and its secret for every exchange and renewal, so the sync
+  service does both and passes the tokens through, keeping none
+  (src/googleconnect.js), as GitHub's connect does. Gmail is gmail.modify and
+  gmail.send; until Google reviews the app (a paid security assessment for
+  Gmail's restricted scopes) people see Google's "unverified app" page and the
+  app is capped at 100 users. Published (In production), not Testing, so
+  nobody needs adding and sign-ins do not expire weekly.
+- GitHub's OAuth app takes the board's connect address as a second redirect.
+- A privacy page (public/privacy.html), which Google requires to publish.
+
+
+## Sessions: clicks reach the agent, End leaves nothing, the queue gives back (Nov 6, 2026)
+
+- **A click in the terminal goes to the program; a drag is a selection here.**
+  Every plain left press in a tmux session was turned into the browser's own
+  selection (so a drag would not draw tmux's selection on every computer), which
+  meant no click ever reached Claude Code: its forks and helpers could not be
+  opened with a click. Now the press waits: moved 4 px or more it becomes the
+  local selection, otherwise it is sent to the program as a click. A double
+  click still selects a word.
+- **End stops every process the session started, by its tag.** tmux's
+  kill-session hangs up the agent, but a child that detached itself (its own
+  process group, a daemon, a browser) can outlive it. Each session already
+  starts with SWITCHBOARD_TERM=<id> in its environment, which every descendant
+  inherits, so ending it (or finding it gone) reads that tag (/proc on Linux,
+  `ps -E` on a Mac) and stops each match: SIGTERM, then SIGKILL after 3 s. Never
+  the tmux server, never Switchboard itself. Windows (direct mode) uses
+  `taskkill /T`. If `tmux ls` cannot answer (a timeout), nothing is marked
+  ended or stopped on a guess. Would change if: an agent starts clearing its
+  environment for children.
+- **The queue: Send now and Edit, and it holds still.** Removing a queued
+  message threw it away; now Edit puts it back in the message bar, and Send now
+  sends it at once (as Ctrl+Enter does). The queue was redrawn on every update
+  while the agent worked, so a click on its buttons could land on a line that
+  had just been replaced; it is now drawn only when it changes.
+- **What's new: Show me works.** Its buttons were ignored: the click handler
+  only listened inside an element marked `data-new` that does not exist.
+
+## Notes: Send to session starts from the line you are on (Nov 6, 2026)
+
+- Brett: "almost never would I be sending the full page of notes, typically
+  just the bullet or couple that I am working on." The dialog already offered
+  the selection or the line, but with nothing selected it opened on Whole page,
+  and the choice lived inside the dialog. Now it opens on the selection, else
+  the line (a bullet with the ones under it); an arrow sits at the end of the
+  line the caret is on, and the bar's button names what it sends. Bullets
+  selected inside one list keep their marks. Whole page stays in the dialog.
+- **The Unsorted count follows hiding at once.** The rail's number came from a
+  list the server keeps for a minute, and hiding did not clear it, so it could
+  read 2 with nothing left. Hiding refreshes it, and opening Unsorted sets the
+  rail's number from the list it just fetched.
+
+## The page never scrolls sideways (Nov 6, 2026)
+
+- Brett: "the page itself should never [scroll sideways]; this should always
+  fit whatever screen is running the program." html and body are
+  `overflow-x: clip` (clip, not hidden, so sticky headers and the rail keep
+  working); a part that has to be wide (the terminal, the tabs, a table)
+  scrolls inside its own box. Form fields and pictures are capped at their
+  box's width.
+- Found by measuring every page, Settings pane and project page with very long
+  unbroken names and links: an open note's header was a one-column grid whose
+  column grew to its widest child (the project picker with a long name), and
+  a long project name gave the rail its own sideways scrollbar. The header's
+  column is `minmax(0, 1fr)`; a name on the rail ends in "…" with the full name
+  on hover.
+- A new project's id is its name's first 40 characters: a longer one made an
+  address (#project/<id>, up to 60) its page could never open at. Ids already
+  saved are kept.
+
+## Ctrl K talks to type; New session makes a new folder (Nov 6, 2026)
+
+- **A mic in Ctrl K.** Brett writes notes and sends to sessions from Ctrl K
+  most of all. The same mic as everywhere (Whisper, or the browser's speech
+  when Live), and spoken words update the box's suggestions as typed ones do.
+  Enter while it listens stops it rather than sending, so a misheard word can
+  be fixed first; closing the box stops it too.
+- **New folder… in New session.** A new client has no repo, and making one
+  meant leaving Switchboard. The folder goes in your code folder (the first
+  of them, or the one picked; ~/dev is made if there is none), named as typed
+  with spaces made dashes, and checked before it becomes a path or an argument.
+  It is a git repo unless unticked. A GitHub repo is only made when ticked
+  (private, with your own gh sign-in), because it is something made outside
+  this computer; if GitHub says no, the folder and the session still go ahead
+  and the reason is shown. The new folder lands on Unsorted to put in a
+  project, like any new repo.
+- A new session now opens as soon as it starts: the page used to switch to it
+  before its list had it, and fell back to the first session.
+
+## Pictures in notes reach the agent as files (Nov 6, 2026)
+
+- A note's pictures and files used to vanish on the way to an agent: Send to
+  session and `switchboard_notes` sent the text only. Now each goes as
+  `[picture name: '/path']`, the file where Switchboard keeps it on this
+  computer, so Claude Code (or any agent) opens it like any other file. The
+  page sends the file's address; the server turns it into the path
+  (lib/keptpaths.js), so the page never needs to know where files live. A
+  session on another computer gets the address unchanged: the file is not there.
+- `switchboard_notes` cut a page at 8,000 characters, so long build notes lost
+  their last items (the newest ones). It now sends up to 40,000 and says where
+  it cut.
+- Nothing on the page reads as code outside the terminal. Agent sessions' hook
+  names (Stop, SubagentStop) and Claude Code's own tagged messages
+  (`<task-notification>`, `<command-name>`) become sentences in lib/plainwords.js,
+  on the server, both when a prompt is saved and when it is shown, so old rows,
+  the page, Sessions and the MCP tools all read the same. A folder shows by its
+  name; the full path is on hover.
+- Setup buttons for Switchboard's own steps (Finish setup for Claude Code, Set
+  up the checking browser) open a setup session in Switchboard's own folder
+  (`setup: 'app'` on /api/terms) rather than sending that folder's path to the
+  page. Sign in to GitHub (Builds, Settings) runs `gh auth login` in a session
+  the same way agent sign-ins do: gh opens GitHub's own page in the browser for
+  the sign-in itself, and keeps the session in its own store.
+- Jarvis (lib/jarvis.js, lib/jarvistools.js, public/js/jarvis.js) answers the
+  common things with fixed phrases and no model at all (instant, free, works
+  when no model runs); anything else goes to a model on this computer through
+  the OpenAI-style chat API that LM Studio, Ollama and llama.cpp all serve, with
+  Switchboard's own API as its tools. Real work is handed to a Claude Code
+  session rather than done by the small model. It speaks with the browser's
+  own voice for now (free, no download); a better local voice (Piper) can
+  replace it. Hold Ctrl+Space, not Cmd+Space, because that is Spotlight.
+- The HUD (Nov 8 2026, Brett: holographic HUD, dark only, tech display face,
+  orange stays the alarm): done as one palette in tokens.css plus a layer
+  (public/css/hud.css) loaded last, not by rewriting every component, so each
+  page gets the look at once and the old rules keep working. The primary
+  action turned cyan: orange is left to mean "needs you" only. Space Grotesk
+  ships in public/fonts like the other faces. Effects stay off words.
+- The Command Deck (Nov 8 2026, Brett: "changing the theme is not what I call
+  futuristic"): a new home page and a top ring instead of the side rail, but
+  each module opens into the page it always was. That keeps every feature where
+  its page is and lets the Deck be built in one go; the panels can change shape
+  one by one later. The ring is fixed above the old grid with the rail column
+  set to 0, so the pages' own layouts (Sessions, an open conversation) needed no
+  rewrite. Nothing is hidden on small windows: the ring scrolls sideways.
+- Jarvis hears through Whisper on this computer whenever it is set up, whatever
+  talk to type is set to: the browser's own live speech starts and then hears
+  nothing on some Linux setups. While the key is held everything is recorded
+  (no loudness test a quiet microphone could stay under), and when nothing
+  comes through it says so. Tested end to end with a recorded voice as the
+  microphone (headless Chrome's fake audio device) on the Deck, Inbox and
+  Sessions. The Deck redraws only its modules on a board refresh, so the
+  command line keeps what was said.
+- Talk to type and Jarvis can listen to a chosen microphone (Settings, General,
+  Microphone; kept in that browser, since a browser's device ids mean nothing
+  elsewhere). A chosen one means Whisper on this computer: the browser's live
+  speech can only hear the computer's default mic. Found when Brett's voice went
+  into an M-Track interface while the default input was the webcam's mic, so
+  Whisper heard near-silence and wrote "you". Quiet pieces are raised before
+  Whisper hears them, and Whisper's words for silence ("you", "thank you") on
+  their own count as nothing said.
+  Nov 8, later: that rule made plain talk to type slow (Whisper writes in
+  chunks), so only Jarvis follows the chosen mic. Talk to type stays on the
+  browser's live speech, which hears the computer's default input; on Brett's
+  machine that is now his microphone (through the M-Track), set as the default.
+- Jarvis finds LM Studio on the port lms reports (its newer app, Bionic, takes
+  1235, not 1234) and, when the app is not running, starts it in the background
+  (--run-as-service) from where a downloaded AppImage sits (Applications,
+  Downloads…), then its server; the model loads with an 8k window and a 15
+  minute idle unload.
+- AI plan usage reads what is already there instead of asking anyone to
+  connect anything (Nov 8): Claude Code's status line carries rate_limits
+  (five_hour, seven_day: used_percentage, resets_at) and already posts to
+  /hook/claude/status; Codex writes rate_limits in its session logs. Readings
+  are kept in SQLite (usage_samples, 35 days) only when they move or every 15
+  minutes. The forecast blends the last stretch's pace (the last day of a
+  weekly window, the last hour of a 5-hour one) 60/40 with the average since
+  the window began, so a burst counts but nights do too. A plan that used
+  nothing all week stays off the card until it is used.
+- Jarvis asks local models for no "thinking" (reasoning_effort: none, Nov 8):
+  on Gemma 4 12B in LM Studio the first spoken word went from 6.6 s to 0.14 s
+  and the whole short answer from 6.7 s to 0.9 s; a server that refuses the
+  field is asked again without it. Answers stream (POST /api/jarvis/stream,
+  lines of JSON) and the page speaks each sentence as it completes; closing
+  the request (talking over him) stops the model. LM Studio, then Ollama, then
+  llama.cpp: if one fails mid-question the next takes it. A tool call failing
+  the same way a third time is not run again.
+- Jarvis's memory is a capped card plus a searched log, not the whole history
+  in every prompt (Nov 8): the model gets 8k tokens, and a long history made
+  it slow and forgetful. The card (1600 characters, about 400 tokens) goes in
+  every question; the log is SQLite FTS5 (no new dependency), and only the few
+  matching lines go in, when the recall tool asks. The nightly tidy runs once a
+  day after 2 am when Jarvis has been quiet 30 minutes, and never starts LM
+  Studio for it; every card version is kept (30) for Undo. Ideas from nanobot
+  and OpenClaw (MIT), written fresh.
+- Jarvis speaking up is built on the page, not the server (Nov 8): only the
+  browser can speak, and only one open window should, so windows agree in
+  localStorage on which has the voice. Off by default, as "needs you" is not
+  yet right for every session. The morning brief is plain sentences from the
+  board, with no model, so it is instant and cannot make anything up; browsers
+  only let a page speak after a click or key, so it waits for the first one of
+  the day.
+

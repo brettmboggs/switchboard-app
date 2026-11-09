@@ -3,12 +3,16 @@
 
 # Switchboard
 
-Brett's console for everything he runs, built for his own daily use first
-(Nov 3 2026). It now also has to install and run for others (a Windows work
-laptop, a Mac): keep personal data out of the code (it lives in each person's
-settings), and keep every OS-specific call behind
-lib/desktop.js, lib/terminals.js (MODE tmux | direct), lib/sysprobe.js (the
-System monitor's readings) and scripts/setup.mjs.
+Brett's own Jarvis: one console for everything he runs, that he can talk to
+and that does things for him. Since Nov 8 2026 it is his playspace, not a
+product for others: lean all the way into a futuristic, fast, voice-first
+interface, and try things here that an enterprise app at work can't. Ask Brett
+before adding a feature or a big design change; once he says yes, nothing
+holds it back. Still keep personal data out of the code (CI checks it; it
+lives in settings and docs/HANDOFF.md) and OS-specific calls behind
+lib/desktop.js, lib/terminals.js (MODE tmux | direct), lib/sysprobe.js and
+scripts/setup.mjs, so the Mac and the work laptop keep working, but a new
+feature may be Linux first.
 Only Linux can be tested from Brett's main machine; treat Mac and Windows
 changes as unverified until someone runs them.
 
@@ -41,10 +45,12 @@ changes as unverified until someone runs them.
   process name; never start a real agent session from a test copy.
 - Licence: Fair Source (FSL-1.1-MIT). Outside contributions are signed off
   (CONTRIBUTING.md) so the project can relicense later.
-- Design: docs/DESIGN.md is the system. The counter (grey #E4E7EB, paper
-  #FCFCFA, ink #15171C, signal #FF4F00, orange text #B33300, muted #5C626C),
-  three faces shipped in public/fonts (Fraunces for display, Public Sans for
-  body, JetBrains Mono for readouts and the terminal), tokens in
+- Design: docs/DESIGN.md is the system. The HUD (since Nov 8 2026, dark
+  only): deep navy glass on a faint grid, electric cyan (--hud) for the
+  interface, signal orange #FF4F00 for "needs you" only, white text kept
+  plainly readable; faces shipped in public/fonts (Space Grotesk for display,
+  Public Sans for body, JetBrains Mono for readouts and the terminal); the
+  HUD layer in public/css/hud.css loads last; tokens in
   public/css/tokens.css, components in public/css/components. No hex, px size
   or radius outside tokens.css; a new component gets its own file and a
   paragraph in DESIGN.md. Orange means "needs you" and nothing else.

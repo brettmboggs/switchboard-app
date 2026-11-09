@@ -3,13 +3,21 @@
 // Every document is encrypted on the user's computer with the account key, which
 // this service never sees. Two ways to have one:
 //   - email and password: the computer derives an auth key (sent here, stored as
-//     a slow hash) and the account key (never sent) from the password;
+//     a slow hash) and the account key (never sent) from the password; a
+//     forgotten one is reset by a code sent by email (src/reset.js);
 //   - Sign in with Google, GitHub or Microsoft: this service confirms who it is,
 //     the first computer makes a random account key, and later computers get it
 //     from one already signed in (pairing) or from the recovery key. The copy kept
 //     here is locked with the recovery key, which only the user has.
 
 import { sealForHook } from './hookbox.js';
+import { shareRoute } from './shares.js';
+import { chatRoute } from './chat.js';
+import { joinPage } from './joinpage.js';
+import { serveBoard, boardOn } from './board.js';
+import { connectBefore, connectAfter, githubConnectOn } from './connect.js';
+import { resetRoute, resetIssue, mailOn } from './reset.js';
+import { googleBefore, googleAfter, googleConnectOn } from './googleconnect.js';
 
 const enc = new TextEncoder();
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -37,7 +45,7 @@ const MAX_DOC = 900 * 1024;
 
 // Push to the phone. The text is fixed here on purpose: a computer only says what
 // kind of thing happened, never what it was.
-const PUSH_TEXT = { waiting: 'A session needs you.', builds: 'A build failed.' };
+const PUSH_TEXT = { waiting: 'A session needs you.', builds: 'A build failed.', chat: 'A teammate wrote to you.' };
 const PUSH_GAP = 60e3;          // at most one push per kind per minute per account
 const PUSH_TOKEN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,80}\]$/;
 const MAX_PHONES = 10;
@@ -107,8 +115,10 @@ async function accountForIdentity(env, provider, who, linkTo) {
 // Over the limit, it waits; nothing else changes.
 //   hook     posts to one webhook, per ten minutes
 //   hookday  posts to all of an account's webhooks, per day (keeps D1 writes in the free plan)
+//   chatday  team chat messages one account sends, per day (src/chat.js)
 //   hookbad  posts to a webhook address that does not exist, per internet address
-const LIMITS = { signin: 30, oauth: 40, pair: 12, hook: 30, hookday: 1000, hookbad: 20 };
+//   reset    password reset codes sent to one email, per hour (src/reset.js)
+const LIMITS = { reset: 5, signin: 30, oauth: 40, pair: 12, hook: 30, hookday: 1000, hookbad: 20, chatday: 3000 };
 async function limited(env, kind, who, span = 600e3) {
   const now = Date.now(), win = Math.floor(now / span);
   const key = `${kind}:${who}:${win}`;
@@ -125,7 +135,9 @@ async function relayNotice(env, accountId, msg) {
 }
 
 async function accountFor(req, env) {
-  const m = (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
+  // A browser's WebSocket cannot send headers, so the web board puts its token in the subprotocol list ("switchboard, tok.<token>").
+  const proto = /^\/v1\/(relay|shares\/[0-9a-f]{24}\/live)$/.test(new URL(req.url).pathname) ? (req.headers.get('Sec-WebSocket-Protocol') || '').match(/(?:^|,\s*)tok\.([0-9a-f]{64})(?:,|$)/) : null;
+  const m = proto || (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
   if (!m) return null;
   const h = await sha256(m[1]);
   const row = await env.DB.prepare('SELECT account_id, last_used FROM tokens WHERE token_hash = ?').bind(h).first();
@@ -168,6 +180,10 @@ export default {
     // Before the JSON parsing below: a webhook's body is whatever the sender sends.
     const hin = path.match(/^\/v1\/in\/([0-9a-f]{64})$/);
     if (hin) return hookIn(req, env, url, hin[1], ip);
+    // The web board (src/board.js): the Switchboard page, for invited people in a browser.
+    // An invite link opens it when it is on; otherwise the small join page (src/joinpage.js).
+    if (req.method === 'GET' && path === '/join') return boardOn(env) ? Response.redirect(new URL('/', url).href, 302) : joinPage(env);
+    if ((req.method === 'GET' || req.method === 'HEAD') && boardOn(env) && !path.startsWith('/v1')) return serveBoard(req, env, url);
     let body = {};
     if (req.method === 'POST' || req.method === 'PUT') {
       const text = await req.text();
@@ -176,7 +192,10 @@ export default {
     }
 
     if (path === '/' || path === '/v1') return json({ service: 'switchboard-sync', ok: true });
-    if (req.method === 'POST' && ['/v1/salt', '/v1/signup', '/v1/login'].includes(path) && await limited(env, 'signin', ip)) return slowDown();
+    // Connecting GitHub on the web board (src/connect.js): to GitHub and back, before any sign-in check.
+    const conn = await connectBefore({ req, env, url, bad }) || await googleBefore({ req, env, url, bad });
+    if (conn) return conn;
+    if (req.method === 'POST' && ['/v1/salt', '/v1/signup', '/v1/login', '/v1/reset/start', '/v1/reset/finish'].includes(path) && await limited(env, 'signin', ip)) return slowDown();
     if ((path === '/v1/oauth/start' || path === '/v1/oauth/redeem' || path.startsWith('/v1/oauth/callback/')) && await limited(env, 'oauth', ip)) return slowDown();
 
     // The salt for an email, so the client can derive its keys before logging in.
@@ -215,9 +234,15 @@ export default {
       return json({ token: await issueToken(env, row.id, body.device) });
     }
 
+    // Forgot password (src/reset.js): a code by email, then a new password.
+    const reset = await resetRoute({ req, env, path, body, json, bad, limited, sha256, slowHash, rand, issueToken, cleanEmail, validEmail, boardUrl: boardOn(env) ? String(env.BOARD_URL).replace(/\/$/, '') : null });
+    if (reset) return reset;
+
     // ---- Sign in with a provider
     if (req.method === 'GET' && path === '/v1/providers') {
-      return json({ providers: [...Object.keys(PROVIDERS), 'dev'].filter((p) => creds(env, p)) });
+      // The board also learns what it can connect: Microsoft 365 straight from the browser (a single-page
+      // app registration: MS_SPA_CLIENT_ID, MS_SPA_TENANT), and GitHub through src/connect.js.
+      return json({ providers: [...Object.keys(PROVIDERS), 'dev'].filter((p) => creds(env, p)), reset: mailOn(env), contact: env.PRIVACY_CONTACT || null, ...(boardOn(env) ? { board: String(env.BOARD_URL).replace(/\/$/, ''), connect: { microsoft: env.MS_SPA_CLIENT_ID ? { clientId: env.MS_SPA_CLIENT_ID, tenant: env.MS_SPA_TENANT || 'organizations' } : null, github: githubConnectOn(env), google: googleConnectOn(env) } } : {}) });
     }
 
     // The browser comes here from the user's Switchboard, goes on to the provider,
@@ -291,6 +316,20 @@ export default {
 
     const acct = await accountFor(req, env);
     if (!acct) return bad('Signed out. Sign in again.', 401);
+
+    const conn2 = await connectAfter({ req, env, path, acct, json, bad }) || await googleAfter({ req, env, path, body, acct, json, bad, limited });
+    if (conn2) return conn2;
+
+    // A teammate's reset code (src/reset.js).
+    const issued = await resetIssue({ req, env, path, body, acct, json, bad, limited, sha256, cleanEmail });
+    if (issued) return issued;
+
+    // ---- Shared projects (src/shares.js)
+    const shared = await shareRoute({ req, env, path, url, body, acct, json, bad, notice: relayNotice, limited, maxDoc: MAX_DOC });
+    if (shared) return shared;
+    // ---- Team chat (src/chat.js)
+    const chat = await chatRoute({ req, env, path, url, body, acct, json, bad, notice: relayNotice, limited });
+    if (chat) return chat;
 
     // ---- Devices: every computer signed in to this account, and removing one.
     if (req.method === 'GET' && path === '/v1/devices') {
@@ -547,7 +586,9 @@ export class Relay extends DurableObject {
     this.ctx.acceptWebSocket(pair[1], [device]);
     pair[1].serializeAttachment({ device, name, since: Date.now(), tokenId: req.headers.get('X-Token-Id') || null });
     this.presence();
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    // The web board asked for the "switchboard" subprotocol (its token rode beside it): say yes to it, never echo the token.
+    const web = /(^|,\s*)switchboard(,|$)/.test(req.headers.get('Sec-WebSocket-Protocol') || '');
+    return new Response(null, { status: 101, webSocket: pair[0], ...(web ? { headers: { 'Sec-WebSocket-Protocol': 'switchboard' } } : {}) });
   }
 
   presence(gone) {

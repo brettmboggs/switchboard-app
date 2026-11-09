@@ -30,7 +30,7 @@ async function load() {
 
 // ---------- install as its own app (own icon in the Dock / taskbar)
 let installPrompt = null;
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator && !window.WEB) navigator.serviceWorker.register('/sw.js').catch(() => {});
 // Offer it only in a plain browser window on macOS or Windows. Inside the installed
 // app (standalone) there is nothing to install, and on Linux the launcher already
 // gives Switchboard its own icon.
@@ -43,9 +43,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
 window.addEventListener('appinstalled', () => { installPrompt = null; store.set('installed', true); $('install-btn').hidden = true; toast('Installed. Open Switchboard from your apps from now on.'); });
 $('install-btn').addEventListener('click', async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice.catch(() => {}); installPrompt = null; $('install-btn').hidden = true; });
 
-const es = new EventSource('/api/events');
-es.addEventListener('changed', load);
-es.addEventListener('open', load);
-if (!location.hash) { const sp = store.get('prefs', {})?.startPage; if (sp && sp !== 'now') history.replaceState(null, '', '#' + sp); }
+// Live: the server says when anything changed; on the web board, the web client does (it hears it over the relay).
+const es = window.WEB ? null : new EventSource('/api/events');
+if (es) { es.addEventListener('changed', load); es.addEventListener('open', load); }
+else window.WEB.ready.then(() => window.WEB.onChange(load));
+// The Deck is home; "now" was the old default, so it opens the Deck too.
+if (!location.hash) { const sp = store.get('prefs', {})?.startPage; if (sp && sp !== 'now' && sp !== 'deck') history.replaceState(null, '', '#' + sp); }
 pageFromHash();
 load();

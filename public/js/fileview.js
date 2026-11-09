@@ -62,11 +62,11 @@ function makeFileLink(el) {
   el.title = 'Open ' + el.dataset.path;
 }
 document.addEventListener('click', (e) => {
-  const a = e.target.closest?.('.file-link');
+  const a = e.target.closest?.('.file-link[data-pterm]');
   if (a) { e.preventDefault(); openFileView(a.dataset.pterm, a.dataset.path); }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.classList?.contains('file-link')) { e.preventDefault(); openFileView(e.target.dataset.pterm, e.target.dataset.path); }
+  if (e.key === 'Enter' && e.target.classList?.contains('file-link') && e.target.dataset.pterm) { e.preventDefault(); openFileView(e.target.dataset.pterm, e.target.dataset.path); }
 });
 
 // ---- files Claude sent you: a card each, pictures previewed
@@ -104,34 +104,59 @@ function fileImage(term, path) {
 }
 
 // ---- the reader
-let fileOpen = null;   // { term, path, d }
+// Two sources. A session's file: term and path, asked through the session
+// (fvUrl). A file Switchboard keeps (a project's files, a file added to a
+// note): its own address, `kept`, which serves it (?view, ?download) and
+// answers …/view and …/open. `list` is the files beside it, for Previous / Next.
+let fileOpen = null;   // { term, path, kept, list, d }
 const fileSize = (n) => n < 1024 ? `${n} bytes` : n < 1024 ** 2 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
 async function openFileView(term, path) {
   fileOpen = { term, path, d: null };
-  $('file-name').textContent = path.split(/[\\/]/).pop().replace(/(:\d+)+$|#L\d+$/, '');
+  return drawFileView(path.split(/[\\/]/).pop().replace(/(:\d+)+$|#L\d+$/, ''), () => api(fvUrl(term, 'view'), { path }));
+}
+// A kept file: kept is its address (/api/projects/<id>/files/<name> or /api/files/<id>).
+function openKeptFile(kept, list = null) {
+  fileOpen = { kept, list, d: null };
+  return drawFileView(decodeURIComponent(kept.split('/').pop()).replace(/^[a-f0-9]{12}--/, ''), () => api(kept + '/view', {}));
+}
+async function drawFileView(title, ask) {
+  const me = fileOpen;
+  $('file-name').textContent = title;
   $('file-where').textContent = '';
   $('file-body').textContent = 'Opening…';
   $('file-actions').hidden = true;
-  openDialog('file-scrim');
+  $('file-put').hidden = true; $('file-send').setAttribute('aria-expanded', 'false');
+  if (!$('file-scrim').classList.contains('open')) openDialog('file-scrim');
   let d;
-  try { d = await api(fvUrl(term, 'view'), { path }); }
+  try { d = await ask(); }
   catch (err) { $('file-body').textContent = ''; $('file-body').append(elt('p', 'fv-note', err.message)); return; }
-  if (fileOpen?.path !== path) return;
+  if (fileOpen !== me) return;
   fileOpen.d = d;
+  const { term, kept, list } = me;
   $('file-name').textContent = d.name;
-  const away = d.remote ? termByKey(term) : null;
-  $('file-where').textContent = `${away ? `On ${away.deviceName || 'your other computer'}: ` : ''}${d.folder} · ${d.kind === 'folder' ? 'folder' : fileSize(d.size)}`;
+  const away = !kept && d.remote ? termByKey(term) : null;
+  $('file-where').textContent = kept ? `${keptWhere(kept)} · ${fileSize(d.size)}`
+    : `${away ? `On ${away.deviceName || 'your other computer'}: ` : ''}${d.folder} · ${d.kind === 'folder' ? 'folder' : fileSize(d.size)}`;
   $('file-actions').hidden = false;
   // A file on another computer opens on that computer; here it can be read and its place copied.
   $('file-open').hidden = d.kind === 'folder' || !!away;
   $('file-reveal').hidden = !!away;
+  $('file-copy').hidden = !!kept;   // its place is Switchboard's own data folder: Download or Move or copy instead
+  const dl = $('file-download');
+  dl.hidden = !kept;
+  if (kept) { dl.href = kept + '?download'; dl.setAttribute('download', d.name); }
+  $('file-copy-it').hidden = !(d.kind === 'image' || d.kind === 'text' || d.kind === 'markdown');
+  $('file-copy-it').textContent = d.kind === 'image' ? 'Copy picture' : 'Copy text';
+  $('file-send').hidden = !kept;
+  const at = list ? list.indexOf(kept) : -1;
+  $('file-prev').hidden = $('file-next').hidden = !(list && list.length > 1 && at >= 0);
   const body = $('file-body');
   body.textContent = '';
   if (d.kind === 'markdown') {
     const page = elt('div', 'fv-md cm-agent');
     page.append(chatMd(d.text.replace(/<!--[\s\S]*?-->\n?/g, '')));   // notes to whoever edits it, not for reading
     body.append(page);
-    fileLinks(page, { term, base: d.folder });
+    if (!kept) fileLinks(page, { term, base: d.folder });
   } else if (d.kind === 'text') {
     const pre = elt('pre', 'fv-text');
     d.text.split('\n').forEach((l, i) => { const ln = elt('span', 'fv-line', l + '\n'); ln.dataset.n = i + 1; if (d.line === i + 1) ln.classList.add('lit'); pre.append(ln); });
@@ -139,27 +164,101 @@ async function openFileView(term, path) {
     if (d.line) requestAnimationFrame(() => pre.querySelector('.lit')?.scrollIntoView({ block: 'center' }));
   } else if (d.kind === 'image') {
     const img = elt('img', 'fv-img'); img.alt = d.name; body.append(img);
-    const url = await fileImage(term, d.path);
+    const url = kept ? kept + '?view' : await fileImage(term, d.path);
     if (url) img.src = url; else { img.remove(); body.append(elt('p', 'fv-note', d.remote ? 'This picture is too big to send from the other computer. Open it there.' : 'Could not show this picture. Open opens it in your picture viewer.')); }
+  } else if (d.kind === 'pdf' && kept) {
+    const fr = elt('iframe', 'fv-pdf'); fr.title = d.name; fr.src = kept + '?view'; body.append(fr);
   } else if (d.kind === 'folder') {
     body.append(elt('p', 'fv-note', 'This is a folder. Show in folder opens it in your file manager.'));
   } else {
-    body.append(elt('p', 'fv-note', 'This kind of file opens in its own app: press Open. Show in folder picks it out in your file manager.'));
+    body.append(elt('p', 'fv-note', kept ? 'Switchboard can\'t show this kind of file. Open opens it in its own app; Download saves a copy.' : 'This kind of file opens in its own app: press Open. Show in folder picks it out in your file manager.'));
   }
   if (d.cut) body.append(elt('p', 'fv-note', d.remote ? 'This file is long, so only its start came over from the other computer. Open it there for all of it.' : 'This file is long, so only the first megabyte is shown. Open shows all of it.'));
+}
+// Where a kept file lives, in words: "Acme · Files" or "Added to a note".
+function keptWhere(kept) {
+  const m = kept.match(/^\/api\/projects\/([^/]+)\/files\//);
+  return m ? `${spaceOf(decodeURIComponent(m[1])).name} · Files` : 'Added to a note or session';
+}
+function fileStep(by) {
+  const { list, kept } = fileOpen || {};
+  if (!list || list.length < 2) return;
+  openKeptFile(list[(list.indexOf(kept) + by + list.length) % list.length], list);
 }
 async function fileAct(how) {
   if (!fileOpen?.d) return;
   try {
-    await api(fvUrl(fileOpen.term, 'open'), { path: fileOpen.d.path, how });
+    if (fileOpen.kept) await api(fileOpen.kept + '/open', { how });
+    else await api(fvUrl(fileOpen.term, 'open'), { path: fileOpen.d.path, how });
     toast(how === 'reveal' ? 'Opened its folder.' : `Opened ${fileOpen.d.name}.`);
   } catch (err) { toast(err.message, { kind: 'error' }); }
 }
 $('file-open').addEventListener('click', () => fileAct('open'));
 $('file-reveal').addEventListener('click', () => fileAct('reveal'));
+$('file-prev').addEventListener('click', () => fileStep(-1));
+$('file-next').addEventListener('click', () => fileStep(1));
+$('file-scrim').addEventListener('keydown', (e) => {
+  if (e.target.closest('input, textarea, select') || !fileOpen?.list) return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); fileStep(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); fileStep(1); }
+});
 $('file-copy').addEventListener('click', () => {
   if (!fileOpen?.d) return;
   navigator.clipboard.writeText(fileOpen.d.path).then(() => toast('Copied where it is.'), () => toast('Could not copy.', { kind: 'error' }));
+});
+// Move or copy: to any project's Files, into a note (a picture shows in it),
+// or to a session (its agent gets the file's place on this computer). Move is
+// for a project's own files; a file in a note stays there, taken out by
+// editing the note.
+$('file-send').addEventListener('click', () => {
+  const box = $('file-put'), open = box.hidden;
+  box.hidden = !open; $('file-send').setAttribute('aria-expanded', String(open));
+  if (!open || !fileOpen?.kept) return;
+  const from = fileOpen.kept.match(/^\/api\/projects\/([^/]+)\/files\//), here = from && decodeURIComponent(from[1]);
+  const opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
+  const pages = (S.pages || []).slice().sort((a, b) => b.updated_at - a.updated_at).slice(0, 60);
+  const terms = (S.terms || []).filter((t) => t.state !== 'ended');
+  $('file-put-to').innerHTML = `<optgroup label="A project's Files">${S.spaces.filter((x) => x.id !== here).map((x) => opt('project:' + x.id, x.name)).join('')}</optgroup>`
+    + (pages.length ? `<optgroup label="A note">${pages.map((p) => opt('page:' + p.uid, `${p.title || 'Untitled'} · ${spaceOf(p.space).name}`)).join('')}</optgroup>` : '')
+    + (terms.length ? `<optgroup label="A session">${terms.map((t) => opt('term:' + t.id, termLabel(t))).join('')}</optgroup>` : '');
+  const sync = () => { const v = $('file-put-to').value; $('file-put-move').hidden = !here || !v.startsWith('project:'); $('file-put-note').textContent = v.startsWith('term:') ? 'The session is told where the file is.' : ''; };
+  $('file-put-to').onchange = sync; sync();
+  $('file-put-to').focus();
+});
+$('file-put').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = fileOpen; if (!f?.kept) return;
+  const how = e.submitter?.dataset.put || 'copy', v = $('file-put-to').value, [kind, ...rest] = v.split(':'), dest = rest.join(':');
+  try {
+    if (kind === 'term') {
+      const t = (S.terms || []).find((x) => x.id === dest);
+      if (!t) throw new Error('That session has ended.');
+      await api(termPath(t, 'queue'), { text: `Here is ${f.d.name}: '${f.d.path.replace(/'/g, "'\\''")}'`, source: 'Files' });
+      toast(`Sent to ${termLabel(t)}. It goes in when the session is ready.`);
+    } else {
+      const r = await api('/api/files/put', { from: f.kept, to: kind === 'project' ? { project: dest } : { page: dest }, move: how === 'move' });
+      toast(r.project ? `${how === 'move' ? 'Moved' : 'Copied'} to ${spaceOf(r.project).name}'s Files${r.name !== f.d.name ? ' as ' + r.name : ''}.` : `Added to ${r.title}.`);
+      if (how === 'move') { closeDialog('file-scrim'); if (typeof loadProjFiles === 'function' && openProject) loadProjFiles(openProject, true); }
+      else if (r.project && typeof loadProjFiles === 'function' && openProject === r.project) loadProjFiles(openProject, true);
+      await load().catch(() => {});
+    }
+    $('file-put').hidden = true; $('file-send').setAttribute('aria-expanded', 'false');
+  } catch (err) { toast(err.message, { kind: 'error' }); }
+});
+
+// Copy picture (as a PNG, the one kind every app takes from the clipboard) or Copy text.
+$('file-copy-it').addEventListener('click', async () => {
+  const f = fileOpen; if (!f?.d) return;
+  try {
+    if (f.d.kind !== 'image') { await navigator.clipboard.writeText(f.d.text); return toast('Copied the text.'); }
+    const img = $('file-body').querySelector('img');
+    if (!img?.complete || !img.naturalWidth) throw new Error('not ready');
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    const png = await new Promise((r) => c.toBlob(r, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    toast('Copied the picture. Paste it anywhere.');
+  } catch { toast('Could not copy that. Download it instead.', { kind: 'error' }); }
 });
 
 // ---- the same in Terminal view: file names on the screen are links (xterm's

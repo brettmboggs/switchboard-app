@@ -1,0 +1,13 @@
+/* Note lines that went to a session (public/js/notemarks.js).
+   .note-mark  a small quiet pill after the line, over the page, never in it:
+              Sent (muted), needs you (orange: a session is asking you), Claude
+              finished (blue: worth a look, not a job done)
+   .nm-menu   what a click on it offers: Mark done, Open session, Remove mark */
+.note-mark { position: absolute; transform: translateY(-50%); max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 var(--sp-2); border: 1px solid var(--border-soft); border-radius: var(--r-pill); background: var(--bg-raised);
+  font: var(--fs-xs) var(--font-mono); line-height: 1.7; color: var(--fg-muted); cursor: pointer; user-select: none; }
+.note-mark:hover, .note-mark:focus-visible, .note-mark[aria-expanded="true"] { border-color: var(--fg-muted); color: var(--fg); }
+.note-mark--done { border-color: var(--info); background: var(--info-tint); color: var(--info); }
+.note-mark--ask { border-color: var(--signal); color: var(--signal-text); }
+.nm-menu { position: absolute; z-index: 1; display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2);
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); box-shadow: var(--shadow-2); }

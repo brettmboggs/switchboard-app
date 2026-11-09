@@ -4,6 +4,12 @@
 name = "switchboard-sync"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
+# The web board at your own domain (its DNS on Cloudflare): this adds one
+# record for that name and touches no other. Set BOARD_URL below to match.
+# Self-hosting? Change this name, and BOARD_URL at the bottom, to your own.
+routes = [{ pattern = "board.brettboggs.dev", custom_domain = true }]
+# Keep the workers.dev address on: every installed Switchboard syncs through it.
+workers_dev = true
 
 [[d1_databases]]
 binding = "DB"
@@ -20,3 +26,36 @@ class_name = "Relay"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Relay"]
+
+# The web board (src/board.js, docs/WEB-BOARD.md): this worker serves the
+# Switchboard page from public/ to invited people in a browser. Off until
+# BOARD_URL is set. Static assets are free on the Workers free plan; the
+# worker runs first on each so every file gets the strict content policy.
+[assets]
+directory = "../public"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "none"
+not_found_handling = "none"
+
+# Integrity hashes for the board's scripts and stylesheets, made fresh before every deploy.
+[build]
+command = "node ../scripts/board-manifest.mjs"
+
+# Your board's address (and its route, near the top of this file):
+[vars]
+BOARD_URL = "https://board.brettboggs.dev"
+# Microsoft 365 on the board: the Switchboard app registration (any work, school or
+# personal Microsoft account; the board's address is a single-page-app redirect on it).
+MS_SPA_CLIENT_ID = "ae83ee13-7776-4abe-8b13-b718d4b0cbd6"
+MS_SPA_TENANT = "common"
+# Google (Gmail, Google Calendar) on the board (src/googleconnect.js): a "Web application"
+# client whose redirect is https://<board>/v1/oauth/callback/google/connect; its secret:
+#   npx wrangler secret put GOOGLE_CONNECT_CLIENT_SECRET
+GOOGLE_CONNECT_CLIENT_ID = "782651601113-3qoqmol1hk1iduuo6spt864bh5ipu5aj.apps.googleusercontent.com"
+# Forgot password (src/reset.js) emails a code through Resend's free plan. Set
+# the sender here, on a domain verified at resend.com, and the key as a secret:
+#   npx wrangler secret put RESEND_API_KEY
+# MAIL_FROM = "Switchboard <reset@your-domain>"
+# PRIVACY_CONTACT: the address the privacy page (/privacy.html) gives; set it
+# with `npx wrangler secret put PRIVACY_CONTACT` so it stays out of the code.

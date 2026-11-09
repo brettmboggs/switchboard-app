@@ -57,9 +57,9 @@ body[data-convo] #page .item.sel .s, body[data-convo] #page .item.sel .muted, bo
 .cv-meta time { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .cv-msub { font-size: var(--fs-sm); color: var(--fg-muted); }
 .cv-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: var(--lh); }
-.cv-text a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+.cv-text a { color: var(--hud-text); text-decoration: underline; text-underline-offset: 2px; }
 .cv-text.long { max-height: 24em; overflow: hidden; -webkit-mask-image: linear-gradient(var(--fg) 75%, transparent); mask-image: linear-gradient(var(--fg) 75%, transparent); }
-.cv-link { background: none; border: 0; padding: 4px 0 0; color: var(--accent-text); font-weight: 600; font-size: var(--fs-base); cursor: pointer; }
+.cv-link { background: none; border: 0; padding: 4px 0 0; color: var(--hud-text); font-weight: 600; font-size: var(--fs-base); cursor: pointer; }
 .cv-link:hover { text-decoration: underline; }
 .cv-link:disabled { color: var(--fg-muted); cursor: default; text-decoration: none; }
 .cv-state { display: block; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); margin-top: 3px; }
@@ -133,3 +133,39 @@ a.feed-item { color: inherit; text-decoration: none; }
 .dr-body { width: 100%; min-height: 10rem; resize: vertical; font: inherit; line-height: 1.5; }
 .cv-draft .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 .cv-draft .grow { flex: 1; }
+
+/* Teams pictures and reactions (public/js/teamspics.js). */
+.cv-pics { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-1); }
+.cv-pic { padding: 0; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--bg-raised); overflow: hidden; cursor: zoom-in; line-height: 0; }
+.cv-pic img { display: block; max-width: min(100%, 22rem); max-height: 18rem; object-fit: contain; }
+.cv-reacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin-top: var(--sp-1); min-height: 0; }
+.cv-react { display: inline-flex; align-items: center; gap: var(--sp-1); height: var(--sp-6); padding: 0 var(--sp-2); border: 1px solid var(--border-soft); border-radius: var(--r-pill); background: var(--bg-raised); color: var(--fg); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.cv-react span { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.cv-react.mine { border-color: var(--con-info); background: var(--info-tint); }
+.cv-react:hover { border-color: var(--fg-muted); }
+/* The quick row shows on hover (and keyboard focus), like Teams. */
+.cv-quick { display: inline-flex; gap: 0; opacity: 0; transition: opacity .12s; }
+.cv-msg:hover .cv-quick, .cv-quick:focus-within { opacity: 1; }
+.cv-quick button { width: var(--sp-6); height: var(--sp-6); border: 0; border-radius: var(--r-pill); background: transparent; font-size: var(--fs-base); line-height: 1; cursor: pointer; }
+.cv-quick button:hover { background: var(--bg-hover); }
+@media (hover: none) { .cv-quick { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cv-quick { transition: none; } }
+.cv-clip { flex: none; width: var(--sp-8); height: var(--sp-8); border: 0; border-radius: var(--r-md); background: none; color: var(--fg-muted); cursor: pointer; }
+.cv-clip svg { width: var(--sp-5); height: var(--sp-5); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cv-clip:hover { background: var(--bg-hover); color: var(--fg); }
+.cv-attach { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.cv-attach-pic { position: relative; line-height: 0; }
+.cv-attach-pic img { width: var(--sp-8); height: var(--sp-8); object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--border-soft); }
+.cv-attach-pic button { position: absolute; top: calc(-1 * var(--sp-1)); right: calc(-1 * var(--sp-1)); width: var(--sp-5); height: var(--sp-5); border: 0; border-radius: var(--r-pill); background: var(--fg); color: var(--bg-raised); font-size: var(--fs-sm); line-height: 1; cursor: pointer; }
+/* Files in email and Outlook that are not pictures (public/js/mailfiles.js): a name and size to save. */
+.cv-files { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-1); }
+.cv-file { display: inline-flex; align-items: baseline; gap: var(--sp-2); max-width: 100%; padding: var(--sp-1) var(--sp-3); border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--bg-raised); color: var(--fg); font-size: var(--fs-sm); text-decoration: none; }
+.cv-file:hover { border-color: var(--fg-muted); }
+.cv-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.cv-file-size { flex: none; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+/* The list beside an open conversation is narrow: its header wraps onto three
+   lines. As a grid, Chrome sized that row before the wrap (with the text-size
+   zoom), so the picker overlapped the filters; a column of blocks sizes each
+   one as it is drawn. */
+body[data-convo] #page { display: flex; flex-direction: column; gap: var(--sp-4); }
+body[data-convo] #page > * { flex: none; }

@@ -11,18 +11,18 @@ const { getPage, newPage, pageList, dayTitle } = await import('../lib/pages.js')
 const { db } = await import('../lib/db.js');
 
 test('today: a timed line on the day\'s page in this project, made on first use', () => {
-  const r = capture('today fed the goats', 'personal');
+  const r = capture('today picked up the parts', 'personal');
   assert.equal(r.kind, 'today');
   assert.equal(r.text, dayTitle(Date.now()));                      // "Tue Nov 4"
   assert.match(r.text, /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2}$/);
   assert.equal(r.space, 'personal');
   let p = getPage(r.uid);
-  assert.match(p.body, /^<p>\d{1,2}:\d{2} [AP]M · fed the goats<\/p>$/);
+  assert.match(p.body, /^<p>\d{1,2}:\d{2} [AP]M · picked up the parts<\/p>$/);
   // The colon form, and the next line goes under the first, on the same page.
   const r2 = capture('today: call <b>Sam</b> back', 'personal');
   assert.equal(r2.uid, r.uid);
   p = getPage(r.uid);
-  assert.match(p.body, /^<p>[^<]+ · fed the goats<\/p><p>[^<]+ · call &lt;b&gt;Sam&lt;\/b&gt; back<\/p>$/);
+  assert.match(p.body, /^<p>[^<]+ · picked up the parts<\/p><p>[^<]+ · call &lt;b&gt;Sam&lt;\/b&gt; back<\/p>$/);
   // Another project gets its own page for the day; no project picked means personal.
   const r3 = capture('today moved the fence', 'farm');
   assert.notEqual(r3.uid, r.uid);
@@ -32,7 +32,7 @@ test('today: a timed line on the day\'s page in this project, made on first use'
   assert.equal(capture('today', 'personal').kind, 'note');
   // The page shows in the list with its lines readable.
   const l = pageList().find((x) => x.uid === r.uid);
-  assert.match(l.preview, /fed the goats$/);
+  assert.match(l.preview, /picked up the parts$/);
 });
 
 test('log: an entry on the "<name> log" page, newest first', () => {

@@ -15,7 +15,7 @@
 }
 .btn:hover { filter: brightness(.95); }
 .btn[disabled], .btn[aria-disabled="true"] { opacity: .5; cursor: progress; }
-.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn--primary { background: linear-gradient(135deg, var(--hud), var(--hud-2)); border-color: var(--hud); color: var(--hud-fg); box-shadow: 0 0 16px var(--hud-ring); }
 .btn--primary:hover { filter: brightness(1.06); }
 .btn--quiet { border-color: var(--border); font-weight: 500; }
 .btn--quiet:hover { filter: none; border-color: var(--fg); }
@@ -33,8 +33,8 @@
 /* On the console (dark in both themes) */
 .chat-host .btn, .term-bar .btn, .term-compose .btn { background: transparent; border-color: var(--con-border); color: var(--con-fg); }
 .chat-host .btn:hover, .term-bar .btn:hover, .term-compose .btn:hover { filter: none; background: var(--con-bg-2); }
-.chat-host .btn--primary, .term-bar .btn--primary, .term-compose .btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-.chat-host .btn--primary:hover, .term-compose .btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
+.chat-host .btn--primary, .term-bar .btn--primary, .term-compose .btn--primary { background: linear-gradient(135deg, var(--hud), var(--hud-2)); border-color: var(--hud); color: var(--hud-fg); }
+.chat-host .btn--primary:hover, .term-compose .btn--primary:hover { filter: brightness(1.1); }
 .chat-host .btn--ghost, .term-bar .btn--ghost, .term-compose .btn--ghost { border: 0; color: var(--con-muted); text-decoration: none; }
 .chat-host .btn--ghost:hover, .term-bar .btn--ghost:hover, .term-compose .btn--ghost:hover { color: var(--con-fg); background: none; }
 
@@ -43,10 +43,10 @@
 .mic svg { width: 18px; height: 18px; fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; }
 .mic svg rect { fill: var(--fg); stroke: none; }
 .mic:hover { border-color: var(--fg); }
-.mic.on { background: var(--accent); border-color: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
-.mic.on svg { stroke: var(--accent-fg); }
-.mic.on svg rect { fill: var(--accent-fg); }
-.mic.busy:not(.on) { border-color: var(--accent); }
+.mic.on { background: var(--hud); border-color: var(--hud); animation: pulse 1.4s ease-in-out infinite; }
+.mic.on svg { stroke: var(--hud-fg); }
+.mic.on svg rect { fill: var(--hud-fg); }
+.mic.busy:not(.on) { border-color: var(--hud); }
 .mic.busy:not(.on) svg { animation: think 1s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-half); } 50% { box-shadow: 0 0 0 7px transparent; } }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--hud-glow); } 50% { box-shadow: 0 0 0 7px transparent; } }
 @keyframes think { 50% { opacity: .35; } }

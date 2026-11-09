@@ -4,6 +4,55 @@ How Switchboard looks and why, for anyone (person or agent) building on it.
 The brand first, then the tokens, the type, the components, the layout, and
 the rules every page keeps to. Everything here lives in `public/css`.
 
+## The HUD (Nov 8 2026)
+
+Switchboard is its owner's Jarvis, and it looks like a console: one dark theme (the
+Light/Dark setting is gone), a deep navy room with a faint grid and two pools of
+light, glass boxes with lit bracket corners, electric cyan (`--hud`) for the
+interface itself (lines, focus, the primary action, the page you are on, the
+picked tab), and a slow scan line. Orange still means "needs you" and nothing
+else; it now glows like a warning light. Space Grotesk is the display face
+(uppercase, lit page titles), Public Sans the body, JetBrains Mono the readouts.
+
+The rule that keeps it usable: **words never get effects.** Body text stays
+plain, high contrast (`--fg` on `--bg-surface` is over 15:1, `--fg-muted` 7:1)
+and normal size; glow, gradients and motion go on frames, lines, lamps and
+numbers. Reduced motion stops the scan line, the lamps and Jarvis's wave.
+
+Where it lives: the palette in `tokens.css` (the `--hud-*` tokens), and the
+layer in `public/css/hud.css`, loaded after every other stylesheet. It only
+adds to the components; a new component gets the look from the tokens and, if it
+needs its own frame, a rule in `hud.css`. The HUD strip across the top of each
+page (`public/js/hud.js`: the time, what needs you, sessions working, builds
+running, the weather, each a link) is part of the layer; Sessions leaves it out
+to give the session the height.
+
+### The Deck and the ring (later on Nov 8)
+
+The HUD alone was a re-skin; the owner asked for a different interface, and chose
+the **Command Deck**. Home (`#deck`, `public/js/deck.js`, `pages/deck.css`) is
+Jarvis at the centre as a living core drawn on a canvas (rings turning at their
+own speeds, a ring of rays that follows your voice, a heart that swells; it
+reads LISTENING and THINKING), the time and weather above it, what you said and
+its answer under it in plain large type, and a command line. Around it, every
+system as a module: Needs you, Sessions, Builds, Inbox, Calendar, Money, Notes,
+Browser checks, Projects. A module is a title in lit mono, one big number, a
+line of words and up to four plain lines; a module that needs you turns into
+an orange warning light. A module opens into its full panel (the page it always
+was) with a zoom: the tile and the panel share a view-transition name, so the
+browser morphs one into the other. Esc, the wordmark or "back" returns.
+
+The side rail became **the ring** (`public/css/ring.css`): one band across the
+top with the same contents (wordmark home to the Deck, Jarvis's small core,
+the pages, Projects as a drop-down with Unsorted, what needs you, search, and
+Update, Install, Windows, Check now and Settings). Nothing is hidden at any
+width: the page names tighten, then the ring scrolls sideways. Four lit corners
+frame the view under it. Jarvis's conversation panel drops down from the ring.
+On the Deck, Ctrl+Space and the core talk to the Deck's own command line.
+
+Sections below that describe the light "counter" palette are history: the roles
+are the same, the values are the HUD's.
+
 ## The brand: three streams, one lamp
 
 The mark: three streams (the inputs, each ending in a dot) bend together into
@@ -230,7 +279,11 @@ by `.item` (board rows: tag, title `.t`, second line `.s`, right column
 `.bring-msg` and `.slash-opt`; each sets only its columns. Rows that float
 (`.ship`, `.nb-item`, `.cmd-hit`, the popover rows) have no hair-line and a
 `--r-md` corner. The sessions list (`.line`) is deliberately quieter and keeps
-its own rule in `pages/sessions.css`. `.tag` is the 9 px square of a
+its own rule in `pages/sessions.css`: each state reads at a glance in the
+session bar's colours. Working is info blue with a dot that breathes (still
+under reduced motion), Your turn a green edge on a green wash, Needs you the
+orange edge and wash; Ready and Starting stay plain. The open session is ringed
+rather than filled, so its state still shows. `.tag` is the 9 px square of a
 project's colour.
 
 **Field** (`field.css`). Every input, select and textarea: `--bg-raised`, a
@@ -298,7 +351,10 @@ in groups (a kicker each), the keys on the left, what they do on the right.
 own page: a head with its colour square and name, then two columns, the work
 (In flight with the same `.job` cards as Now, Conversations, Sessions, Notes,
 Files) and a sticky side card (About, People, Links; Edit turns it into a
-form in place). Links are bordered blocks with the label over the address in
+form in place). In the form, a person holds any number of email and phone
+boxes (`.pf-many`, one `.pf-one` each with Remove); under them `.pf-acts`
+holds Add email, Add phone and Merge with…, which opens a select of the other
+people in place, never a dialog. Links are bordered blocks with the label over the address in
 mono. Found in your mail is one line per person (name, then address,
 messages and when, muted) with Add and Hide. The Files card is where drops land: a dashed ink edge while a file is
 dragged over the page, never orange. `.proj-filter` is the project picker in a
@@ -349,6 +405,83 @@ everywhere. The page builds its skeleton once and updates it in place, so a
 refresh never interrupts a hover, a scroll or typing. `prefers-reduced-motion`
 turns the transitions and the live dot's pulse off.
 
+**Shared projects** (`share.css`, `public/js/share.js`). A shared project's
+head has `.share-line`: a pill with the members' initials (`.share-face`, info
+blue on its tint; dashed and muted while only invited) overlapping, then
+"Shared with Jordan · admin" and, in mono, your own role. An unshared project
+has a plain Share button there. Share opens `.share-sheet`: one muted line on
+encryption, then "What is shared" as a list of `.share-kind` rows (a checkbox,
+the kind in 600, one line of what it means), then one muted line of what is
+never shared. Sharing for the first time asks about the pages already there
+(`.share-ask`, on hover grey, Yes or "No, keep them Only me"). Then the people
+as white rows (the owner gets a Member/Admin select; Remove for whoever may),
+the invite form (email, an optional name, Invite) and a foot with Stop sharing
+or Leave, each armed by a first click. A member sees the switches greyed. On
+the project's page, Activity is a card of rows (initials, the person in 600,
+the session's name and its state word: working in info blue, waiting in ink
+600, never orange because it is theirs, done in green) and Pull requests a
+plain list. An invitation is a card on Now (`.share-invite`) with the orange
+edge, because it waits for you. In Notes, a page in a shared project has an
+Only me button beside Pin, and "Only me" in mono before its title in the list.
+
+**The web board** (`web.css`, `public/js/web/`). The same page, not a second
+design: `html.web` hides what only a computer has (Windows, Unsorted, Install
+app, Update ready, every Settings pane but Account, the sync-service field),
+and the rail lists Now, Inbox, Notes and your projects. Settings shows Account
+(with Your connections: Microsoft 365 and GitHub as rows with Connect or
+Disconnect), Projects and Team. Nothing is restyled.
+
+**Every kind of a project** (`team.css`). A person's project in Team is a row
+with Give everything and Take off, then a wrapping grid of labelled selects,
+one per kind (`.team-kinds-grid`), whose title says what the kind means; the
+invite form lists the kinds with their line beside each (`.team-kinds-list`).
+A member's project page gets a card per kind they can see; a shared session
+opens in `.shsess-sheet`, the Chat view in plain bubbles (yours on the right,
+tool calls one mono line), with Ask to send under it and the line that it waits
+to be let in. A held "Jordan asks" line in your session's queue has Always let
+them in beside Send when free, and a Needs you card on Now.
+
+**Check codes** (`team.css`, `.team-codes`). A quiet fold at the end of Team:
+your own check code in mono, then one row per person you share with (name,
+email, their code in mono, Mark checked). When someone's keys change, an
+alert card at the top of Team names them, shows the new and old codes, and
+offers "The codes match: use the new keys".
+
+**Team** (`team.css`, `public/js/team.js`). Settings, Team is a stack of white
+cards on the pane. First Invite someone: email, an optional name, the project,
+then one row of five small None / See / Edit selects under small-caps kind
+names (`.team-kinds`, a grid shared by every such row), and the question about
+pages already there when the project is not shared yet. After Invite, the
+email shows before it goes (`.team-mail`, an info-blue edge): To, From with
+"via Switchboard", Subject, the text in a grey box, then Send, Copy link and
+Not now. Then one `.team-person` card per person: initials, name and email,
+Member/Admin (the owner only), Remove from team (armed by a first click), and a
+row per project with its dot, the five selects, and Take off or Cancel invite.
+A shared repo is a row of quiet buttons: Open in Codespaces outlined (the one
+that needs nothing installed), then Download ZIP, Open on GitHub and Clone to
+this computer. "You're in" on Now has the info edge, not orange: nothing waits
+for you. The invite email itself (`lib/emails/layout.js`) is the counter in
+email form: grey around, a paper card, Fraunces heading, one orange pill button
+with ink text, the mark sent inside the email.
+
+**Team chat** (`teamchat.css`, `public/js/teamchat.js`). A project channel or
+a one-to-one chat is a conversation in the Inbox like any other: the same
+view, composer, mic, pictures and reactions (`pages/inbox.css`,
+`teamspics.js`). It adds, all quiet grey and never orange (a chat line is not
+"needs you" by itself): `.tc-start`, chips above the Inbox list to open one
+(`# Acme`, a person); `.tc-quote`, the message a reply answers, a muted bar
+above the text that jumps to it; `.tc-at`, an @name, on an info tint (on your
+own dark bubble, underlined instead); `.tc-acts`, Reply, Pin, Edit and Delete
+in a small pill floating over the message's top corner on hover or focus (in
+place on touch screens), so a hidden row takes no room; `.tc-marks`
+("edited · pinned") and `.tc-seen` (mono, "Seen by Sam" under the newest of
+your messages each person has read; hover for everyone); `.tc-gone`, a deleted
+message's italic line; `.tc-edit`, the message turned into a textarea with
+Save and Cancel (Ctrl Enter, Esc); and above the reply box `.tc-typing`,
+`.tc-replying` (with ×) and `.tc-mention`, the people offered after `@`.
+Delete asks twice by changing its own label ("Delete for everyone?"), never
+with a browser dialog. Details lists the pins (`.tc-pins`) and who is in it.
+
 **In this project and Unsorted** (`members.css`, `public/js/members.js`,
 `public/js/unsorted.js`). A project's page opens with `.mb-card`: three
 columns of kinds (Repos and folders · People and mail · Notes), each a stack
@@ -364,6 +497,14 @@ Other… and a quiet Hide. The "folders that are not repos" offer is an info-blu
 `.us-tip`: blue, never orange, since sorting never needs you. The rail's
 Unsorted count is muted for the same reason.
 
+**Note marks** (`notemarks.css`, `public/js/notemarks.js`). A note line that
+went to a session gets `.note-mark`, a small mono pill after the line's last
+row, placed over the page and never part of it. Muted "Sent · <session>"
+while it works, orange "<session> needs you" when the session is asking (that
+is the one meaning orange has), blue "Claude finished" (`--info`) once its turn
+ends: worth a look, not a job done. A click opens `.nm-menu`: Mark done, Open
+session, Remove mark.
+
 **File links and the reader** (`fileview.css`, `public/js/fileview.js`). A
 file name an agent writes in the chat that exists on this computer is
 `.file-link`: console blue (`--con-info-2`) with a dotted underline that goes
@@ -373,7 +514,14 @@ its folder in mono). The reader is a `.sheet.file-sheet`: the paper head holds
 the name, where it is, and Open · Show in folder · Copy where it is · Close as
 quiet buttons; the page under it is console ink (`.fv-body`), so markdown reads
 exactly as in the chat, code has line numbers and the named line is lit
-(`--con-lit`, blue).
+(`--con-lit`, blue). The same reader opens the files Switchboard keeps (a
+project's Files, a file in a note): ‹ › step through the files beside it
+(arrow keys too), then Download · Copy picture (or Copy text) · Move or copy ·
+Open · Show in folder, the head wrapping under the name when they don't fit.
+Move or copy opens `.fv-put`, one row under the head: where it goes (a
+project's Files, a note, a session) and Copy there / Move there. A picture fits
+the window (`.fv-img`, 70vh at most); a PDF shows in the browser's own viewer
+(`.fv-pdf`).
 
 **Draft** (`pages/inbox.css`, `public/js/drafts.js`). An email draft is a
 dashed card, so it never reads as sent: a small blue Draft tag (blue, since
@@ -385,6 +533,26 @@ Edit turns it into labelled fields and a tall text box in place, with Send
 beside a value: `.kicker`, with the older names a script still emits
 (`.section-label .ship-label .ls-k .rail h3 .facts dt .cv-sub .cv-day …`)
 in the same selector list. One rule; do not restyle it locally.
+
+### Jarvis (components/jarvis.css)
+The voice of Switchboard: an orb fixed in the bottom-right corner and a panel of
+ink glass above it. Its colour is its own electric cyan (`--jv-*` tokens), the
+same in both themes, never orange. The orb breathes when idle, swells while it
+listens, spins a ring while it thinks and ripples while it speaks; reduced
+motion turns all of that off. The panel shows the conversation (your words
+right and muted, its answers left with a cyan rule), a message box with the mic,
+the model in use and a mute switch.
+
+### AI plans (components/usage.css)
+Each plan limit (Claude's 5-hour and weekly, Codex's when used) is a small chart
+from the window's start to its reset: the line so far over a soft fill, a dashed
+line for where the pace goes, a faint diagonal for an even pace, a dotted top
+line for the limit, and a pulsing dot for now. A weekly window adds a bar per
+day. Cyan when on track, amber (--warn) when it lands above 85%, orange
+(--accent) only when the pace runs out before the reset, as that needs you. The
+same tones colour the tiny gauges (.u-mini) on a Claude session's bar. On the
+Deck it is one module of the bottom row, compact (short charts, no day bars)
+so the Deck fits one screen; on Now it is the full card under today.
 
 ## Signing in
 
@@ -406,6 +574,11 @@ on Sessions (`renderDetail` sets `body[data-panel]`); otherwise the page takes
 the width. 1280 px drops the panel under the page; 860 px stacks everything
 and the rail becomes a block that scrolls away. `--top-h` is now only the
 space above a page.
+
+The page never scrolls sideways (`html, body { overflow-x: clip }` in
+base.css). Anything wide scrolls inside its own box, and a grid or flex child
+that holds text gets `minmax(0, 1fr)` or `min-width: 0` so a long word or name
+cannot push its column past the window.
 
 The rail (`.rail`, as tall as the window, stays put) holds everything the top
 bar did, each with a fixed place: at the top the wordmark with **What's new**

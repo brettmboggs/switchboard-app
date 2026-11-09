@@ -25,7 +25,7 @@ function costsCard(only = null) {
       <span><span class="t">${esc(g.name)}</span><br><span class="s">${$$(g.amount)} ${esc(CADENCE_WORD[g.cadence] || '')}, seen ${g.times} times · last ${dayOnly(g.last)}</span></span>
       <span class="r"><button class="btn btn--ghost" type="button" data-cost-guess="${esc(g.key)}">Add</button><button class="btn btn--quiet" type="button" data-cost-no="${esc(g.name)}">Not recurring</button></span></div>`).join('');
   return `<section class="card costs"><div class="group-head"><h2>Recurring costs</h2>
-      <span class="sum">${list.length ? `${$$(total)} a month · ${$$(total * 12)} a year` : ''}</span><button class="btn" type="button" data-cost-new>Add</button></div>
+      <span class="sum">${list.length ? `${$$(total)} a month · ${$$(total * 12)} a year` : ''}</span>${window.WEB ? '' : '<button class="btn" type="button" data-cost-new>Add</button>'}</div>
     ${split}<div class="list">${rows || empty(only ? 'No recurring costs for this project yet. Add rent, hosting, a domain, software, insurance.' : 'Add what you pay again and again (rent, hosting, software, insurance) and see what it comes to a month, by project. Or Ctrl+K: "bill Google Workspace 14 monthly on 6".')}</div>
     ${guessRows ? `<h3 class="section-label">Looks recurring, from your email</h3><div class="list">${guessRows}</div>` : ''}</section>`;
 }

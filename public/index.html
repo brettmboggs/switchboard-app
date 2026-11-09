@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Switchboard</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#15171C">
+<meta name="theme-color" content="#050911">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="stylesheet" href="/css/tokens.css">
 <link rel="stylesheet" href="/css/fonts.css">
@@ -22,7 +22,14 @@
 <link rel="stylesheet" href="/css/components/keys.css">
 <link rel="stylesheet" href="/css/components/chart.css">
 <link rel="stylesheet" href="/css/components/fileview.css">
+<link rel="stylesheet" href="/css/components/notemarks.css">
 <link rel="stylesheet" href="/css/components/members.css">
+<link rel="stylesheet" href="/css/components/share.css">
+<link rel="stylesheet" href="/css/components/team.css">
+<link rel="stylesheet" href="/css/components/teamchat.css">
+<link rel="stylesheet" href="/css/components/web.css">
+<link rel="stylesheet" href="/css/components/jarvis.css">
+<link rel="stylesheet" href="/css/components/usage.css">
 <link rel="stylesheet" href="/css/pages/now.css">
 <link rel="stylesheet" href="/css/pages/rundown.css">
 <link rel="stylesheet" href="/css/pages/sessions.css">
@@ -35,6 +42,9 @@
 <link rel="stylesheet" href="/css/pages/system.css">
 <link rel="stylesheet" href="/css/pages/project.css">
 <link rel="stylesheet" href="/css/brand.css">
+<link rel="stylesheet" href="/css/hud.css">
+<link rel="stylesheet" href="/css/ring.css">
+<link rel="stylesheet" href="/css/pages/deck.css">
 </head>
 <body>
 
@@ -43,13 +53,14 @@
 <div class="frame">
   <nav class="rail" aria-label="Pages and projects">
     <div class="rail-top">
-      <div class="mark"><svg class="mark-sym" viewBox="2 6 45 36" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10H11.5C15.75 10 15.75 24 20 24"/><path d="M6 38H11.5C15.75 38 15.75 24 20 24"/><path d="M6 24H20"/><path d="M36 24H44"/></g><circle cx="28" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="4.2"/><circle cx="6" cy="10" r="3.4" class="mk-dot"/><circle cx="6" cy="24" r="3.4" class="mk-dot"/><circle cx="6" cy="38" r="3.4" class="mk-dot"/><circle cx="28" cy="24" r="3.6" class="mk-lamp"/></svg>switchboard</div>
+      <a class="mark" href="#deck" title="The Deck (Esc from any module)"><svg class="mark-sym" viewBox="2 6 45 36" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10H11.5C15.75 10 15.75 24 20 24"/><path d="M6 38H11.5C15.75 38 15.75 24 20 24"/><path d="M6 24H20"/><path d="M36 24H44"/></g><circle cx="28" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="4.2"/><circle cx="6" cy="10" r="3.4" class="mk-dot"/><circle cx="6" cy="24" r="3.4" class="mk-dot"/><circle cx="6" cy="38" r="3.4" class="mk-dot"/><circle cx="28" cy="24" r="3.6" class="mk-lamp"/></svg>switchboard</a>
+      <span class="ring-jarvis" id="ring-jarvis"></span>
       <button class="whatsnew" id="whatsnew" type="button" hidden>What's new</button>
     </div>
     <button class="cmd" id="open-cmd" type="button"><span>Search or add…</span><kbd>Ctrl K</kbd></button>
     <button class="needs" id="needs" type="button"><i></i><span id="needs-n">0</span>&nbsp;need you</button>
     <div id="pages" class="pages"></div>
-    <div id="projects" class="projects"></div>
+    <details class="ring-projects" id="ring-projects"><summary>Projects</summary><div id="projects" class="projects"></div></details>
     <div class="rail-foot">
       <button class="status" id="status" type="button" hidden></button>
       <button class="btn btn--primary btn--wide" id="update-btn" type="button" hidden>Update ready</button>
@@ -62,6 +73,7 @@
     </div>
   </nav>
   <main class="main" id="main">
+    <nav class="hud-bar" id="hud-bar" aria-label="At a glance"></nav>
     <div id="page" class="page"></div>
     <div id="term-bar" class="term-bar" hidden></div>
     <div id="term-host" class="term-host" hidden></div>
@@ -93,7 +105,7 @@
 <div class="scrim" id="cmd-scrim" role="dialog" aria-modal="true" aria-label="Command bar">
   <div class="palette">
     <label for="cmd-input" class="sr">Command</label>
-    <input id="cmd-input" type="text" placeholder="remind fri 9am call the bank" autocomplete="off" spellcheck="false">
+    <div class="cmd-row"><textarea id="cmd-input" rows="1" placeholder="remind fri 9am call the bank, or press the mic and say it" autocomplete="off" spellcheck="false"></textarea><button class="mic" type="button" data-mic="cmd-input" title="Talk to type: say a note, a reminder, or sesh and what to send"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Talk to type</span></button></div>
     <p class="hint" id="cmd-hint"></p>
     <ul class="cmd-results" id="cmd-results" hidden></ul>
     <ul class="examples">
@@ -106,6 +118,22 @@
       <li><span class="k">bill</span>Google Workspace 14 monthly on 6</li>
       <li><span class="k">anything</span>else is a note · add @work or any project to file it there</li>
     </ul>
+  </div>
+</div>
+
+<!-- A shared project's session, live from its owner's computer (public/js/share.js) -->
+<div class="scrim" id="shsess-scrim" role="dialog" aria-modal="true" aria-labelledby="shsess-title">
+  <div class="sheet shsess-sheet">
+    <div class="share-top"><h2 id="shsess-title">Session</h2><button class="btn btn--quiet" type="button" data-close="shsess-scrim">Done</button></div>
+    <div id="shsess-body"></div>
+  </div>
+</div>
+
+<!-- Share a project (public/js/share.js) -->
+<div class="scrim" id="share-scrim" role="dialog" aria-modal="true" aria-labelledby="share-title">
+  <div class="sheet share-sheet">
+    <div class="share-top"><h2 id="share-title">Share</h2><button class="btn btn--quiet" type="button" data-close="share-scrim">Done</button></div>
+    <div id="share-body"></div>
   </div>
 </div>
 
@@ -140,8 +168,9 @@
   <div class="sheet file-sheet">
     <div class="sheet-head">
       <div class="fv-title"><h2 id="file-name">File</h2><p class="fv-where" id="file-where"></p></div>
-      <div class="fv-actions"><span id="file-actions" class="fv-actions" hidden><button class="btn btn--quiet" type="button" id="file-open">Open</button><button class="btn btn--quiet" type="button" id="file-reveal">Show in folder</button><button class="btn btn--quiet" type="button" id="file-copy">Copy where it is</button></span><button class="btn btn--quiet" type="button" data-close="file-scrim">Close</button></div>
+      <div class="fv-actions"><span id="file-actions" class="fv-actions" hidden><button class="btn btn--quiet" type="button" id="file-prev" aria-label="Previous file" title="Previous file (←)">‹</button><button class="btn btn--quiet" type="button" id="file-next" aria-label="Next file" title="Next file (→)">›</button><a class="btn btn--quiet" id="file-download" hidden>Download</a><button class="btn btn--quiet" type="button" id="file-copy-it" hidden>Copy picture</button><button class="btn btn--quiet" type="button" id="file-send" hidden aria-expanded="false" aria-controls="file-put">Move or copy</button><button class="btn btn--quiet" type="button" id="file-open">Open</button><button class="btn btn--quiet" type="button" id="file-reveal">Show in folder</button><button class="btn btn--quiet" type="button" id="file-copy">Copy where it is</button></span><button class="btn btn--quiet" type="button" data-close="file-scrim">Close</button></div>
     </div>
+    <form class="fv-put" id="file-put" hidden><label for="file-put-to">Put it in</label><select class="field field--sm" id="file-put-to"></select><button class="btn btn--sm" type="submit" data-put="copy">Copy there</button><button class="btn btn--sm" type="submit" data-put="move" id="file-put-move">Move there</button><span class="small muted" id="file-put-note"></span></form>
     <div class="fv-body" id="file-body"></div>
   </div>
 </div>
@@ -164,9 +193,13 @@
       <label for="nt-agent">Agent</label><select id="nt-agent"></select>
       <label for="nt-command" class="nt-custom" hidden>Command</label><input id="nt-command" class="nt-custom" type="text" placeholder="the command that starts it, e.g. codex --model gpt-5" hidden>
       <label for="nt-folder">Folder</label><select id="nt-folder"></select>
+      <!-- New folder… (first in the list): one with no repo yet, made here (lib/newfolder.js) -->
+      <label for="nt-newname" class="nt-new" hidden>Name</label><input id="nt-newname" class="nt-new" type="text" maxlength="64" placeholder="e.g. acme-website" autocomplete="off" spellcheck="false" hidden>
+      <label for="nt-root" class="nt-new nt-roots" hidden>In</label><select id="nt-root" class="nt-new nt-roots" hidden></select>
+      <span class="nt-new" hidden></span><div class="nt-new nt-checks" hidden><label class="nt-check" for="nt-git"><input type="checkbox" id="nt-git" checked> Keep a history of changes (git)</label><label class="nt-check" for="nt-gh"><input type="checkbox" id="nt-gh"> Also back it up privately on my GitHub</label></div>
       <!-- Model and effort: shown for agents that take them (lib/terminals.js AGENTS); remembered per folder in the browser -->
-      <label for="nt-model" class="nt-model" hidden>Model</label><div class="nt-model nt-inline" hidden><select id="nt-model"></select><label class="nt-check" for="nt-1m" title="The 1M-token context window (Sonnet and Opus)"><input type="checkbox" id="nt-1m"> 1M context</label></div>
-      <label for="nt-effort" class="nt-effort" hidden>Effort</label><select id="nt-effort" class="nt-effort" hidden></select>
+      <label for="nt-model" class="nt-model" hidden>Model</label><div class="nt-model nt-inline" hidden><select id="nt-model"></select><label class="nt-check" for="nt-1m" title="Lets it keep far more of the conversation and your files in mind at once (Sonnet and Opus; the 1M-token context window)."><input type="checkbox" id="nt-1m"> Long memory (1M)</label></div>
+      <label for="nt-effort" class="nt-effort" hidden title="Effort">How hard it thinks</label><select id="nt-effort" class="nt-effort" hidden></select>
       <label for="nt-free" class="nt-free" hidden>Model</label><input id="nt-free" class="nt-free" type="text" maxlength="40" placeholder="optional, e.g. gpt-5-codex" hidden>
     </div>
     <p class="muted small" id="nt-note">Runs the agent's own program in that folder, signed in with your own account for it, inside Switchboard.</p>
@@ -190,6 +223,7 @@
       <button type="button" data-pane="accounts" aria-current="true">Account</button>
       <button type="button" data-pane="connections">Connections</button>
       <button type="button" data-pane="projects">Projects</button>
+      <button type="button" data-pane="team">Team</button>
       <button type="button" data-pane="alerts">Notifications</button>
       <button type="button" data-pane="mail">Mail</button>
       <button type="button" data-pane="look">General</button>
@@ -200,6 +234,7 @@
 
       <section class="pane" id="pane-accounts">
         <div class="acct-card" id="acct"></div>
+        <div id="sync-own"></div>
       </section>
 
       <section class="pane" id="pane-connections" hidden>
@@ -234,7 +269,7 @@
           <div id="ms-connect" class="acct-form" hidden>
             <label for="ms-space">Project</label><select id="ms-space"></select>
             <span></span><div class="form-row"><button class="btn btn--primary" type="button" id="ms-quick">Sign in with Microsoft</button><span id="ms-msg" class="small"></span></div>
-            <span></span><details class="small"><summary class="muted">Use your own app registration</summary>
+            <span></span><details class="small"><summary class="muted">For IT admins: your organisation's own Microsoft sign-in</summary>
               <form id="ms-form" class="acct-form">
                 <label for="ms-tenant">Tenant ID</label><input id="ms-tenant" type="text">
                 <label for="ms-client">Application ID</label><input id="ms-client" type="text">
@@ -264,6 +299,7 @@
             <span></span><div class="form-row"><button class="btn btn--primary" type="submit">Add calendar</button><span id="cal-msg" class="small"></span></div>
           </form>
         </div>
+        <div class="acct-card" id="granola-card" data-conn="granola"></div>
         </div>
         <div class="conn-group" data-cat="money">
           <h4 class="section-label">Money</h4>
@@ -284,7 +320,7 @@
         <div class="acct-card" id="notion-card" data-conn="notion"></div>
         <div class="acct-card" id="feeds-card" data-conn="feeds"></div>
         <div class="acct-card" id="hook-card" data-conn="webhooks">
-          <div class="acct-main"><b>Webhooks</b><span class="acct-line">IFTTT, Zapier, Home Assistant, a phone shortcut or a script puts things on your board</span></div>
+          <div class="acct-main"><b>Links for other apps (webhooks)</b><span class="acct-line">IFTTT, Zapier, Home Assistant, a phone shortcut or a script puts things on your board</span></div>
           <button class="btn" type="button" id="hook-open">Add</button>
           <div id="hook-list" class="acct-wide hook-list"></div>
           <form id="hook-form" class="acct-form" hidden>
@@ -307,6 +343,10 @@
         <button class="btn" type="button" id="proj-add">Add project</button>
       </section>
 
+      <section class="pane" id="pane-team" hidden>
+        <div id="team-body" class="team"></div>
+      </section>
+
       <section class="pane" id="pane-alerts" hidden>
         <div class="toggles">
           <label class="toggle"><span>A session needs you</span><input type="checkbox" data-notify="waiting"></label>
@@ -317,6 +357,7 @@
           <label class="toggle"><span>Weather warnings and frost</span><input type="checkbox" data-notify="weather"></label>
           <label class="toggle"><span>New email from people</span><input type="checkbox" data-notify="email"></label>
           <label class="toggle"><span>New Teams messages</span><input type="checkbox" data-notify="teams"></label>
+          <label class="toggle"><span>A teammate writes to you or @mentions you (also on your phone)</span><input type="checkbox" data-notify="chat"></label>
           <label class="toggle"><span>Packages: out for delivery, delivered, delayed</span><input type="checkbox" data-notify="deliveries"></label>
         </div>
         <div class="toggles">
@@ -331,12 +372,12 @@
       </section>
 
       <section class="pane" id="pane-look" hidden>
-        <div class="pref"><span class="field-label">Theme</span><div class="seg" data-pref="theme"><button type="button" value="light">Light</button><button type="button" value="dark">Dark</button><button type="button" value="system">Match computer</button></div></div>
+        
         <div class="pref"><span class="field-label">Text size</span><div class="seg" data-pref="textSize"><button type="button" value="s">Small</button><button type="button" value="m">Default</button><button type="button" value="l">Large</button><button type="button" value="xl">Larger</button></div></div>
         <div class="pref"><span class="field-label">Terminal text</span><div class="seg" data-pref="termSize"><button type="button" value="12">Small</button><button type="button" value="13.5">Default</button><button type="button" value="15">Large</button><button type="button" value="17">Larger</button></div></div>
         <div class="pref"><span class="field-label">Sessions open in</span><div class="seg" data-pref="sessionView"><button type="button" value="chat">Chat</button><button type="button" value="term">Terminal</button></div></div>
         <div class="pref"><span class="field-label">Sessions</span><div class="toggles">
-          <label class="toggle"><span>Changes, push and pull, and the pull request on each session</span><input type="checkbox" data-pref-bool="devChips"></label>
+          <label class="toggle"><span>Show unsaved changes and GitHub status on each session</span><input type="checkbox" data-pref-bool="devChips"></label>
           <label class="toggle" id="gpu-toggle"><span>Use the graphics card for terminals</span><input type="checkbox" data-pref-bool="termGpu"></label>
         </div></div>
         <div class="pref"><span class="field-label">Now</span><div class="toggles">
@@ -344,8 +385,15 @@
         </div></div>
         <div class="pref" id="weather-field"><span class="field-label">Weather</span><div class="weather-set" id="weather-set"></div></div>
         <div class="pref"><span class="field-label">Talk to type</span><div class="voice-field"><div class="seg" data-pref="voice"><button type="button" value="live">Live</button><button type="button" value="private">Private</button></div><div class="form-row" id="voice-row"></div></div></div>
+        <div class="pref"><span class="field-label">Microphone</span><div class="voice-field"><label for="mic-pick" class="sr">Microphone</label><select id="mic-pick" class="field field--sm"><option value="">This computer's default</option></select><div class="acct-line" id="mic-note"></div></div></div>
+        <div class="pref"><span class="field-label">Jarvis</span><div class="toggles">
+          <label class="toggle"><span>Say out loud when a session finishes or needs you</span><input type="checkbox" data-pref-bool="jvSpeakUp"></label>
+          <label class="toggle"><span>Morning brief, spoken on your first click or key of the day</span><input type="checkbox" data-pref-bool="jvBrief"></label>
+        </div></div>
+        <div class="pref"><span class="field-label">Jarvis's manner</span><div class="voice-field"><label for="jv-persona" class="sr">How Jarvis talks</label><textarea id="jv-persona" class="field" rows="4" maxlength="1200" placeholder="How he talks, in your words. For example: dry British wit, calls me boss, never more than two sentences, tells me plainly when something is a bad idea."></textarea><div class="form-row"><button class="btn" type="button" id="jv-persona-save">Save</button><span class="acct-line" id="jv-persona-note">Leave it empty for his usual manner: warm, quick and a little witty.</span></div></div></div>
+        <div class="pref"><span class="field-label">What Jarvis knows</span><div class="voice-field"><label for="jv-card" class="sr">What Jarvis knows about you</label><textarea id="jv-card" class="field" rows="5" maxlength="1600" placeholder="Nothing yet. Say &quot;remember that…&quot; to Jarvis, or write facts here, one per line."></textarea><div class="form-row"><button class="btn" type="button" id="jv-card-save">Save</button><button class="btn" type="button" id="jv-card-undo">Undo last change</button><button class="btn" type="button" id="jv-card-tidy">Tidy now</button><span class="acct-line" id="jv-card-note"></span></div></div></div>
         <div class="pref"><span class="field-label">Setup guide</span><div class="form-row"><button class="btn" type="button" id="open-welcome">Open the guide</button></div></div>
-        <div class="pref"><span class="field-label">Opens on</span><div class="seg" data-pref="startPage"><button type="button" value="now">Now</button><button type="button" value="sessions">Sessions</button><button type="button" value="inbox">Inbox</button><button type="button" value="money">Money</button><button type="button" value="notes">Notes</button></div></div>
+        <div class="pref"><span class="field-label">Opens on</span><div class="seg" data-pref="startPage"><button type="button" value="deck">Deck</button><button type="button" value="now">Now</button><button type="button" value="sessions">Sessions</button><button type="button" value="inbox">Inbox</button><button type="button" value="money">Money</button><button type="button" value="notes">Notes</button></div></div>
         <div class="pref" id="about-field"><span class="field-label">About</span><div class="toggles" id="about"></div></div>
         <div class="pref" id="remove-field"><span class="field-label">Remove</span><div class="toggles" id="remove-row"></div></div>
       </section>
@@ -378,22 +426,29 @@
 <script src="/vendor/addon-fit.js"></script>
 <script src="/vendor/addon-webgl.js"></script>
 <script src="/setup.js"></script>
+<script src="/js/web/detect.js"></script>
 <script src="/js/core.js"></script>
+<script src="/js/usage.js"></script>
 <script src="/js/now.js"></script>
 <script src="/js/pages.js"></script>
 <script src="/js/inbox.js"></script>
 <script src="/js/drafts.js"></script>
 <script src="/js/convo.js"></script>
+<script src="/js/teamspics.js"></script>
+<script src="/js/teamchat.js"></script>
+<script src="/js/mailfiles.js"></script>
 <script src="/js/detail.js"></script>
 <script src="/js/deliveries.js"></script>
 <script src="/js/routines.js"></script>
 <script src="/js/rundown.js"></script>
 <script src="/js/tasks.js"></script>
 <script src="/js/taskcards.js"></script>
+<script src="/js/granolacard.js"></script>
 <script src="/js/calc.js"></script>
 <script src="/js/sanitize.js"></script>
 <script src="/js/editor.js"></script>
 <script src="/js/notebook.js"></script>
+<script src="/js/notemarks.js"></script>
 <script src="/js/actions.js"></script>
 <script src="/js/sessions.js"></script>
 <script src="/js/ci.js"></script>
@@ -402,8 +457,12 @@
 <script src="/js/calendar.js"></script>
 <script src="/js/googlecal.js"></script>
 <script src="/js/calendarform.js"></script>
+<script src="/js/people.js"></script>
 <script src="/js/project.js"></script>
 <script src="/js/members.js"></script>
+<script src="/js/share.js"></script>
+<script src="/js/websessions.js"></script>
+<script src="/js/team.js"></script>
 <script src="/js/unsorted.js"></script>
 <script src="/js/sessnotes.js"></script>
 <script src="/js/cmdtarget.js"></script>
@@ -418,12 +477,20 @@
 <script src="/js/nav.js"></script>
 <script src="/js/keys.js"></script>
 <script src="/js/settings.js"></script>
+<script src="/js/jarviswave.js"></script>
+<script src="/js/jarvis.js"></script>
+<script src="/js/jarvisspeak.js"></script>
+<script src="/js/hud.js"></script>
+<script src="/js/deck.js"></script>
+<script src="/js/acctreset.js"></script>
 <script src="/js/remove.js"></script>
+<script src="/js/slowwin.js"></script>
 <script src="/js/connections.js"></script>
 <script src="/js/connlist.js"></script>
 <script src="/js/sysmon.js"></script>
 <script src="/js/webhooks.js"></script>
 <script src="/js/favicon.js"></script>
 <script src="/js/boot.js"></script>
+<script type="module" src="/js/web/main.js"></script>
 </body>
 </html>

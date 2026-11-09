@@ -59,6 +59,20 @@ data (nobody can read or reset it).
   data, so a shared family computer never merges one person's data into the
   next person's account.
 
+Web board, the full product (Nov 6, Brett): step 1 done, clicked through in a
+test copy: Sessions, Builds, Browser checks, Calendar and Money on the board
+from what shared projects share. Next: 2. General, Look and Notifications in
+the board's Settings, Gmail and Google Calendar by Google sign-in (needs a
+Google sign-in client); 3. editing money, calendar and checks from the board.
+
+Forgot password (Nov 6, Brett): a one-time code from a teammate (Settings,
+Team, Reset their password) and a new password. The person stays in every
+project with the same access: the code-maker's computer re-locks them within
+seconds. Clicked through end to end in a test copy (invite, join, reset,
+back with everything, edits flow both ways). Codes by email are built but off
+(no Resend account). Next: a way for someone in no shared project (Brett
+himself) to reset without email.
+
 Status (Nov 3): built and tested end to end against a local sync service;
 deployed; GitHub live. Next: test pairing from the Mac, then Google and
 Microsoft (each needs its app registered and two Worker secrets).
@@ -95,7 +109,7 @@ connection has no entry. Remaining: more empty states as pages grow.
 ## Agreed next (Brett, Nov 3), in this order
 
 1. Deliveries. Done Nov 3.
-2. Chores and routines. Done Nov 3: typed in Ctrl K ("feed the animals every
+2. Chores and routines. Done Nov 3: typed in Ctrl K ("walk the dog every
    day at 6am and 6pm", "filter every 90 days", "trash every tue at 7pm"), or
    picked from sixteen ideas on Notes; due ones are Needs-you cards with an
    alert; Done sets the next time, Skip, 1 hour; change when or rename.
@@ -160,9 +174,30 @@ Ordered by how many people they help per hour of work.
 
 ## For everyone, not only AI users
 
-- Shared spaces: invite family or a coworker into a project; shared lists,
-  notes and reminders, each person on their own account. (L, needs the new
-  accounts first.)
+- Shared spaces, now a team (L). Built Nov 5: Settings, Team, people first;
+  per person their projects, admin or member, and None / See / Edit per kind
+  (pages with Only me, to-dos, repos with Codespaces, ZIP, GitHub and Clone,
+  activity, About), each kind its own key, every change signed and checked by
+  everyone; invites by email before an account exists (one-use link, 14 days,
+  joining in one step; branded email from your own mail); your own sync
+  service; 0.2.6 shares move over by themselves. Needs schema-v6.sql deployed.
+  Web board (stage 2) built Nov 5: the sync service serves the page at your
+  own domain; members sign up, join and work in shared projects in a browser
+  (pages, to-dos, About, repos, builds and pull requests from members' own
+  GitHub, activity), live over the relay. Not yet on the web: sign-in with
+  Google, Microsoft or GitHub. The board is now each person's own full
+  Switchboard (projects, notes, to-dos, Team), synced to their account, with
+  Microsoft 365 and GitHub connected in the browser; every kind a project has
+  is shared on its own, sessions live with Send and Approve. Next: the same
+  share core for sessions on the board's own Sessions page, Gmail by Google
+  sign-in in the browser, pictures in replies on the board. Then: sessions through the relay
+  (stage 3), shared conversations (stage 4), merging two edits to one page,
+  files, Windows and Mac checked by hand.
+  Team chat built Nov 5: a channel per shared project and one-to-one chats
+  with teammates, in the Inbox, end to end encrypted, with seen, typing, edit
+  and delete your own, reply, @mention and pin; alerts and phone pushes for
+  one-to-one messages and mentions. Needs schema-v8.sql and a worker deploy.
+  Not yet: on the web board, files other than pictures, search inside chats.
 - Lists: groceries, packing, supplies. Check off together. (S)
 - Recurring chores and routines: feed animals at 6, change the filter every 90
   days, rent on the 1st. They show on Now when due. (S-M, builds on reminders)
@@ -276,6 +311,19 @@ Open, in order:
 
 ## Done recently
 
+- Granola (Nov 6, Brett's notes): Settings, Connections, Sign in with Granola
+  (any plan; an API key on Business); meeting notes from the last 30 days,
+  then every new or changed one, come into Notes as pages, in the project of
+  their Granola folder, people or title. Run on Brett's free account: a real
+  note came in. The API key route is tested only against a stand-in.
+- Sessions run other sessions (Nov 6, Brett's notes): an agent can start a
+  session in a folder with a first message, read what any session here said
+  (waiting until it finishes), and end the ones it started. Tested against a
+  stand-in server, the session routes on a test copy, and one real run (start
+  with a first message, wait for the answer, end). Done the same day: Send to session in Notes offers to
+  start a session in the note's project folders (or any folder) when none is
+  open, and the note goes in once it is ready. Checked on a test copy (the
+  start request stubbed) and a real start through the same route.
 - Email drafts in Inbox (Nov 5, Brett): every draft in the Drafts folder,
   in its conversation or at the top of Inbox; Edit, Send, Save draft, Discard.
   Checked on Gmail end to end with two test drafts (save shows in Gmail in the
@@ -509,3 +557,22 @@ Open, in order:
   this computer). Enter stops dictation, Enter again sends. (Nov 3)
 - Terminal stays readable on every device at once. (Nov 3)
 - Paste images into the message bar. (Nov 3)
+- Jarvis (Nov 8, Brett: "lets make Jarvis"): the orb in the corner, hold
+  Ctrl+Space and talk. Quick commands with no model (pages, what needs me,
+  open a session, reminders and to-dos); anything else to a local model
+  (LM Studio or Ollama) with Switchboard's tools; real work handed to a Claude
+  session. Tested on Linux with the quick commands; the model path waits for
+  LM Studio to be installed again (its models are still on disk). Next: a
+  better voice (Piper), a wake word, and the futuristic redesign.
+- AI plan limits with a forecast (Nov 8, Brett's build notes): Claude's 5-hour
+  and weekly windows (and Codex's) as charts on the Deck and Now, where the
+  pace lands at reset, the time it would run out, each day's use, and a gauge
+  per window on a Claude session's bar. Done; tested with a simulated week.
+- Jarvis, from the repo hunt (Nov 8; OpenClaw, nanobot, Leon, OpenJarvis,
+  Pipecat, ethanplusai/jarvis): answers in under a second (thinking off,
+  streamed sentence by sentence, model warmed on Ctrl+Space, talk over to stop,
+  tones); speaking up about sessions (switch, off by default); a spoken
+  morning brief; memory (a capped card, a searched log, a nightly tidy with
+  Undo); his manner set in Settings; a backup model server and a stop on
+  repeated tool failures. Done, tested on Linux with LM Studio and Gemma 4.
+  Next: voice approvals (Brett to decide), a wake word, a better voice.

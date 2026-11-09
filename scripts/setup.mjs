@@ -21,6 +21,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { friendlyError } from '../lib/friendly.js';
 
 const HERE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOME = homedir();
@@ -207,7 +208,7 @@ function winLauncher(install) {
 const VOICE = join(process.env.SWITCHBOARD_DATA || join(HOME, '.local/share/switchboard'), 'voice');
 async function download(url, file) {
   const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`${url}: ${res.status}`);
+  if (!res.ok) throw new Error(`The download site answered ${res.status}, so the file did not download. Try again in a few minutes.`);
   const total = Number(res.headers.get('content-length')) || 0;
   const { createWriteStream } = await import('node:fs');
   const out = createWriteStream(file);
@@ -226,18 +227,18 @@ async function voice() {
   const exe = join(bin, OS === 'win32' ? 'whisper-cli.exe' : 'whisper-cli');
   if (!existsSync(exe)) {
     if (OS === 'darwin') {
-      console.log('step Installing whisper.cpp with Homebrew');
-      if (!sh('brew', ['install', 'whisper-cpp'])) throw new Error('Needs Homebrew (brew.sh), then try again.');
+      console.log('step Installing the speech tool');
+      if (!sh('brew', ['install', 'whisper-cpp'])) throw new Error('Talk to type installs its speech tool with Homebrew, which is not on this Mac. Install Homebrew (brew.sh), then try again.');
       const found = ['/opt/homebrew/bin/whisper-cli', '/usr/local/bin/whisper-cli'].find(existsSync);
-      if (!found) throw new Error('Homebrew installed whisper-cpp, but whisper-cli was not found.');
+      if (!found) throw new Error('Homebrew installed the speech tool, but Switchboard could not find it afterwards. Try again; if it keeps happening, ask for help.');
       const { symlinkSync } = await import('node:fs');
       symlinkSync(found, exe);
     } else {
       const asset = OS === 'win32' ? 'whisper-bin-x64.zip' : process.arch === 'arm64' ? 'whisper-bin-ubuntu-arm64.tar.gz' : 'whisper-bin-ubuntu-x64.tar.gz';
-      console.log('step Downloading whisper.cpp');
+      console.log('step Downloading the speech tool');
       const releases = await (await fetch('https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=10', { headers: { 'User-Agent': 'switchboard-setup' } })).json();
       const url = releases.flatMap((r) => r.assets || []).find((a) => a.name === asset)?.browser_download_url;
-      if (!url) throw new Error('Could not find a whisper.cpp build for this computer.');
+      if (!url) throw new Error('There is no ready-made speech tool for this kind of computer, so Talk to type cannot be set up here yet.');
       const archive = join(VOICE, asset);
       await download(url, archive);
       if (OS === 'win32') sh('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -Force -LiteralPath '${archive.replace(/'/g, "''")}' -DestinationPath '${bin.replace(/'/g, "''")}'`]);
@@ -248,7 +249,7 @@ async function voice() {
         const { readdirSync, renameSync } = await import('node:fs');
         for (const sub of readdirSync(bin)) { const inner = join(bin, sub); if (existsSync(join(inner, 'whisper-cli.exe'))) for (const f of readdirSync(inner)) renameSync(join(inner, f), join(bin, f)); }
       }
-      if (!existsSync(exe)) throw new Error('whisper.cpp downloaded, but whisper-cli is missing from it.');
+      if (!existsSync(exe)) throw new Error('The speech tool downloaded, but part of it is missing. Try again; if it keeps happening, ask for help.');
     }
   }
   const big = totalmem() >= 15e9 && cpus().length >= 8;
@@ -315,7 +316,7 @@ function browser(install) {
 if (mode === 'mcp') { mcp(true); process.exit(0); }
 // Puts the hooks back in step after an update adds an event (keeps the person's own hooks).
 if (mode === 'hooks') { hooks(true); process.exit(0); }
-if (mode === 'browser') { try { browser(process.argv[3] !== 'remove'); process.exit(0); } catch (err) { console.error('error ' + err.message); process.exit(1); } }
+if (mode === 'browser') { try { browser(process.argv[3] !== 'remove'); process.exit(0); } catch (err) { console.error('error ' + friendlyError(err, 'the download site').replace(/\s+/g, ' ')); process.exit(1); } }
 // The installed app (desktop/sidecar/start.mjs): hooks and MCP only; the app is its own launcher and login item.
 if (mode === 'app') { hooks(true); mcp(true); process.exit(0); }
 // Remove Switchboard (lib/uninstall.js): everything but the login service first,
@@ -324,7 +325,7 @@ if (mode === 'app') { hooks(true); mcp(true); process.exit(0); }
 if (mode === 'remove-parts') { hooks(false); mcp(false); browser(false); if (process.argv[3] !== 'app') ({ linux: linuxLauncher, darwin: macLauncher, win32: winLauncher }[OS])?.(false); process.exit(0); }
 if (mode === 'remove-service') { ({ linux: linuxService, darwin: macService, win32: winService }[OS])?.(false); process.exit(0); }
 if (mode === 'voice') {
-  voice().then(() => process.exit(0), (err) => { console.error('error ' + err.message); process.exit(1); });
+  voice().then(() => process.exit(0), (err) => { console.error('error ' + friendlyError(err, 'the download site').replace(/\s+/g, ' ')); process.exit(1); });
 } else {
 const service = { linux: linuxService, darwin: macService, win32: winService }[OS];
 const launcher = { linux: linuxLauncher, darwin: macLauncher, win32: winLauncher }[OS];

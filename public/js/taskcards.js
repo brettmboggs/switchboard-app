@@ -6,14 +6,14 @@
 // One of the page's scripts in public/js, loaded in order by index.html.
 const taskLink = (href, text) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 const TASK_CARDS = {
-  todoist: { card: 'tasks-card', help: `Tasks due today or overdue on Now; Done there ticks them off in Todoist. Your API token is in Todoist, Settings, Integrations, Developer.`,
-    fields: [{ n: 'token', ph: 'Todoist API token' }] },
-  trello: { card: 'trello-card', help: `Cards with a due date, on boards you are on, show on Now when due; Done marks the due date complete. First make an API key: ${taskLink('https://trello.com/power-ups/admin', 'trello.com/power-ups/admin')}, New, then API key. Paste it, press Get a token, allow it, and paste the token Trello shows.`,
-    fields: [{ n: 'key', ph: 'Trello API key', plain: true }, { n: 'token', ph: 'Trello token' }], tokenFor: (key) => `https://trello.com/1/authorize?expiration=never&name=Switchboard&scope=read,write&response_type=token&key=${encodeURIComponent(key)}` },
-  asana: { card: 'asana-card', help: `Tasks assigned to you, due today or overdue, on Now; Done completes them in Asana. Make a personal access token at ${taskLink('https://app.asana.com/0/my-apps', 'app.asana.com/0/my-apps')} and paste it here.`,
-    fields: [{ n: 'token', ph: 'Asana personal access token' }] },
-  notion: { card: 'notion-card', help: `Pages in your task database with a date of today or earlier, on Now; Done ticks its Done box or sets its status to done. Make an integration at ${taskLink('https://www.notion.so/my-integrations', 'notion.so/my-integrations')} and paste its secret; then in Notion open your task database, ··· (top right), Connections, and add the integration.`,
-    fields: [{ n: 'token', ph: 'Notion integration secret' }] }
+  todoist: { card: 'tasks-card', help: `Tasks due today or overdue on Now; Done there ticks them off in Todoist. Your Todoist key (Todoist calls it an API token) is in Todoist: Settings, Integrations, Developer. Copy it and paste it here.`,
+    fields: [{ n: 'token', ph: 'Todoist key (API token)' }] },
+  trello: { card: 'trello-card', help: `Cards with a due date, on boards you are on, show on Now when due; Done marks the due date complete. Trello needs two codes, made on its site: 1. Open ${taskLink('https://trello.com/power-ups/admin', 'Trello\'s Power-Ups page')}, press New, fill in the short form, then press Generate a new API key. 2. Paste that key in the first box. 3. Press Get a token, then Allow on Trello. 4. Paste the code Trello shows in the second box, and Connect.`,
+    fields: [{ n: 'key', ph: 'Trello key (API key)', plain: true }, { n: 'token', ph: 'Trello code (token)' }], tokenFor: (key) => `https://trello.com/1/authorize?expiration=never&name=Switchboard&scope=read,write&response_type=token&key=${encodeURIComponent(key)}` },
+  asana: { card: 'asana-card', help: `Tasks assigned to you, due today or overdue, on Now; Done completes them in Asana. Make an Asana key (Asana calls it a personal access token) on ${taskLink('https://app.asana.com/0/my-apps', 'Asana\'s developer page')}: Create new token, give it a name, copy it, and paste it here.`,
+    fields: [{ n: 'token', ph: 'Asana key (personal access token)' }] },
+  notion: { card: 'notion-card', help: `Pages in your task database with a date of today or earlier, on Now; Done ticks its Done box or sets its status to done. Make a Notion connection on ${taskLink('https://www.notion.so/my-integrations', 'Notion\'s connections page')} (Notion calls it an integration), copy its key (the integration secret) and paste it here. Then in Notion open your task database, ··· (top right), Connections, and add it.`,
+    fields: [{ n: 'token', ph: 'Notion key (integration secret)' }] }
 };
 
 function renderTasksCard() {
@@ -56,9 +56,9 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-task-token]'); if (!b) return;
   const f = b.closest('[data-task-connect]'), ui = TASK_CARDS[f.dataset.taskConnect];
   const key = f.querySelector('input[name="key"]').value.trim(), msg = f.querySelector('[data-task-msg]');
-  if (!/^[0-9a-f]{32}$/i.test(key)) { msg.textContent = 'Paste the API key first (32 letters and numbers), then Get a token.'; msg.className = 'small bad-text'; return; }
+  if (!/^[0-9a-f]{32}$/i.test(key)) { msg.textContent = 'Paste the Trello key in the first box first (32 letters and numbers), then Get a token.'; msg.className = 'small bad-text'; return; }
   window.open(ui.tokenFor(key), '_blank', 'noopener');
-  msg.textContent = 'Allow it on Trello, then paste the token it shows.'; msg.className = 'small';
+  msg.textContent = 'Press Allow on Trello, then paste the code it shows in the second box.'; msg.className = 'small';
   f.querySelector('input[name="token"]').focus();
 });
 document.addEventListener('change', async (e) => {

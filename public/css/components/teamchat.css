@@ -1,0 +1,57 @@
+/* Team chat in the Inbox's conversation view (public/js/teamchat.js, docs/DESIGN.md "Team chat").
+     .tc-start      the chips above the Inbox list that open a project channel (# Acme) or a chat with one person
+     .tc-quote      the message a reply answers, above its text; click to jump to it
+     .tc-at         an @name in a message
+     .tc-acts       Reply, Pin, Edit, Delete: shown on hover or focus, like the quick reactions
+     .tc-marks      "edited · pinned", small, after the text
+     .tc-seen       "Seen by Sam" under your newest message each person has read
+     .tc-gone       a deleted message's line
+     .tc-edit       a message being edited in place
+     .tc-typing     "Jordan is typing…" above the reply box
+     .tc-replying   "Replying to …" with × above the reply box
+     .tc-mention    the people offered after typing @
+     .tc-pins       Details: the pinned messages
+   None of it is orange: a chat message is not "needs you" by itself. */
+.tc-start { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+.tc-start-label { font-size: var(--fs-sm); color: var(--fg-muted); margin-right: var(--sp-1); }
+
+.tc-quote { display: block; max-width: 100%; margin: var(--sp-1) 0; padding: var(--sp-1) var(--sp-2); border: 0; border-left: calc(var(--sp-1) / 2) solid var(--border); border-radius: var(--r-sm); background: var(--bg-hover); color: var(--fg-muted); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-quote b { color: var(--fg); font-weight: 600; }
+.tc-quote:hover { border-left-color: var(--fg-muted); }
+.tc-at { padding: 0 var(--sp-1); border-radius: var(--r-xs); background: var(--info-tint); color: inherit; font-weight: 600; }
+/* On your own (dark) bubble a tint would hide the words: underlined instead. */
+.cv-msg.me .tc-at { padding: 0; background: none; text-decoration: underline; }
+
+/* Over the message's top corner, so a hidden row takes no room. */
+.cv-content:has(> .tc-acts) { position: relative; }
+.tc-acts { position: absolute; top: calc(var(--sp-3) * -1); right: 0; display: inline-flex; gap: var(--sp-1); padding: var(--sp-1); border: 1px solid var(--border-soft); border-radius: var(--r-pill); background: var(--bg-raised); box-shadow: var(--shadow-1); opacity: 0; pointer-events: none; transition: opacity .12s; }
+.cv-msg:hover .tc-acts, .tc-acts:focus-within { opacity: 1; pointer-events: auto; }
+.tc-acts button { height: var(--sp-6); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--fg-muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.tc-acts button:hover { background: var(--bg-hover); color: var(--fg); }
+.tc-acts button.tc-sure { background: var(--bg-selected); color: var(--bad); font-weight: 600; }
+@media (hover: none) { .tc-acts { position: static; opacity: 1; pointer-events: auto; box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { .tc-acts { transition: none; } }
+
+.tc-marks, .tc-seen { font-size: var(--fs-xs); color: var(--fg-muted); margin-top: var(--sp-1); }
+.tc-seen { font-family: var(--font-mono); }
+.tc-gone { font-size: var(--fs-sm); font-style: italic; color: var(--fg-muted); }
+.tc-edit { display: grid; gap: var(--sp-2); }
+.tc-edit textarea { width: 100%; min-height: var(--sp-8); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); color: var(--fg); font: inherit; resize: vertical; }
+.cv-msg.tc-flash { background: var(--bg-selected); transition: background .4s; }
+@media (prefers-reduced-motion: reduce) { .cv-msg.tc-flash { transition: none; } }
+
+.tc-typing { min-height: var(--fs-sm); font-size: var(--fs-sm); color: var(--fg-muted); padding-left: var(--sp-1); }
+.tc-typing:empty { display: none; }
+.tc-replying { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-left: calc(var(--sp-1) / 2) solid var(--border); border-radius: var(--r-sm); background: var(--bg-hover); font-size: var(--fs-sm); color: var(--fg-muted); }
+.tc-replying span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-replying button { flex: none; width: var(--sp-6); height: var(--sp-6); border: 0; border-radius: var(--r-pill); background: none; color: var(--fg-muted); font: inherit; cursor: pointer; }
+.tc-replying button:hover { background: var(--bg-raised); color: var(--fg); }
+.tc-mention { display: grid; max-width: 100%; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--bg-raised); box-shadow: var(--shadow-2); overflow: hidden; }
+.tc-mention button { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.tc-mention button[aria-selected="true"], .tc-mention button:hover { background: var(--bg-hover); }
+.tc-mention .muted { font-size: var(--fs-xs); }
+
+.tc-pins { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.tc-pin { display: grid; gap: var(--sp-1); padding: var(--sp-2); border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--bg-raised); color: var(--fg); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.tc-pin .muted { font-size: var(--fs-xs); }
+.tc-pin:hover { border-color: var(--fg-muted); }

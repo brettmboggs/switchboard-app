@@ -52,6 +52,8 @@ function busyTyping() {
 // Errors come back in words a person can act on: the server writes them (see
 // lib/friendly.js); when it cannot answer at all, this says so.
 async function api(path, body) {
+  // The web board (public/js/web/): answered in the browser, from shared projects.
+  if (window.WEB) { await window.WEB.ready; return window.WEB.api(path, body); }
   const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Switchboard': '1' }, body: JSON.stringify(body) };
   let res;
   try { res = await fetch(path, opts); }
@@ -63,6 +65,7 @@ async function api(path, body) {
 // A file from the computer into Switchboard (lib/attachments.js): the file is
 // the body, its name in a header. Gives { id, name, size, path, image }.
 async function uploadFile(file) {
+  if (window.WEB) throw new Error('Files go in from Switchboard on your computer; the web board keeps only what is shared, as text.');
   if (file.size > 1024 ** 3) throw new Error(`${file.name} is over 1 GB. Share a link to it instead, or make it smaller.`);
   let res;
   try { res = await fetch('/api/files', { method: 'POST', headers: { 'X-Switchboard': '1', 'X-Filename': encodeURIComponent(file.name || 'pasted'), 'Content-Type': 'application/octet-stream' }, body: file }); }
@@ -109,6 +112,7 @@ function focusInto(d) {
 function closeDialog(id) {
   const d = $(id); if (!d || !d.classList.contains('open')) return;
   d.classList.remove('open');
+  if (typeof rec !== 'undefined' && rec && d.contains(rec.target)) stopDictation();   // a mic in a closed box stops
   const i = dialogStack.indexOf(id); if (i >= 0) dialogStack.splice(i, 1);
   const top = topDialog() && $(topDialog());
   if (top) top.inert = false;
@@ -242,7 +246,11 @@ function flight() {
   }
   for (const g of runGroups()) {
     const st = g.state === 'failed' ? 'needs' : g.state === 'running' ? 'working' : 'done';
-    cards.push({ type: 'run', key: String(g.lead.id), space: g.lead.space, st, label: g.state === 'failed' ? 'Failed' : STATE_LABEL[st], where: g.runs.length > 1 ? `${g.lead.repo} · ${g.runs.length} workflows` : `${g.lead.repo} · ${g.lead.workflow}`, what: g.lead.title, at: g.at });
+    cards.push({ type: 'run', key: String(g.lead.id), space: g.lead.space, st, label: g.state === 'failed' ? 'Failed' : STATE_LABEL[st], where: g.runs.length > 1 ? `${g.lead.repo} · ${g.runs.length} builds` : `${g.lead.repo} · ${g.lead.workflow}`, what: g.lead.title, at: g.at });
+  }
+  // Someone in a shared project asked to send to one of your sessions (lib/sessshare.js): it waits for you.
+  for (const t of S.terms || []) for (const q of t.queued || []) {
+    if (q.held && / asks$/.test(q.source || '')) cards.push({ type: 'rterm', key: t.id, space: t.space, st: 'needs', label: 'Asks to send', where: `${q.source.replace(/ asks$/, '')} · ${t.name}`, what: q.text, at: q.created_at });
   }
   for (const p of S.reviews) cards.push({ type: 'review', key: String(p.id), space: p.space, st: 'needs', label: 'Review', where: `${p.repo} #${p.number}`, what: p.title, at: p.updatedAt });
   for (const i of S.items) {
@@ -257,7 +265,8 @@ function flight() {
 }
 
 function needsCount(space = 'all') {
-  return flight().filter((c) => c.st === 'needs' && (space === 'all' || c.space === space)).length;
+  // An invitation to a shared project (public/js/share.js) waits for you too.
+  return flight().filter((c) => c.st === 'needs' && (space === 'all' || c.space === space)).length + (space === 'all' ? (S?.share?.invites?.length || 0) : 0);
 }
 function inboxCount(space = 'all') {
   return S.threads.filter((t) => space === 'all' || t.space === space).length;
@@ -267,7 +276,10 @@ function inboxCount(space = 'all') {
 // [id, name, parent]: a page with a parent is one of that page's tabs, not on
 // the rail. Sessions has tabs for builds and browser checks; more kinds of
 // session (a plain chat with your account, a desktop worker) slot in here later.
-const PAGES = [['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes'], ['unsorted', 'Unsorted', 'unsorted']];
+// On the web board (public/js/web/): Now, Sessions (your shared projects' sessions, websessions.js), Builds and
+// Browser checks, Calendar and Money (what your shared projects share), Inbox (your own Teams and Outlook), Notes.
+const PAGES = [['deck', 'Deck'], ['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes'], ['unsorted', 'Unsorted', 'unsorted']]
+  .filter(([id]) => !window.WEB || ['deck', 'now', 'sessions', 'builds', 'checks', 'calendar', 'inbox', 'money', 'notes'].includes(id));
 const PAGE_MOVED = { actions: 'builds' };   // old links keep working
 // Pages with no place on the rail: opened from another page, which stays lit
 // on the rail while they show. Calendar opens from Now's Today line (Nov 4).
@@ -283,6 +295,16 @@ function subTabs() {
   return `<nav class="chips tabs sub-tabs" aria-label="${esc(PAGES.find((p) => p[0] === top)[1])}">${tabs.map(([id, name]) => `<a class="chip" href="#${id}" ${page === id ? 'aria-current="page"' : ''}>${esc(name)}${count[id] ? ` <span class="c">${count[id]} running</span>` : light[id] === 'failure' ? ` <span class="c bad">failed</span>` : ''}</a>`).join('')}</nav>`;
 }
 
+// A connection's error, in words, for the status tooltip. Most arrive plain already
+// (lib/friendly.js); these are the raw ones some connections still send.
+function plainConnError(name, e) {
+  const t = String(e || '');
+  if (/gh api failed|gh auth|not logged in|gh: command not found|gh is not/i.test(t)) return 'GitHub isn\'t signed in on this computer. Open Sessions, Builds and press Sign in to GitHub.';
+  if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|network|fetch failed/i.test(t)) return `Couldn't reach ${name}. Check the internet connection; it tries again by itself.`;
+  if (/\b401\b|unauthori[sz]ed|invalid credentials|invalid_grant/i.test(t)) return `${name} asked to sign in again. Open Settings and connect it again.`;
+  return t;
+}
+
 function renderShell() {
   const counts = { now: needsCount(project), sessions: (S.terms || []).filter((t) => t.state === 'waiting' || t.state === 'finished').length, inbox: inboxCount(project), money: '', notes: '' };
   const light = { sessions: ciLight() };   // builds and browser checks live under Sessions
@@ -293,7 +315,7 @@ function renderShell() {
   for (const g of groups) {
     if (groups.length > 1) html += `<h3>${esc(g)}</h3>`;
     for (const s of S.spaces.filter((x) => (x.group || 'Mine') === g)) {
-      html += `<a class="space" href="#project/${esc(s.id)}" ${page === 'project' && openProject === s.id ? 'aria-current="page"' : ''}><span class="dot" style="background:${safeColor(s.color)}"></span>${esc(s.name)}<span class="n">${needsCount(s.id) || ''}</span></a>`;
+      html += `<a class="space" href="#project/${esc(s.id)}" ${page === 'project' && openProject === s.id ? 'aria-current="page"' : ''}><span class="dot" style="background:${safeColor(s.color)}"></span><span class="nm" title="${esc(s.name)}">${esc(s.name)}</span><span class="n">${needsCount(s.id) || ''}</span></a>`;
     }
   }
   // Unsorted: what has no project yet (public/js/unsorted.js); the count is how many.
@@ -312,11 +334,15 @@ function renderShell() {
   const el = $('status');
   el.hidden = !broken.length;
   el.textContent = broken.length ? broken.map(([n]) => n).join(', ') + (broken.length > 1 ? ' aren\'t connecting' : ' isn\'t connecting') : '';
-  el.title = broken.map(([n, e]) => n + (e ? ': ' + e : '')).join('\n');
+  el.title = broken.map(([n, e]) => n + (e ? ': ' + plainConnError(n, e) : '')).join('\n');
 
   const v = S.version || {};
   $('update-btn').hidden = !v.behind;
-  if (v.behind) $('update-btn').title = 'New: ' + (v.subjects || []).join(' · ');
+  if (v.behind) {
+    const subj = v.subjects || [];
+    $('update-btn').title = 'A new version of Switchboard is ready. Click to update.'
+      + (subj.length ? '\nWhat changed: ' + subj.slice(0, 4).join(' · ') + (subj.length > 4 ? ` · and ${subj.length - 4} more` : '') : '');
+  }
   // The server has a new page: load it, but never in the middle of a thought.
   // While you type it waits, and says so once, with a button to load it now (drafts are kept either way).
   if (v.build && bootSha && v.build !== bootSha) {

@@ -424,8 +424,12 @@ function makeEditor(host, body, { onSave } = {}) {
     if (r) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); lastRange = r.cloneRange(); }
     insertFiles([...e.dataTransfer.files]);
   });
-  // A file link opens (downloads) on a click, even while editing.
-  doc.addEventListener('click', (e) => { const a = e.target.closest('a.file-link'); if (a) { e.preventDefault(); window.open(a.getAttribute('href'), '_blank', 'noopener'); } });
+  // A file link opens in the reader on a click, even while editing; a picture on
+  // a double-click (one click is for placing the caret). There: Download, Copy,
+  // Move or copy to a project, another note or a session (fileview.js).
+  const keptHere = () => [...doc.querySelectorAll('a.file-link[href^="/api/files/"], img[src^="/api/files/"]')].map((x) => x.getAttribute('href') || x.getAttribute('src'));
+  doc.addEventListener('click', (e) => { const a = e.target.closest('a.file-link'); if (a) { e.preventDefault(); e.stopPropagation(); const h = a.getAttribute('href'); if (h.startsWith('/api/files/')) openKeptFile(h, keptHere()); else window.open(h, '_blank', 'noopener'); } });
+  doc.addEventListener('dblclick', (e) => { const img = e.target.closest('img[src^="/api/files/"]'); if (img) { e.preventDefault(); openKeptFile(img.getAttribute('src'), keptHere()); } });
 
   // ---- talk to type (voice.js finds this on the page element as target.dictation)
   // The words so far sit in a marked span at the caret, replaced as the
@@ -540,6 +544,8 @@ function makeEditor(host, body, { onSave } = {}) {
       blk.scrollIntoView({ block: 'center' }); blk.classList.add('ed-flash'); setTimeout(() => blk.classList.remove('ed-flash'), 1400);
     },
     load: (b) => setBody(b),
+    // A change made to the page from outside (notemarks.js Mark done): saved like typing.
+    edited: () => { refresh(); changed(); },
     flush: () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; onSave?.(html()); } },
     insertText: (t) => insertHtml(textHtml(String(t || ''))),
     html

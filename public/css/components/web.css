@@ -1,0 +1,15 @@
+/* The web board (public/js/web/): the same page, with what only exists on your
+   own computer hidden. html.web is set by public/js/web/detect.js when the
+   sync service served this page; in the app nothing here applies.
+     the rail        Windows, Unsorted, Install app and Update ready are computer things
+     Settings        Account, Projects, Team and General (its board rows); the rest is per computer
+     Account         no "your own sync service": the board is that service already */
+.web #open-windows, .web #install-btn, .web #update-btn, .web .space--unsorted, .web #whatsnew { display: none !important; }
+.web .prefs-nav [data-pane]:not([data-pane="accounts"]):not([data-pane="projects"]):not([data-pane="team"]):not([data-pane="look"]) { display: none; }
+/* General on the board: theme, text size, the rundown, the guide and where it opens; not what needs a computer. */
+.web #pane-look .pref:has([data-pref="termSize"], [data-pref="sessionView"], [data-pref-bool="devChips"], [data-pref="voice"]), .web #weather-field, .web #about-field, .web #remove-field { display: none; }
+.web .sync-own { display: none; }
+.web .web-note { margin: var(--sp-3) 0 0; color: var(--fg-muted); font-size: var(--fs-sm); }
+.web-conns { margin-top: var(--sp-5); display: grid; gap: var(--sp-2); }
+.web-conns h3 { margin: 0; font-size: var(--fs-md); }
+.web-conn { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--bg-raised); }

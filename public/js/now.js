@@ -22,8 +22,9 @@ function renderNow() {
     <button class="chip ${counts.needs ? 'hot' : ''}" type="button" data-now="needs" aria-pressed="${nowFilter === 'needs'}">Needs you <span class="c">${counts.needs}</span></button>
     <button class="chip" type="button" data-now="others" aria-pressed="${nowFilter === 'others'}">Waiting on others <span class="c">${counts.others}</span></button>
   </div><span class="grow"></span>${projectPicker()}</div>`;
-  html += setupCards();
+  html += shareInvites() + setupCards();
   html += rundownShows() ? rundownCard() : todayCard();
+  html += usageCard('now');   // AI plans: used, reset, and whether the pace lasts (usage.js)
   // One list per state, most urgent first: a row each, its project as a dot.
   const GROUPS = [['needs', 'Needs you'], ['working', 'Working'], ['others', 'Waiting on others'], ['done', 'Done'], ['idle', 'Open, nothing happening']];
   let any = false;
@@ -74,6 +75,7 @@ const flash = (el) => { el.scrollIntoView({ block: 'center', behavior: 'smooth' 
 function openSetup(e) {
   const o = e.open || {};
   if (o.cmd) { openCmd(); return; }
+  if (o.jarvis) { jvOpen(true); flash($('jv-orb')); return; }
   if (o.go) {
     const point = () => { const el = o.focus && $(o.focus); if (el) flash(el); else if (o.hint) toast(o.hint); };
     if (location.hash === o.go) { route(); point(); }
@@ -140,7 +142,7 @@ async function applyUses() {
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('#welcome, [data-new], [data-left], [data-setup-link]')) return;
+  if (!e.target.closest('#welcome, #new-scrim, [data-left], [data-setup-link]')) return;
   const w = e.target.closest('[data-w]');
   if (w) {
     const k = w.dataset.w;

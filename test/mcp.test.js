@@ -33,8 +33,8 @@ function fake() {
   return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({ srv, posts, port: srv.address().port })));
 }
 
-function mcp(port) {
-  const p = spawn(process.execPath, [new URL('../bin/mcp.mjs', import.meta.url).pathname], { env: { ...process.env, SWITCHBOARD_PORT: String(port) } });
+function mcp(port, env = {}) {
+  const p = spawn(process.execPath, [new URL('../bin/mcp.mjs', import.meta.url).pathname], { env: { ...process.env, SWITCHBOARD_TERM: '', SWITCHBOARD_PORT: String(port), ...env } });
   let buf = ''; const waiting = new Map(); let next = 1;
   p.stdout.on('data', (c) => { buf += c; let i; while ((i = buf.indexOf('\n')) >= 0) { const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1); waiting.get(m.id)?.(m); } });
   const call = (method, params) => new Promise((r) => { const id = next++; waiting.set(id, r); p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'); });
@@ -50,7 +50,7 @@ test('MCP: handshake, tools, reading and posting', async () => {
     assert.equal(init.result.serverInfo.name, 'switchboard');
     const list = await c.call('tools/list', {});
     const names = list.result.tools.map((t) => t.name);
-    for (const n of ['switchboard_overview', 'switchboard_add', 'switchboard_sessions', 'switchboard_send_to_session', 'switchboard_actions', 'switchboard_projects', 'switchboard_checks', 'switchboard_add_check', 'switchboard_notes']) assert.ok(names.includes(n), n);
+    for (const n of ['switchboard_overview', 'switchboard_add', 'switchboard_sessions', 'switchboard_send_to_session', 'switchboard_actions', 'switchboard_projects', 'switchboard_checks', 'switchboard_add_check', 'switchboard_notes', 'switchboard_start_session', 'switchboard_read_session', 'switchboard_end_session']) assert.ok(names.includes(n), n);
     assert.ok(list.result.tools.every((t) => !('run' in t) && t.inputSchema.type === 'object'));
 
     const ov = (await c.call('tools/call', { name: 'switchboard_overview', arguments: {} })).result.content[0].text;
@@ -82,6 +82,59 @@ test('MCP: handshake, tools, reading and posting', async () => {
     const bad = await c.call('tools/call', { name: 'switchboard_add_check', arguments: { kind: 'page', url: 'https://x.com', project: 'Nope' } });
     assert.ok(bad.result.isError);
     assert.equal((await c.call('nope/method', {})).error.code, -32601);
+  } finally { c.end(); srv.close(); }
+});
+
+// An orchestrating session: starts another in a folder, reads what it said,
+// ends it; never ends one it did not open, nor itself.
+test('MCP: start, read and end other sessions', async () => {
+  const state = { spaces: [], remoteTerms: [], terms: [
+    { id: 'sb-boss', name: 'boss', state: 'running', agentName: 'Claude Code', queued: [], cwd: '/x/boss' },
+    { id: 'sb-app', name: 'app', state: 'finished', agentName: 'Claude Code', queued: [], cwd: '/x/app' },
+    { id: 'sb-web', name: 'web', state: 'finished', agentName: 'Claude Code', queued: [], cwd: '/x/web', opened_by: 'sb-boss' }
+  ] };
+  const posts = [];
+  const srv = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c)).on('end', () => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url === '/api/state') return res.end(JSON.stringify(state));
+      if (req.url === '/api/folders') return res.end(JSON.stringify([{ name: 'web', path: '/x/web', kind: 'repo' }, { name: 'web', path: '/x/.wt/web', kind: 'copy' }]));
+      if (req.url === '/api/terms/sb-web/chat') return res.end(JSON.stringify({ messages: [
+        { k: 'user', t: 'old question' }, { k: 'text', t: 'old answer' },
+        { k: 'user', t: 'run the tests' }, { k: 'tool', name: 'Bash', sum: 'npm test' }, { k: 'text', t: 'All 12 pass.' }] }));
+      if (req.method === 'POST') { posts.push({ url: req.url, body: JSON.parse(body) }); return res.end(JSON.stringify({ ok: true, id: 'sb-web-2' })); }
+      res.statusCode = 404; res.end('{}');
+    });
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const c = mcp(srv.address().port, { SWITCHBOARD_TERM: 'sb-boss' });
+  const call = async (name, args) => (await c.call('tools/call', { name, arguments: args })).result;
+  try {
+    await c.call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'boss-agent' } });
+    const list = (await call('switchboard_sessions', {})).content[0].text;
+    assert.match(list, /boss \[sb-boss\].*\(this is you\)/);
+    assert.match(list, /web \[sb-web\].*\(you opened it\)/);
+
+    const started = await call('switchboard_start_session', { folder: 'web', message: 'fix the header' });
+    assert.ok(!started.isError, started.content[0].text);
+    assert.deepEqual(posts[0], { url: '/api/terms', body: { cwd: '/x/web', agent: 'claude', openedBy: 'sb-boss', text: 'fix the header', source: 'boss-agent (agent)' } });
+    assert.match(started.content[0].text, /\[sb-web-2\]/);
+    assert.ok((await call('switchboard_start_session', { folder: 'nothing-here' })).isError);
+
+    const read = (await call('switchboard_read_session', { session: 'web', last: 2 })).content[0].text;
+    assert.match(read, /^web \[sb-web\] · Claude Code · finished/);
+    assert.match(read, /\[user\] run the tests\n  · Bash: npm test\n\[agent\] All 12 pass\.$/);
+    assert.doesNotMatch(read, /old/);
+
+    assert.ok((await call('switchboard_send_to_session', { session: 'boss', text: 'x' })).isError);
+    const notMine = await call('switchboard_end_session', { session: 'app' });
+    assert.ok(notMine.isError);
+    assert.match(notMine.content[0].text, /did not open app/);
+    assert.ok((await call('switchboard_end_session', { session: 'boss' })).isError);
+    assert.ok(!(await call('switchboard_end_session', { session: 'web' })).isError);
+    assert.deepEqual(posts.at(-1), { url: '/api/terms/sb-web/close', body: { by: 'sb-boss' } });
+    assert.equal(posts.length, 2);
   } finally { c.end(); srv.close(); }
 });
 

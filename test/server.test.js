@@ -77,6 +77,14 @@ test('the server end to end', async (t) => {
       assert.equal((await req(port, 'GET', '/', { headers: { host: `evil.test:${port}` } })).status, 403);
       assert.equal((await req(port, 'GET', '/api/state', { headers: { host: `127.0.0.1:${port + 1}` } })).status, 403);
     });
+    await t.test('another web site cannot start an /api read in the browser (review L1)', async () => {
+      for (const site of ['cross-site', 'same-site'])
+        assert.equal((await req(port, 'GET', '/api/teams/picture?u=x', { headers: { 'sec-fetch-site': site } })).status, 403, site);
+      assert.equal((await req(port, 'GET', '/api/state', { headers: { 'sec-fetch-site': 'same-origin' } })).status, 200, 'the page itself');
+      assert.equal((await req(port, 'GET', '/api/state', { headers: { 'sec-fetch-site': 'none' } })).status, 200, 'typed into the address bar');
+      assert.equal((await req(port, 'GET', '/api/state')).status, 200, 'scripts and the MCP tools, which send no such header');
+      assert.equal((await req(port, 'GET', '/', { headers: { 'sec-fetch-site': 'cross-site' } })).status, 200, 'a link to the page itself still opens it');
+    });
     await t.test('the Claude Code hook', async () => {
       const body = JSON.stringify({ hook_event_name: 'Stop', session_id: 'test-session', cwd: DATA });
       const r = await req(port, 'POST', '/hook/claude?event=Stop', { headers: { 'X-Switchboard': '1', 'content-type': 'application/json' }, body });
@@ -102,6 +110,25 @@ test('the server end to end', async (t) => {
       await hook('UserPromptSubmit', { prompt: 'again' });
       await hook('Stop');
       assert.equal((await state()).state, 'finished');
+    });
+    await t.test('Clear takes a session off Needs you until it asks again', async () => {
+      const H = { 'X-Switchboard': '1', 'content-type': 'application/json' };
+      const hook = (event, extra = {}) => req(port, 'POST', `/hook/claude?event=${event}`, { headers: H, body: JSON.stringify({ hook_event_name: event, session_id: 'clear-session', cwd: DATA, ...extra }) });
+      const state = async () => JSON.parse((await req(port, 'GET', '/api/state')).body).sessions.find((x) => x.id === 'clear-session').state;
+      const clear = () => req(port, 'POST', '/api/seen', { headers: H, body: JSON.stringify({ sessionId: 'clear-session' }) });
+      await hook('UserPromptSubmit', { prompt: 'do it' });
+      await hook('Stop');
+      assert.equal(await state(), 'finished');
+      await clear();
+      assert.equal(await state(), 'idle');
+      await hook('Notification', { notification_type: 'idle_prompt', message: 'Claude is waiting for your input' });
+      assert.equal(await state(), 'idle');   // Claude Code's idle reminder is not a new ask
+      await hook('Notification', { notification_type: 'permission_prompt', message: 'Claude needs your permission to use Bash' });
+      assert.equal(await state(), 'waiting');
+      await clear();
+      assert.equal(await state(), 'idle');
+      await hook('PreToolUse', { tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: 'Which one?' }] } });
+      assert.equal(await state(), 'waiting');   // a new question asks again
     });
     await t.test('a project page: profile links are cleaned, files stay in their folder', async () => {
       const H = { 'X-Switchboard': '1', 'content-type': 'application/json' };

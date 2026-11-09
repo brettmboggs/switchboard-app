@@ -1,0 +1,56 @@
+/* Shared projects (public/js/share.js, docs/DESIGN.md "Shared projects").
+     .share-line        in a project's head: the members' initials and "Shared with Jordan"
+     .share-face        one person's initials in a circle (.invited: dashed, not joined yet)
+     .share-sheet       the Share dialog: what is shared, the people, the invite form
+     .share-ask         "Share the 12 pages already here?" when a project is first shared
+     .share-act         the Activity card's rows; .share-st--working etc. colour the state word
+     .share-invite      an invitation on Now; it asks for you, so it has the orange edge
+     .nb-only           "Only me" before a page's title in Notes */
+.share-line { display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--sp-7); padding: 0 var(--sp-3) 0 var(--sp-1); border: 1px solid var(--border-soft); border-radius: var(--r-pill); background: var(--bg-raised); color: var(--fg); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.share-line:hover { border-color: var(--fg-muted); }
+.share-line .share-face + .share-face { margin-left: calc(var(--sp-3) * -1); }
+.share-face { flex: none; width: var(--sp-6); height: var(--sp-6); display: grid; place-items: center; border-radius: 50%; background: var(--info-tint); color: var(--info); border: 2px solid var(--bg-raised); font: 600 var(--fs-xs) var(--font-mono); }
+.share-face.invited { background: transparent; border: 1px dashed var(--fg-muted); color: var(--fg-muted); }
+
+.share-sheet { width: min(560px, 100%); }
+.share-top { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; padding: var(--sp-5) 0 var(--sp-2); background: var(--bg-surface); }
+.share-what { margin: 0; }
+.share-sheet .small { margin: 0; }
+.share-need { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--info-tint); color: var(--info); }
+.share-who { min-width: 0; flex: 1; }
+.share-who b { display: block; font-weight: 600; }
+.share-who small { display: block; color: var(--fg-muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.share-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--border-faint); }
+
+.share-invite { display: flex; align-items: center; gap: var(--sp-4); box-shadow: inset 3px 0 0 var(--accent-half); }
+.share-invite .share-face { width: var(--sp-7); height: var(--sp-7); }
+.share-acts { display: flex; gap: var(--sp-2); }
+.share-me { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.share-ask { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--bg-hover); }
+.share-ask span { flex: 1 1 100%; font-weight: 600; }
+.share-ask label { display: inline-flex; gap: var(--sp-2); align-items: center; font-size: var(--fs-sm); }
+.share-act { list-style: none; margin: 0; padding: 0; display: grid; }
+.share-act li { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) 0; }
+.share-act li + li { border-top: 1px solid var(--border-faint); }
+.share-st--working { color: var(--info); }
+.share-st--waiting { color: var(--fg); font-weight: 600; }   /* theirs, not yours: never orange */
+.share-st--done { color: var(--ok); }
+.nb-only { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.share-prs a.item { text-decoration: none; color: inherit; }
+
+/* A shared project's sessions and what its owner publishes (share.js). */
+.share-sess { display: flex; align-items: center; gap: var(--sp-3); width: 100%; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.share-sess:hover b { text-decoration: underline; }
+.share-convos { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.share-convos summary { cursor: pointer; padding: var(--sp-2) 0; }
+.share-msg { padding: var(--sp-2) var(--sp-3); margin: var(--sp-1) 0; border-radius: var(--r-md); background: var(--bg-hover); }
+.share-msg p { margin: var(--sp-1) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.shsess-sheet { width: min(760px, 100%); }
+.shsess-msgs { display: grid; gap: var(--sp-2); max-height: 60vh; overflow-y: auto; padding: var(--sp-1); }
+.shsess-msgs .cm { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-base); }
+.shsess-msgs .cm-user { background: var(--bg-selected); justify-self: end; max-width: 85%; }
+.shsess-msgs .cm-text { background: var(--bg-raised); border: 1px solid var(--border-soft); }
+.shsess-msgs .cm-tool { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); padding-top: 0; padding-bottom: 0; }
+.shsess-msgs .cm-note { color: var(--fg-muted); font-size: var(--fs-sm); }
+.shsess-send { margin-top: var(--sp-3); }
+.shsess-send input { flex: 1; }

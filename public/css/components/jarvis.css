@@ -1,0 +1,48 @@
+/* Jarvis: the orb in the corner and its panel (public/js/jarvis.js). The orb
+   breathes when idle, swells with your voice while listening, spins while it
+   thinks and ripples while it speaks. */
+.jv-orb { position: fixed; right: var(--sp-5); bottom: var(--sp-5); width: var(--jv-orb); height: var(--jv-orb); border-radius: 50%; border: 0; padding: 0; cursor: pointer; z-index: var(--z-prompt);
+  background: radial-gradient(circle at 35% 30%, var(--jv-fg) 0, var(--jv-core) 18%, var(--jv-core-2) 55%, var(--jv-glass) 100%);
+  box-shadow: 0 0 var(--sp-5) var(--jv-glow), inset 0 0 var(--sp-3) var(--jv-glow-soft); animation: jv-breathe 4s ease-in-out infinite; transition: transform .15s; }
+.jv-orb::before, .jv-orb::after { content: ""; position: absolute; inset: calc(-1 * var(--sp-2)); border-radius: 50%; border: 1px solid var(--jv-line); pointer-events: none; }
+.jv-orb::after { inset: calc(-1 * var(--sp-3)); border-color: transparent; border-top-color: var(--jv-core); border-right-color: var(--jv-glow-soft); opacity: 0; }
+.jv-orb:hover { transform: scale(1.06); }
+.jv-orb:focus-visible { outline: 2px solid var(--jv-core); outline-offset: var(--sp-2); }
+.jv-orb[data-state="listening"] { animation: jv-listen .9s ease-in-out infinite; box-shadow: 0 0 var(--sp-7) var(--jv-glow), 0 0 var(--sp-3) var(--jv-core); }
+.jv-orb[data-state="thinking"]::after { opacity: 1; animation: jv-spin .9s linear infinite; }
+.jv-orb[data-state="speaking"]::before { animation: jv-ripple 1.2s ease-out infinite; }
+@keyframes jv-breathe { 0%, 100% { box-shadow: 0 0 var(--sp-4) var(--jv-glow-soft); } 50% { box-shadow: 0 0 var(--sp-6) var(--jv-glow); } }
+@keyframes jv-listen { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes jv-spin { to { transform: rotate(360deg); } }
+@keyframes jv-ripple { from { transform: scale(1); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .jv-orb, .jv-orb::before, .jv-orb::after { animation: none !important; } }
+
+.jv-panel { position: fixed; right: var(--sp-5); bottom: calc(var(--jv-orb) + var(--sp-7)); width: min(var(--jv-panel-w), calc(100vw - 2 * var(--sp-4))); max-height: min(70vh, 560px);
+  display: flex; flex-direction: column; z-index: var(--z-prompt); color: var(--jv-fg); background: var(--jv-glass); border: 1px solid var(--jv-line); border-radius: var(--r-xl);
+  box-shadow: 0 0 var(--sp-7) var(--jv-glow-soft), var(--shadow-3); backdrop-filter: blur(14px) saturate(1.4); overflow: hidden; }
+.jv-panel[hidden] { display: none; }
+.jv-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--jv-line); }
+.jv-head h2 { margin: 0; font-family: var(--mono); font-size: var(--fs-sm); letter-spacing: .18em; text-transform: uppercase; color: var(--jv-core); font-weight: 600; }
+.jv-head .grow { flex: 1; }
+.jv-brain { font-size: var(--fs-xs); color: var(--jv-muted); }
+.jv-icon { background: none; border: 1px solid transparent; color: var(--jv-muted); border-radius: var(--r-sm); padding: var(--sp-1) var(--sp-2); cursor: pointer; font: inherit; font-size: var(--fs-sm); }
+.jv-icon:hover, .jv-icon[aria-pressed="true"] { color: var(--jv-fg); border-color: var(--jv-line); }
+.jv-log { flex: 1; overflow-y: auto; padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); min-height: 120px; }
+.jv-say { line-height: var(--lh); font-size: var(--fs-md); }
+.jv-say.you { align-self: flex-end; max-width: 85%; color: var(--jv-muted); font-size: var(--fs-base); text-align: right; }
+.jv-say.me { border-left: 2px solid var(--jv-core); padding-left: var(--sp-3); }
+.jv-say small { display: block; color: var(--jv-muted); font-size: var(--fs-xs); margin-top: var(--sp-1); }
+.jv-hint { color: var(--jv-muted); font-size: var(--fs-sm); line-height: var(--lh); }
+.jv-hint kbd { font-family: var(--mono); font-size: var(--fs-xs); border: 1px solid var(--jv-line); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
+.jv-input { display: flex; gap: var(--sp-2); align-items: flex-end; padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--jv-line); }
+.jv-input textarea { flex: 1; resize: none; min-height: 38px; max-height: 120px; background: transparent; color: var(--jv-fg); border: 1px solid var(--jv-line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); font: inherit; }
+.jv-input textarea:focus { outline: none; border-color: var(--jv-core); box-shadow: 0 0 0 3px var(--jv-glow-soft); }
+.jv-input .mic { color: var(--jv-core); }
+.jv-send { background: var(--jv-core); color: var(--jv-glass); border: 0; border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); font: inherit; font-weight: 600; cursor: pointer; }
+.jv-model { background: transparent; color: var(--jv-muted); border: 1px solid var(--jv-line); border-radius: var(--r-sm); font-size: var(--fs-xs); max-width: 160px; }
+
+/* The wave (jarviswave.js): a band of light along the bottom while Jarvis
+   listens or speaks; the orb swells with the same level (--jv-level). */
+.jv-wave { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: var(--jv-wave-h); pointer-events: none; z-index: var(--z-toast); opacity: 0; transition: opacity .35s; }
+.jv-wave.on { opacity: 1; }
+.jv-orb[data-state="listening"], .jv-orb[data-state="speaking"] { animation: none; transform: scale(calc(1 + var(--jv-level, 0) * .45)); transition: transform .06s linear; }
