@@ -283,12 +283,12 @@ function inboxCount(space = 'all') {
 // session (a plain chat with your account, a desktop worker) slot in here later.
 // On the web board (public/js/web/): Now, Sessions (your shared projects' sessions, websessions.js), Builds and
 // Browser checks, Calendar and Money (what your shared projects share), Inbox (your own Teams and Outlook), Notes.
-const PAGES = [['deck', 'Deck'], ['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes'], ['unsorted', 'Unsorted', 'unsorted']]
+const PAGES = [['deck', 'Deck'], ['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes'], ['usage', 'AI plans'], ['unsorted', 'Unsorted', 'unsorted']]
   .filter(([id]) => !window.WEB || ['deck', 'now', 'sessions', 'builds', 'checks', 'calendar', 'inbox', 'money', 'notes'].includes(id));
 const PAGE_MOVED = { actions: 'builds' };   // old links keep working
 // Pages with no place on the rail: opened from another page, which stays lit
 // on the rail while they show. Calendar opens from Now's Today line (Nov 4).
-const OFF_RAIL = { calendar: 'now' };
+const OFF_RAIL = { calendar: 'now', usage: 'deck' };   // AI plans opens from its card (Nov 9)
 if (PAGE_MOVED[location.hash.slice(1)]) history.replaceState(null, '', '#' + PAGE_MOVED[location.hash.slice(1)]);
 const railOf = (id) => PAGES.find((p) => p[0] === id)?.[2] || OFF_RAIL[id] || id;
 // The tabs along the top of a page that has them (Sessions · Builds · Browser checks).

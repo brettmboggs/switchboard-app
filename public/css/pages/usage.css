@@ -1,0 +1,99 @@
+/* The AI plans page (public/js/usagepage.js): one screen, no scrolling. The
+   big chart and the readout across the top, then when you use it, past
+   windows and habits. Built from the card's parts (components/usage.css):
+   cyan is the interface, amber a window that is close, orange only a pace that
+   runs out before the reset. A past week that ran out is amber: it is history,
+   it does not need you. */
+.up { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--sp-4);
+  height: calc((100vh - var(--ring-h) - var(--sp-8)) / var(--zoom, 1) - var(--sp-8) - var(--sp-4)); min-height: 36rem; }
+.up-tabs { margin-left: var(--sp-4); }
+.up-grid { display: grid; gap: var(--sp-4); min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(17rem, 22rem);
+  grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas: "chart chart read" "heat past habits"; }
+.up-chart { grid-area: chart; } .up-read { grid-area: read; } .up-heat { grid-area: heat; } .up-past { grid-area: past; } .up-habits { grid-area: habits; }
+.up-grid > .card { --u: var(--hud); --u-text: var(--hud-text); display: flex; flex-direction: column; gap: var(--sp-2); min-height: 0; min-width: 0; overflow: hidden; margin: 0; }
+.up-grid > .u-win--warn { --u: var(--warn); --u-text: var(--warn); }
+.up-grid > .u-win--hot { --u: var(--accent); --u-text: var(--accent-text); }
+.up-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 1.6rem; }
+.up-head .grow { flex: 1; }
+.up-note { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.up-empty { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); }
+.up-wins { gap: var(--sp-2); }
+
+/* the big chart: the window across, 0..100% up; the axes are words laid over it */
+.up-plot { position: relative; flex: 1; min-height: 8rem; margin: var(--sp-2) 0 var(--sp-5) 2.4rem; border-bottom: 1px solid var(--border-soft); cursor: crosshair; }
+.up-plot .u-chart path { fill: none; vector-effect: non-scaling-stroke; }
+.up-plot .u-chart .u-area { stroke: none; }
+.up-gridl, .up-gridv { stroke: var(--border-faint); stroke-width: 1; }
+.up-prev { stroke: var(--fg-muted); stroke-width: 1.5; stroke-dasharray: 1 3; opacity: .7; }
+.up-ylab { position: absolute; left: -2.4rem; width: 2rem; text-align: right; transform: translateY(-50%); font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); }
+.up-tick { position: absolute; top: 100%; margin-top: var(--sp-1); transform: translateX(-50%); font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); white-space: nowrap; }
+.up-cross { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--u); opacity: .6; pointer-events: none; }
+.up-tip { position: absolute; top: var(--sp-2); margin-left: var(--sp-3); display: grid; gap: .15rem; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--jv-glass); box-shadow: var(--shadow-2); font-size: var(--fs-sm); white-space: nowrap; pointer-events: none; z-index: var(--z-popover); }
+.up-tip--left { transform: translateX(calc(-100% - 2 * var(--sp-3))); }
+.up-tip b { font: 600 var(--fs-lg) var(--font-display); color: var(--u-text); }
+.up-tip-t { font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); text-transform: uppercase; letter-spacing: .08em; }
+.up-tip .muted { font-size: var(--fs-xs); }
+.up-legend { display: flex; gap: var(--sp-4); font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); }
+.up-k { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.up-k::before { content: ""; width: 1.2rem; border-top: 2px solid var(--u); }
+.up-k--proj::before { border-top-style: dashed; }
+.up-k--even::before { border-top: 1px solid var(--fg-muted); opacity: .5; }
+.up-k--prev::before { border-top: 2px dotted var(--fg-muted); }
+
+/* the readout */
+.up-pct { font-size: calc(var(--fs-3xl) * 1.6); }
+.up-rows { display: grid; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-3); border-top: 1px solid var(--border-faint); }
+.up-row { display: grid; grid-template-columns: 1fr auto; column-gap: var(--sp-2); align-items: baseline; }
+.up-k2 { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-muted); }
+.up-v { font: 600 var(--fs-lg) var(--font-display); font-variant-numeric: tabular-nums; color: var(--fg); text-align: right; }
+.up-sub { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--fg-muted); }
+
+.up-days { display: grid; gap: var(--sp-1); margin-top: auto; }
+.up-days .u-days { height: 3.2rem; }
+.up-days + .up-rows { margin-top: var(--sp-2); }
+
+/* when you use it: weekday rows, 24 hour columns */
+.up-hm { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.2rem repeat(24, minmax(0, 1fr)); grid-template-rows: repeat(7, minmax(0, 1fr)) auto; gap: .125rem; }
+.up-hd { font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); align-self: center; }
+.up-cell { border-radius: var(--r-xs); background: color-mix(in srgb, var(--hud) calc(var(--a) * 85% + 4%), var(--hud-faint)); box-shadow: 0 0 calc(var(--a) * .6rem) color-mix(in srgb, var(--hud) calc(var(--a) * 60%), transparent); }
+.up-cell:hover { outline: 1px solid var(--hud-text); }
+.up-hh { font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); }
+
+/* past windows: a bar each, to the 100% line; and the last four weeks by day */
+.up-pbars { flex: 1.3; min-height: 3rem; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-1); align-items: end; position: relative; border-top: 1px dashed var(--border); }
+.up-pbar { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; align-items: end; justify-items: center; gap: .15rem; padding: 0; border: 0; background: none; cursor: pointer; color: inherit; }
+.up-pbar i { width: min(70%, 1.6rem); border-radius: var(--r-xs) var(--r-xs) 0 0; background: color-mix(in srgb, var(--hud) 45%, transparent); transition: background .15s, box-shadow .15s; }
+.up-pbar:hover i, .up-pbar--on i { background: var(--hud); box-shadow: 0 0 .6rem var(--hud); }
+.up-pbar--out i { background: color-mix(in srgb, var(--warn) 60%, transparent); }
+.up-pbar i { position: relative; }
+.up-pbar em { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: .15rem; font: 500 var(--fs-xs) var(--font-mono); font-style: normal; color: var(--hud-text); white-space: nowrap; }
+.up-pbar b { font: 500 var(--fs-xs) var(--font-mono); color: var(--fg-muted); }
+.up-pbars .up-empty { align-self: center; grid-column: 1 / -1; }
+.up-dbars { flex: 1; min-height: 2rem; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .125rem; align-items: end; border-bottom: 1px solid var(--border-faint); }
+.up-dbar { height: 100%; display: flex; align-items: flex-end; }
+.up-dbar i { width: 100%; border-radius: var(--r-xs) var(--r-xs) 0 0; background: color-mix(in srgb, var(--hud) 40%, transparent); }
+.up-dbar--today i { background: var(--hud); box-shadow: 0 0 .5rem var(--hud); }
+.up-dbar--none { background: repeating-linear-gradient(90deg, transparent 0 .125rem, var(--hud-faint) .125rem .25rem); opacity: .5; }
+
+/* habits and the big sessions */
+.up-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-2); }
+.up-stat { display: grid; min-width: 0; }
+.up-sv { font: 600 var(--fs-xl) var(--font-display); font-variant-numeric: tabular-nums; color: var(--fg); text-shadow: 0 0 1em var(--hud-glow); }
+.up-sk { font-size: var(--fs-xs); color: var(--fg-muted); line-height: var(--lh-tight); }
+.up-sl { display: grid; gap: var(--sp-1); min-height: 0; overflow: hidden; }
+.up-sess { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 1px solid transparent; border-radius: var(--r-sm); background: var(--hud-faint); text-align: left; color: inherit; font: inherit; }
+button.up-sess { cursor: pointer; }
+button.up-sess:hover { border-color: var(--hud); }
+.up-sn { font-weight: 600; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: var(--sp-1); }
+.up-sp { grid-column: 1; font-size: var(--fs-xs); color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-su { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 600 var(--fs-md) var(--font-mono); color: var(--hud-text); }
+
+/* a narrow window stacks the boxes, and only then does the page scroll */
+@media (max-width: 1100px) {
+  .up { height: auto; }
+  .up-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "chart" "read" "heat" "past" "habits"; }
+  .up-chart { min-height: 20rem; } .up-heat, .up-past { min-height: 14rem; }
+}

@@ -1,6 +1,6 @@
 {
   "name": "switchboard-desktop",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "description": "The Switchboard app: its own window and icon around the local server, with updates from GitHub Releases. Tauri v2.",
   "type": "module",

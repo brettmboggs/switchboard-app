@@ -405,6 +405,21 @@ everywhere. The page builds its skeleton once and updates it in place, so a
 refresh never interrupts a hover, a scroll or typing. `prefers-reduced-motion`
 turns the transitions and the live dot's pulse off.
 
+**Network test** (`speedtest.css`, `public/js/speedtest.js`). A large window
+like the System monitor. On top a 270° gauge (a slide-rule scale, 0, 5, 10, 25,
+50, 100, 250, 500, 1G, and up to 10G when the link is faster) whose arc
+glows as it fills, with a breathing round GO in the middle (AGAIN after a test)
+and a slowly turning dashed ring while it runs; beside it four readouts (ping,
+jitter, download, upload), the running one lit. Download is the HUD's cyan,
+upload `--st-up` (violet), everywhere: the arc, the readouts, the lines, the
+dots. Under them the line in words, then cards: speed through each direction's
+10 seconds (the left-out start shaded), every ping as a dot in three bands
+(quiet, downloading, uploading, with each band's median dashed), what it is good
+for (tiles with a coloured left edge: good --ok, OK --warn, poor --bad), details
+(the bufferbloat grade as a small filled badge), past tests (a sparkline and
+rows; click one to see it). Never orange: a slow line does not need you.
+`prefers-reduced-motion` stops the ring, the breathing and the needle's easing.
+
 **Shared projects** (`share.css`, `public/js/share.js`). A shared project's
 head has `.share-line`: a pill with the members' initials (`.share-face`, info
 blue on its tint; dashed and muted while only invited) overlapping, then
@@ -552,7 +567,19 @@ day. Cyan when on track, amber (--warn) when it lands above 85%, orange
 (--accent) only when the pace runs out before the reset, as that needs you. The
 same tones colour the tiny gauges (.u-mini) on a Claude session's bar. On the
 Deck it is one module of the bottom row, compact (short charts, no day bars)
-so the Deck fits one screen; on Now it is the full card under today.
+so the Deck fits one screen; on Now it is the full card under today. The card
+opens the AI plans page.
+
+### AI plans page (pages/usage.css)
+One screen, never scrolling in a normal window (it stacks below 1100px): a tab
+per plan in the head; the big chart (the card's chart, larger, with % and day
+labels, a dotted line for last window at the same point, and a hover readout
+that follows the pointer) beside the readout (the big %, the forecast line, the
+week's day bars, then reset, landing, pace and room as label-value rows); under
+them three boxes: when you use it (weekday rows by 24 hours, brighter cells for
+more), past windows as bars to the 100% line with the last four weeks by day
+under them, and habits (six numbers) with the big sessions. A past window that
+ran out is amber, not orange: it is history and does not need you.
 
 ## Signing in
 

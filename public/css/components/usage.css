@@ -3,8 +3,10 @@
    turns amber, one whose pace runs out before the reset turns orange (it needs
    you). On the Deck it is a compact module of the bottom row; on Now a full card. */
 .usage { --u: var(--hud); --u-text: var(--hud-text); display: grid; gap: var(--sp-3); min-width: 0; }
-.usage--deck:hover { transform: none; }   /* a module that is read, not opened */
-.u-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.usage--open { text-decoration: none; color: var(--fg); cursor: pointer; }   /* opens the AI plans page */
+.usage--now.usage--open:hover, .usage--now.usage--open:focus-visible { border-color: var(--hud); box-shadow: 0 0 24px var(--hud-ring); outline: none; }
+.u-top { display: flex; align-items: baseline; gap: var(--sp-3); }
+.u-top .grow { flex: 1; }
 .u-title { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .16em; text-transform: uppercase; color: var(--hud-text); }
 .u-asof { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); display: inline-flex; align-items: center; gap: var(--sp-1); }
 .u-asof::before { content: ""; width: .45em; height: .45em; border-radius: var(--r-pill); background: var(--ok); box-shadow: 0 0 .6em var(--ok); }

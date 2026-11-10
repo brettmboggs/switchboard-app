@@ -2,7 +2,7 @@
 // Gmail and GitHub). Only when no box is being typed in and no dialog is open.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
-const GO_KEYS = { n: 'now', s: 'sessions', b: 'builds', c: 'calendar', i: 'inbox', m: 'money', o: 'notes' };
+const GO_KEYS = { n: 'now', s: 'sessions', b: 'builds', c: 'calendar', i: 'inbox', m: 'money', o: 'notes', u: 'usage' };
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 // Inside the Switchboard app the page is opened with ?app=quit: Ctrl+Q then
 // quits the app (it watches for /app/quit; desktop/src-tauri/src/main.rs),

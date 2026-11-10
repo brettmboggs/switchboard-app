@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/css/components/dialog.css">
 <link rel="stylesheet" href="/css/components/keys.css">
 <link rel="stylesheet" href="/css/components/chart.css">
+<link rel="stylesheet" href="/css/components/speedtest.css">
 <link rel="stylesheet" href="/css/components/fileview.css">
 <link rel="stylesheet" href="/css/components/notemarks.css">
 <link rel="stylesheet" href="/css/components/members.css">
@@ -41,6 +42,7 @@
 <link rel="stylesheet" href="/css/pages/builds.css">
 <link rel="stylesheet" href="/css/pages/system.css">
 <link rel="stylesheet" href="/css/pages/project.css">
+<link rel="stylesheet" href="/css/pages/usage.css">
 <link rel="stylesheet" href="/css/brand.css">
 <link rel="stylesheet" href="/css/hud.css">
 <link rel="stylesheet" href="/css/ring.css">
@@ -402,6 +404,10 @@
           <p class="pane-lead">See how busy this computer is: processor, memory, graphics, network, storage, temperatures, fans and the apps using the most. It reads live numbers only while the monitor is open, keeps no history and sends nothing anywhere.</p>
           <button class="btn btn--primary" type="button" id="sys-open">Open the monitor</button>
         </div>
+        <div class="sys-open">
+          <p class="pane-lead">Test the internet here: download, upload, latency, jitter, packet loss, and how much latency rises when the line is busy (what makes calls stutter). It runs from this computer against Cloudflare's nearest server, takes about 25 seconds, and keeps past results on this computer only.</p>
+          <button class="btn btn--primary" type="button" id="st-open">Test the network</button>
+        </div>
       </section>
 
     </div>
@@ -419,6 +425,17 @@
   </div>
 </div>
 
+<!-- network test -->
+<div class="scrim" id="st-scrim" role="dialog" aria-modal="true" aria-label="Network test">
+  <div class="st">
+    <div class="st-top">
+      <div class="st-id"><h2>Network test</h2><span class="sub" id="st-sub"></span></div>
+      <div class="st-actions"><button class="btn btn--quiet" type="button" id="st-stop" hidden>Stop</button><button class="btn btn--quiet" type="button" id="st-copy" hidden>Copy result</button><button class="btn btn--quiet" type="button" data-close="st-scrim">Close</button></div>
+    </div>
+    <div id="st-body"></div>
+  </div>
+</div>
+
 <div id="welcome" class="scrim welcome-scrim" role="dialog" aria-modal="true" aria-label="Welcome to Switchboard"></div>
 <div id="acct-prompts" class="acct-prompts"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -429,6 +446,7 @@
 <script src="/js/web/detect.js"></script>
 <script src="/js/core.js"></script>
 <script src="/js/usage.js"></script>
+<script src="/js/usagepage.js"></script>
 <script src="/js/now.js"></script>
 <script src="/js/pages.js"></script>
 <script src="/js/inbox.js"></script>
@@ -488,6 +506,7 @@
 <script src="/js/connections.js"></script>
 <script src="/js/connlist.js"></script>
 <script src="/js/sysmon.js"></script>
+<script src="/js/speedtest.js"></script>
 <script src="/js/webhooks.js"></script>
 <script src="/js/favicon.js"></script>
 <script src="/js/boot.js"></script>

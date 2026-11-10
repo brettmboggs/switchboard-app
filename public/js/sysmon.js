@@ -85,7 +85,7 @@ function buildMonitor() {
       </section>
       <div id="mon-gpus"></div>
       <section class="card res" aria-label="Network">
-        <div class="res-head"><h3>Network</h3><span class="aside">all connections together</span></div>
+        <div class="res-head"><h3>Network</h3><span class="aside">all connections together</span><button class="btn btn--quiet btn--sm" type="button" id="mon-speedtest">Test speed</button></div>
         <div class="res-nums"><div><span class="k">Down</span><span class="big" id="net-down">–</span></div><div><span class="k">Up</span><span class="big" id="net-up">–</span></div></div>
         ${chartHtml('net-chart', '', 'Network speed')}
       </section>

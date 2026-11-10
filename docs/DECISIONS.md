@@ -219,6 +219,44 @@ There is no kill button: a monitor that can end programs is a different, riskier
 feature. Would change if: Windows or macOS opens these readings to ordinary
 programs, or a person asks for history that survives a restart.
 
+**Jarvis reaches everything through one catalogue, not a tool per feature.**
+(Nov 10 2026, Brett: Jarvis must be able to do anything in Switchboard.) A
+local model cannot hold 240 tool definitions, so it gets two general tools:
+find_action (plain words in, the best matching actions with their inputs out)
+and do_action (an id and its inputs, run through the same local API the page
+uses, with its checks). lib/jarvisactions.js has one entry per route with a
+kind: read and change run; delete waits for a yes (the model asks, then runs it
+with confirmed); send (reaches another person) is never run, as every send is
+Brett's click; internal (hooks, streams, password forms) is left out.
+test/jarvisapi.test.js fails when a route in lib/routes has no entry, so a new
+feature cannot ship out of Jarvis's reach. Hand-written tools stay for the
+common things (pages, sessions, add, builds, memory, the network test) and
+quick commands still answer those with no model. Would change if: models fast
+enough to hold the whole catalogue run locally, or Brett decides voice
+approval may send.
+
+**The network test runs on the server, against Cloudflare's free speed test.**
+(Nov 10 2026) The page's Content Security Policy lets it talk only to
+Switchboard, and a browser's own limits (one tab's share of the processor, its
+connection pool) show up in a browser speed test's numbers; Node on the server
+does neither, so the page only starts the test and draws its progress.
+speed.cloudflare.com is free, needs no account and answers from the nearest of
+Cloudflare's cities; Ookla's servers need a licence and M-Lab's NDT7 is one
+connection at a time. Latency is a TCP handshake (one round trip, no server
+work in it), not an HTTP request, which carries Cloudflare's own processing
+time. Upload counts only bytes Cloudflare confirmed, spread over each request's
+time, because what Node has written may still sit in the kernel's buffers.
+The 10 seconds count from when data starts moving (Cloudflare sometimes takes
+seconds to accept connections), and an upload connection that stalls is left
+out of the confirmed count rather than cutting its window short. Request sizes adapt: Cloudflare turns big requests away (403/429) from an
+address that has tested a lot lately, so a refused size halves and the result
+says when the test was held back rather than quietly reading low. Packet loss
+uses the system's ping (no raw sockets without admin), counted apart for the
+quiet part and the busy part, since a full line drops some packets by design.
+Router, link and Wi-Fi readings live in lib/sysprobe.js and are Linux first.
+Would change if: Cloudflare closes the endpoints to other clients, or someone
+wants a choice of servers (M-Lab would be the free second).
+
 **Projects are pages, not a filter (Nov 4).** The rail's projects used to
 narrow every list; Brett expected a click on a client to open that client.
 Now a project opens its own page (#project/<id>) with its work, people, links
@@ -1148,6 +1186,15 @@ yet.
   weekly window, the last hour of a 5-hour one) 60/40 with the average since
   the window began, so a burst counts but nights do too. A plan that used
   nothing all week stays off the card until it is used.
+- The AI plans page keeps a summary of every window for good (usage_windows:
+  peak, when it ran out) while raw readings still go after 35 days (Nov 9), so
+  past weeks can be compared without the table growing. A jump in the limit is
+  put down to the Claude session whose status line posted it (usage_samples.sid):
+  rough when two run at once, but it costs nothing and needs no estimate of
+  tokens. Habits are measured on the longest window, as it sees all use; a
+  rise after more than two quiet hours goes in the hour before the reading,
+  not across the night. Everything fits one screen, as Brett asked (no
+  scrolling); other plans are tabs.
 - Jarvis asks local models for no "thinking" (reasoning_effort: none, Nov 8):
   on Gemma 4 12B in LM Studio the first spoken word went from 6.6 s to 0.14 s
   and the whole short answer from 6.7 s to 0.9 s; a server that refuses the

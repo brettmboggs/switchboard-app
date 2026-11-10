@@ -55,6 +55,8 @@ import { route as draftRoutes } from './lib/routes/drafts.js';
 import { readAllDrafts, drafts } from './lib/drafts.js';
 import { route as localFileRoutes } from './lib/routes/localfile.js';
 import { route as jarvisRoutes } from './lib/routes/jarvis.js';
+import { route as usageRoutes } from './lib/routes/usage.js';
+import { route as speedtestRoutes } from './lib/routes/speedtest.js';
 import { tidyNow, tidyDue } from './lib/jarvis.js';
 import { pollTasks, tasks, taskStatus } from './lib/tasks.js';
 import { pollGranola, granolaStatus } from './lib/granola.js';
@@ -64,7 +66,7 @@ import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
 // Team chat first: it answers the Inbox's conversation routes for its own "team:" keys only.
-const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes];
+const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes, usageRoutes, speedtestRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)

@@ -157,7 +157,7 @@ function renderDetail() {
 function render() {
   if (!S) return;
   renderShell();
-  ({ deck: renderDeck, now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, calendar: renderCalendar, inbox: renderInbox, money: renderMoney, notes: renderNotes, project: renderProject, unsorted: renderUnsorted })[page]();
+  ({ deck: renderDeck, now: renderNow, sessions: renderSessions, builds: renderActionsPage, checks: renderChecksPage, calendar: renderCalendar, inbox: renderInbox, money: renderMoney, notes: renderNotes, usage: renderUsagePage, project: renderProject, unsorted: renderUnsorted })[page]();
   document.body.dataset.page = page;
   syncConvo();
   $('term-host').hidden = page !== 'sessions' || !currentTerm;

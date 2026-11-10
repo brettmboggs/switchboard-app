@@ -4,7 +4,8 @@
 // window is a small chart from its start to its reset: what was used so far
 // (the filled line), where the pace goes from here (dashed), an even pace
 // (the faint diagonal) and the limit (the top line). Orange only when the pace
-// runs out before the reset, as that is when it needs you.
+// runs out before the reset, as that is when it needs you. Clicking it opens
+// the AI plans page (usagepage.js): history, habits and the big sessions.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 const USE_WIN = { five_hour: '5-hour', seven_day: 'Weekly', seven_day_opus: 'Weekly, Opus', seven_day_sonnet: 'Weekly, Sonnet', primary: 'Plan window', secondary: 'Second window' };
@@ -80,11 +81,13 @@ function useWindow(p, w) {
 function usageCard(where = 'now') {
   // A plan that used nothing all week (a free Codex, say) stays out of the way until it is used.
   const plans = (S.usage || []).filter((p, _, all) => all.length === 1 || p.windows.some((w) => w.pct > 0 || w.points.some((q) => q[1] > 0)));
-  const head = `<div class="u-top"><span class="u-title">AI plans</span>${plans.length ? `<span class="u-asof">${Date.now() - plans[0].at > 3600e3 ? 'as of ' + esc(since(plans[0].at)) : 'live'}</span>` : ''}</div>`;
+  const open = !window.WEB && plans.length;   // the card opens the AI plans page (usagepage.js)
+  const head = `<div class="u-top"><span class="u-title">AI plans</span><span class="grow"></span>${plans.length ? `<span class="u-asof">${Date.now() - plans[0].at > 3600e3 ? 'as of ' + esc(since(plans[0].at)) : 'live'}</span>` : ''}${open ? '<span class="mod-go" aria-hidden="true">↗</span>' : ''}</div>`;
   const body = plans.length
     ? `<div class="u-wins">${plans.flatMap((p) => p.windows.map((w) => useWindow(p, w))).join('')}</div>`
     : '<p class="u-quiet">Your plan limits show here once a Claude Code session is running: how much is used, when it resets, and whether the pace lasts.</p>';
-  return `<section class="usage ${where === 'deck' ? 'mod usage--deck' : 'card usage--now'}" aria-label="AI plan usage">${head}${body}</section>`;
+  const cls = `usage ${where === 'deck' ? 'mod usage--deck' : 'card usage--now'}`;
+  return open ? `<a class="${cls} usage--open" href="#usage" aria-label="AI plan usage: open the AI plans page">${head}${body}</a>` : `<section class="${cls}" aria-label="AI plan usage">${head}${body}</section>`;
 }
 
 // The same limits as a tiny gauge per window, for a Claude Code session's bar

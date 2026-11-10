@@ -173,3 +173,13 @@
   --jv-orb: 56px;
   --jv-panel-w: 420px;
 }
+
+/* ---- Network test (components/speedtest.css): download in the HUD's cyan,
+   upload in a violet beside it. Never orange: a slow line does not need you. */
+:root {
+  --st-up: #B18CFF;
+  --st-up-glow: rgba(177, 140, 255, .45);
+  --st-up-tint: rgba(177, 140, 255, .14);
+  --st-gauge: max(200px, min(340px, calc(100dvh / var(--zoom, 1) - 580px)));   /* fits the window with the numbers and details under it */
+  --st-chart-h: 150px;
+}

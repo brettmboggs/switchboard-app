@@ -80,6 +80,15 @@ changes as unverified until someone runs them.
 - Error messages say what happened and what to do about it, in plain words
   ("Todoist did not accept that token. Copy it again from …"); raw system
   errors go through lib/friendly.js, never straight to the page.
+- Jarvis can do anything Switchboard can (Brett, Nov 10: "what good is a
+  jarvis that can only do the bare minimum?"). Every new route gets an entry in
+  lib/jarvisactions.js in the same change (test/jarvisapi.test.js fails
+  without it), and a common spoken ask gets a quick command in
+  lib/jarvistools.js. Deletes wait for a yes; sends to people stay Brett's click.
+- No scrolling where it can be avoided (Brett, Nov 10): a panel, page or window
+  fits one screen at a normal window size; columns, charts that fill the
+  leftover height and lists cut to what fits come first. Long lists may scroll
+  in their own box; stacking and scrolling below about 1100px is fine.
 - Every new feature or connection gets an entry in public/setup.js (the setup
   registry). The welcome and What's new are built from it, so nothing
   ships without people being shown it; test/setup.test.js enforces it for

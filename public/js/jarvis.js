@@ -127,6 +127,8 @@ function jvTone(kind) {
 function jvAct(a) {
   if (a.go === 'settings') { openSettings(); return; }
   if (a.go === 'monitor') { openMonitor(); return; }
+  if (a.go === 'network') { stOpen(); return; }
+  if (a.window === 'speedtest') { stOpen({ announce: !!a.announce }); return; }
   if (a.go) { location.hash = '#' + a.go; return; }
   if (a.open) { currentTerm = a.open; store.set('term', currentTerm); if (location.hash !== '#sessions') location.hash = '#sessions'; else render(); }
 }
