@@ -15,8 +15,12 @@ function calGrid(month) {
   return Array.from({ length: 42 }, (_, i) => calAddDays(start, i));
 }
 
+// The month is read again whenever Switchboard has read the calendars since (a
+// change here, or on Google: every minute), on coming back to the window, and
+// every minute while the page is open.
 async function calLoad() {
-  const grid = calGrid(cal.month), key = grid[0] + ':' + cal.month;
+  const read = Math.max(0, ...(S?.calendars || []).map((c) => c.at || 0));
+  const grid = calGrid(cal.month), key = grid[0] + ':' + cal.month + ':' + read;
   if (cal.key === key || cal.loading) return;
   cal.loading = true; cal.error = '';
   try {
@@ -35,7 +39,7 @@ function calDayList(day) {
   const title = new Date(day).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   return `<section class="card cal-day"><h2 class="section-label">${esc(title)}</h2>${list.length ? `<div class="list">${list.map((e) => `<${e.canWrite ? `button type="button" data-cal-edit="${esc(e.calendar)}:${esc(e.uid)}:${e.start}"` : 'div'} class="row cal-ev">
       <span class="cal-when mono">${esc(calWhen(e))}</span>
-      <span class="cal-what"><span class="t">${tag(e.space)}${esc(e.title)}</span>${e.location ? `<span class="s">${esc(e.location.split('\n')[0])}</span>` : ''}</span>
+      <span class="cal-what"><span class="t">${tag(e.space)}<span title="${esc(e.title)}">${esc(e.title)}</span></span>${e.location ? `<span class="s" title="${esc(e.location.split('\n')[0])}">${esc(e.location.split('\n')[0])}</span>` : ''}</span>
       <span class="cal-from muted">${esc(e.calendarName)}</span></${e.canWrite ? 'button' : 'div'}>`).join('')}</div>` : '<p class="empty">Nothing on this day.</p>'}</section>`;
 }
 
@@ -44,7 +48,7 @@ function renderCalendar() {
   if (!cal.month) { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); cal.month = d.getTime(); cal.day = today; }
   const label = new Date(cal.month).toLocaleDateString([], { month: 'long', year: 'numeric' });
   const head = `<div class="page-head"><h1>Calendar</h1><span class="grow"></span>
-    ${(S.calendars || []).some((c) => c.canWrite) ? '<button class="btn btn--primary" type="button" data-cal-new>Add event</button>' : ''}
+    <button class="btn btn--primary" type="button" data-cal-new>Add event</button>
     <div class="cal-nav"><button class="btn btn--sm" type="button" data-cal="prev" aria-label="Previous month">‹</button>
       <button class="btn btn--sm" type="button" data-cal="today">Today</button>
       <button class="btn btn--sm" type="button" data-cal="next" aria-label="Next month">›</button></div>${projectPicker()}</div>`;
@@ -83,3 +87,7 @@ document.addEventListener('click', (e) => {
   else if (b.dataset.cal === 'today') { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); cal.month = d.getTime(); cal.day = calDay(Date.now()); renderCalendar(); }
   else if (b.dataset.cal === 'connect') openSettings('connections');
 });
+const calFresh = () => { if (page === 'calendar' && !document.hidden) { cal.key = ''; calLoad(); } };
+window.addEventListener('focus', calFresh);
+document.addEventListener('visibilitychange', calFresh);
+setInterval(calFresh, 60e3);

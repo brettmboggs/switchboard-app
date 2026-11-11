@@ -7,7 +7,7 @@ function find(type, key) {
   if (type === 'run') return S.runs.find((r) => String(r.id) === key);
   if (type === 'ci') return ciRun(key);
   if (type === 'review') return S.reviews.find((r) => String(r.id) === key);
-  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent].find((t) => t.key === key) || convoThread(key) || searchPool.find((t) => t.key === key) || draftThread(key) || tcThread(key);
+  if (type === 'thread') return [...S.threads, ...S.email, ...S.recent, ...(S.teamsChats || [])].find((t) => t.key === key) || convoThread(key) || searchPool.find((t) => t.key === key) || draftThread(key) || tcThread(key);
   if (type === 'awaiting') return S.awaiting.find((t) => t.key === key);
   if (type === 'invoice') return S.money.invoices.find((i) => String(i.id) === key);
   if (type === 'item') return [...S.items, ...S.money.bills, ...S.money.paid].find((i) => String(i.id) === key);
@@ -46,7 +46,7 @@ function guessFrom(t) {
 const panelShows = (on) => { document.body.dataset.panel = on ? 'on' : 'off'; };
 function renderDetail() {
   const el = $('detail');
-  panelShows(page === 'sessions' || selected?.type === 'newcost' || (!CV && !!(selected && find(selected.type, selected.key))));
+  panelShows(page === 'sessions' || selected?.type === 'newcost' || (page !== 'inbox' && !CV && !!(selected && find(selected.type, selected.key))));
   if (page === 'sessions') {
     // Keep the box being typed in (the message bar, or a session's new name) through redraws.
     const fid = ['q-text', 'rename-input'].includes(document.activeElement?.id) ? document.activeElement.id : null;
@@ -55,8 +55,8 @@ function renderDetail() {
     if (fid && $(fid)) { $(fid).focus(); $(fid).selectionStart = $(fid).selectionEnd = pos; }
     return;
   }
-  // An open conversation has the whole width (convo.js); the panel steps aside.
-  if (CV) { if (el.innerHTML) el.innerHTML = ''; return; }
+  // Inbox has its own right column (inbox.js, convo.js); the panel steps aside.
+  if (CV || page === 'inbox') { if (el.innerHTML) el.innerHTML = ''; return; }
   // A new recurring cost (costs.js): its form, left alone while it is open.
   if (selected?.type === 'newcost') { if (!costFormOpen('new')) el.innerHTML = `<div class="kicker">New recurring cost</div>` + costFormHtml(costForm?.prefill, 'new'); return; }
   // A draft being edited (drafts.js): left as it is while the board refreshes.
@@ -104,7 +104,7 @@ function renderDetail() {
     html = kick('Waiting on them') + `<h2>${esc(x.subject)}</h2>
       <dl class="facts"><dt>To</dt><dd>${esc(x.who)}</dd><dt>Sent</dt><dd>${when(x.date)} · ${since(x.date)}</dd></dl>
       ${extra.key === x.key ? extra.html : ''}
-      <div class="composer"><label for="r-from" class="sr">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>From ${esc(a.address)}</option>`).join('')}</select>
+      <div class="composer"><label for="r-from" class="sr">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>From ${esc(a.address)}</option>`).join('')}</select>${x.kind === 'mail' ? mtToggle('r-track') : ''}
       <label for="r-text" class="sr">Follow up</label><textarea id="r-text" placeholder="Follow up…">${esc(draft[x.key] || '')}</textarea>
       <div class="row"><button class="mic" type="button" data-mic="r-text" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn btn--primary" type="button" data-act="send">Send follow-up</button><span class="note-line">Goes in the same thread. Ctrl+Enter sends.</span></div></div>
       <div class="actions"><button class="btn" data-act="stop-waiting" type="button">Stop waiting</button>${x.link ? `<a class="btn" href="${safeHref(x.link)}" target="_blank" rel="noopener">Open in Gmail</a>` : ''}</div>`;
@@ -173,6 +173,7 @@ function render() {
   renderDetail();
   renderWindows();
   alignPanel();
+  bvPaint();   // the reading-aloud player: under the book, or in the corner elsewhere (bookvoice.js)
 }
 
 // The panel on the right starts level with the first block under the page's

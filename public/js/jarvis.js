@@ -69,7 +69,13 @@ const jvSay = { buf: '', pending: 0, done: true };
 const jvSpoken = (t) => String(t).replace(/<think>[\s\S]*?<\/think>/g, '').replace(/[*_`#>]+/g, '').replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
 function jvUtter(text) {
   text = jvSpoken(text);
-  if (!text || jv.muted || !window.speechSynthesis) return;
+  if (!text || jv.muted) return;
+  if (jvNaturalOn()) {   // the natural voice, when chosen in Settings (bookvoice.js)
+    jvSay.pending++; jvState('speaking');
+    jvNatural(text, () => { jvSay.pending = Math.max(0, jvSay.pending - 1); if (!jvSay.pending && jvSay.done) jvState('idle'); });
+    return;
+  }
+  if (!window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(text);
   if (jvVoice) u.voice = jvVoice;
   u.rate = 1.05; u.pitch = 0.95;
@@ -100,6 +106,7 @@ function jvStop() {
   if (jv.ac) { jv.ac.abort(); jv.ac = null; }
   jvSay.buf = ''; jvSay.pending = 0; jvSay.done = true;
   speechSynthesis?.cancel();
+  jvNaturalStop();
 }
 // Ctrl+Space down: have the model loaded by the time you let go (once a minute at most).
 function jvWarm() {
@@ -129,6 +136,10 @@ function jvAct(a) {
   if (a.go === 'monitor') { openMonitor(); return; }
   if (a.go === 'network') { stOpen(); return; }
   if (a.window === 'speedtest') { stOpen({ announce: !!a.announce }); return; }
+  if (a.book) { bkOpenBook(a.book, { read: !!a.read }); return; }
+  if (a.readStop) { bvStop(); return; }
+  if (a.bookmark) { if (bkOn()) bkToggleBookmark(); else toast('Open a book first: Inbox, Reading.'); return; }
+  if (a.reading) { inboxTab = 'reading'; store.set('inboxTab', inboxTab); BK.what = 'books'; }
   if (a.go) { location.hash = '#' + a.go; return; }
   if (a.open) { currentTerm = a.open; store.set('term', currentTerm); if (location.hash !== '#sessions') location.hash = '#sessions'; else render(); }
 }

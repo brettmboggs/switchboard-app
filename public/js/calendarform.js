@@ -68,7 +68,11 @@ function calRange() {
 document.addEventListener('change', (e) => { if (e.target.id === 'ev-allday') calAllDay(); });
 
 document.addEventListener('click', async (e) => {
-  if (e.target.closest('[data-cal-new]')) return calOpen(null, cal.day || calDay(Date.now()));
+  if (e.target.closest('[data-cal-new]')) {
+    // No calendar here takes new events yet (a private link is read only): say how, and go there.
+    if (!(S.calendars || []).some((c) => c.canWrite)) { toast('Events go on a Google calendar. Sign in with Google in Connections and add your calendars, then Add event works here, in Ctrl K and with Jarvis.', { ms: 9000 }); openSettings('connections'); return; }
+    return calOpen(null, cal.day || calDay(Date.now()));
+  }
   const edit = e.target.closest('[data-cal-edit]');
   if (edit) {
     const [calendar, uid, start] = edit.dataset.calEdit.split(':');

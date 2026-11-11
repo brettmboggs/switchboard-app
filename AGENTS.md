@@ -89,6 +89,11 @@ changes as unverified until someone runs them.
   fits one screen at a normal window size; columns, charts that fill the
   leftover height and lists cut to what fits come first. Long lists may scroll
   in their own box; stacking and scrolling below about 1100px is fine.
+- Labels never wrap (Brett, Nov 10): a time, date, amount, name, button, chip,
+  tab or menu item stays on one line; make room in the layout first, cut with
+  "…" and a title only as a last resort; only sentences wrap. Run
+  scripts/wrapcheck.js in the browser on what you changed (DESIGN.md, "Text
+  never wraps a label") before calling UI work done.
 - Every new feature or connection gets an entry in public/setup.js (the setup
   registry). The welcome and What's new are built from it, so nothing
   ships without people being shown it; test/setup.test.js enforces it for
@@ -101,6 +106,10 @@ changes as unverified until someone runs them.
   does, why, what it connects to and how, and its privacy story. It is written
   for people and for their AI assistants to explain Switchboard from, so keep
   its "For AI assistants" facts true (MCP tool names, install steps).
+- No local AI model sits on the graphics card unused (Brett, Nov 10 2026):
+  anything Switchboard loads (Jarvis's model in LM Studio, Ollama) unloads
+  itself after a few idle minutes and loads again on command; a model process
+  that lingers after LM Studio has let go of it is stopped (lib/jarvis.js).
 - No AI attribution in commits.
 - Agents: this file is the one set of rules (AGENTS.md, the shared standard).
   CLAUDE.md only imports it. Where it says Claude, read "any agent" unless it

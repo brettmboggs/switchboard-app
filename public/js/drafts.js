@@ -2,8 +2,8 @@
 // through your Gmail. A draft that answers a conversation shows at the bottom
 // of it in Inbox; Edit opens To, Cc, Subject and the text; Send sends it in
 // that thread, Save draft puts the new version back in your Drafts (so Gmail
-// shows the same), Discard moves it to Trash. Drafts for a new email, with no
-// conversation yet, are listed at the top of Inbox and open in the side panel.
+// shows the same), Discard moves it to Trash. Drafts are listed in Inbox, Drafts; one
+// for a new email, with no conversation yet, opens in Inbox's right column.
 // One of the page's scripts in public/js, loaded in order by index.html.
 // Draft text came from outside: esc() on all of it.
 
@@ -45,20 +45,9 @@ function paintDrafts() {
 function draftDetail(x, kick) {
   return kick('Email draft') + `<div class="cv-drafts">${draftHtml(x)}</div>`;
 }
-const draftPanelBusy = () => !!document.querySelector('#detail .cv-draft.editing');
+const draftPanelBusy = () => !!document.querySelector('#detail .cv-draft.editing, #convo .cv-draft.editing');
 
-// The list at the top of Inbox: the newest three, Show all for the rest. One in a conversation opens it.
-let draftsAll = false;
-function draftsSection() {
-  const list = S.drafts || [];
-  if (!list.length) return '';
-  const shown = draftsAll ? list : list.slice(0, 3);
-  const rows = shown.map((d) => row({ type: d.thread ? 'thread' : 'draft', key: d.thread || d.key, space: 'personal', title: d.to || 'New email, no one yet', via: 'Draft',
-    sub: [d.subject, (d.text || '').split('\n')[0]].filter(Boolean).join(' · '), right: `<span class="mono muted">${ago(d.date)}</span>` })).join('');
-  const more = list.length > 3 ? `<button class="btn btn--ghost" type="button" data-drafts-all>${draftsAll ? 'Show fewer' : `Show all ${list.length}`}</button>` : '';
-  return `<section class="card"><h2>Drafts <span class="count">${list.length}</span></h2><div class="list">${rows}</div>${more}</section>`;
-}
-document.addEventListener('click', (e) => { if (e.target.closest('[data-drafts-all]')) { draftsAll = !draftsAll; render(); } });
+// The list of drafts is Inbox, Drafts (inbox.js); one in a conversation opens it.
 
 function draftFields(card) {
   const v = (n) => card.querySelector(`[name="${n}"]`)?.value;

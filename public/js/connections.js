@@ -19,7 +19,7 @@ const CONN_NEXT = [
 ];
 
 function renderConnections() {
-  renderLocalAI(); renderFeedsCard(); renderTasksCard(); renderGranolaCard();
+  renderLocalAI(); renderFeedsCard(); renderTasksCard(); renderGranolaCard(); renderMailtrackCard(); renderVoiceCard();
   // Bank and card alerts come from email, so they are on as soon as an email account is.
   const line = $('money-mail-line');
   if (line) line.textContent = S.status.gmail.length ? `On: read from ${S.status.gmail.length === 1 ? 'your email' : S.status.gmail.length + ' email accounts'}. Turn on alert emails in your bank's app or website and the charges show on Money.` : 'Read from your email once one is connected above: charges, receipts, payments in.';

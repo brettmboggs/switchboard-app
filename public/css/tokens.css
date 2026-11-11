@@ -40,6 +40,7 @@
   /* ---- the page frame */
   --top-h: 20px;   /* the space above a page (the top bar moved into the rail) */
   --rail-w: 244px;
+  --sessions-side-w: 320px;   /* the session list beside a session: wide enough for a name on one line */
   --zoom: 1;
   /* ---- a dialog never grows past the window: its frame (title, sections,
      Done) stays put and only its contents scroll. Divided by the text size
@@ -85,6 +86,10 @@
   --hud-field: rgba(4, 10, 20, .7);       /* inside a text box */
   --hud-control: rgba(10, 20, 36, .6);    /* inside a button or chip */
   --hud-grid-size: 40px; --hud-corner: 14px; --hud-frame-corner: 28px;
+  --hl-yellow: #FFD84D; --hl-green: #4ADE80; --hl-blue: #60A5FA; --hl-pink: #F472B6;   /* book highlights (components/books.css): never the orange of "needs you" */
+  --book-paper: #F4EFE3; --book-ink: #5B5546; --font-book: Georgia, "Iowan Old Style", "Times New Roman", serif; --fs-book: 19px;   /* a book's page and its text view */
+  --bk-side-w: 20rem; --bk-thumb-w: 2.25rem; --bk-turn-w: 40px;
+  --ib-folders-w: 12.5rem; --ib-list-w: 27rem; --ib-ico: 14px;   /* Inbox's folder and list columns, a row's source mark (pages/inbox.css) */
   --ring-h: 56px; --ring-orb: 30px; --ring-pop-w: 260px; --ring-search-w: 200px;   /* the ring across the top (ring.css) */
   --deck-core: clamp(200px, calc(100vh / var(--zoom, 1) - 820px), min(420px, 38vw));   /* sized so the Deck fits one screen: everything around the core takes about 820px at any text size */ --deck-side: minmax(240px, 340px);           /* the Deck (pages/deck.css) */
   --bad-glow: rgba(255, 92, 108, .3);
@@ -105,6 +110,11 @@
   --fg-on-color: #FCFCFA;
   --knob: #E8F2FF;
   --mail-paper: #FFFFFF; --mail-ink: #15171C;   /* an email preview is always white paper */
+  /* A dashboard's report (components/report.css) is printed: dark ink on white paper. */
+  --report-paper: #FFFFFF; --report-ink: #14181F; --report-ink-muted: #545E6B; --report-rule: #D9DEE5; --report-rule-faint: #EDF0F4;
+  --report-accent: #0A6A87; --report-accent-soft: rgba(10, 106, 135, .12);
+  --report-good: #13734A; --report-bad: #B42318; --report-warn: #8A5A00;
+  --report-good-tint: #E6F4EC; --report-bad-tint: #FCEBEA; --report-warn-tint: #FBF1DD;
   --overlay-ink: rgba(2, 6, 14, .8);
   --border-inset: rgba(79, 216, 255, .12);
   --scrim: rgba(2, 6, 14, .72);

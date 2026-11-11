@@ -162,7 +162,7 @@ function upReadout(plan, w, d) {
   const pace = w.pct - w.even;
   const row = (k, v, sub = '') => `<div class="up-row"><span class="up-k2">${k}</span><span class="up-v">${v}</span>${sub ? `<span class="up-sub">${sub}</span>` : ''}</div>`;
   const short = w.len <= 86400e3;
-  const room = w.perDay == null ? '—' : short ? `${(w.perDay / 24).toFixed(1)}%/h` : `${Math.round(w.perDay)}%/day`;
+  const room = useRoom(w, true) || '—';
   const vsLast = h.lastAtThisPoint != null && !short && w.id === d?.main ? `${h.lastAtThisPoint}%` : null;
   return `<section class="card up-read u-win--${upTone(w)}" aria-label="Right now">
     <div class="u-read"><span class="u-pct up-pct">${Math.round(w.pct)}<small>%</small></span><span class="u-pace">${w.reset ? 'fresh window' : Math.abs(pace) < 3 ? 'even pace' : pace > 0 ? `${Math.round(pace)}% ahead of even` : `${Math.round(-pace)}% under even`}</span></div>

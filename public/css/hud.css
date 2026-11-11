@@ -150,10 +150,9 @@ body[data-page="sessions"] .hud-bar { display: none; }
 /* The strip always spans the whole main column, whatever grid a page gives it
    (an open conversation in Inbox makes the column two wide). */
 .hud-bar { grid-column: 1 / -1; }
-body[data-convo] .main { grid-template-rows: auto minmax(0, 1fr); }
 
 /* Fills that were ink on paper read as bright slabs on the HUD: lit glass instead. */
-body[data-convo] #page .item.sel { background: var(--hud-lit); color: var(--fg); box-shadow: inset 2px 0 0 var(--hud); }
+body[data-page="inbox"] #page .item.sel { background: var(--hud-lit); color: var(--fg); box-shadow: inset 2px 0 0 var(--hud); }
 .cv-chat .cv-msg.me .cv-text { background: linear-gradient(135deg, var(--bg-selected), var(--hud-glass-top)); color: var(--fg); border: 1px solid var(--border); }
 .msg.me, .cv-mail .cv-msg.me { border-left-color: var(--hud); }
 .cv-pill { background: var(--hud); color: var(--hud-fg); border-color: var(--hud); }

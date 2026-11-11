@@ -1,0 +1,38 @@
+/* Mail tracking (public/js/mailtrack.js). Inbox, Tracking: the sent list is
+   the Inbox's middle column (its rows are Inbox rows, pages/inbox.css), one
+   email's timeline (or "Tracked by others") its right column. Marks on Inbox rows are small
+   pills: info blue for your email opened or clicked, muted for not opened, warn
+   for a sender who tracks you. Never orange: none of it needs you. Labels stay
+   on one line (base.css). */
+.mt-track { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--fg-muted); white-space: nowrap; cursor: pointer; }
+.mt-track input { margin: 0; }
+.toggle-inline { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); white-space: nowrap; }
+
+.mt-mark { display: inline-block; padding: 0 var(--sp-2); margin-right: var(--sp-2); border-radius: var(--r-pill); font-size: var(--fs-xs); line-height: 1.6; white-space: nowrap; border: 1px solid var(--border-soft); color: var(--fg-muted); }
+.mt-opened, .mt-clicked { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); background: var(--info-tint); }
+.mt-clicked { font-weight: 600; }
+.mt-them { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-tint); }
+
+.mt-side h2 { margin: 0; font-size: var(--fs-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mt-d-head { display: flex; align-items: center; gap: var(--sp-3); }
+.mt-d-head h2 { flex: 1; }
+.mt-d-sub { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); line-height: var(--lh); }
+.mt-d-nums { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); font-size: var(--fs-sm); color: var(--fg-muted); }
+.mt-d-nums span { white-space: nowrap; }
+.mt-d-nums b { color: var(--fg); font-family: var(--font-mono); font-size: var(--fs-lg); margin-right: var(--sp-1); }
+.mt-evs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.mt-ev { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 0 var(--sp-3); padding: var(--sp-2) var(--sp-3); border-left: 3px solid var(--border); background: var(--bg-surface); border-radius: var(--r-sm); }
+.mt-ev.mt-confirmed_human { border-left-color: var(--ok); }
+.mt-ev.mt-likely_human { border-left-color: var(--info); }
+.mt-ev-when { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.mt-ev-what { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-ev-label { font-size: var(--fs-xs); white-space: nowrap; color: var(--fg-muted); }
+.mt-confirmed_human .mt-ev-label { color: var(--ok); }
+.mt-likely_human .mt-ev-label { color: var(--info); }
+.mt-ev-where { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-ev-why { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--fg-muted); line-height: var(--lh); }
+.mt-vendors { flex-wrap: wrap; }
+.mt-people { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.mt-people li { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: var(--sp-3); font-size: var(--fs-sm); }
+.mt-who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-how { color: var(--warn); white-space: nowrap; }

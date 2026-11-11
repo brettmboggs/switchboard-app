@@ -7,20 +7,61 @@
 .composer .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .composer .row .mic { width: 34px; height: 34px; }
 
-/* The conversation view (convo.js): the list narrows to a column, the
-   conversation takes the room, the reply box stays at the bottom. */
-body[data-convo] { height: 100vh; overflow: hidden; }
-body[data-convo] .frame { height: 100vh; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: stretch; padding-bottom: 16px; }
-body[data-convo] .panel { display: none; }
-body[data-convo] .rail { overflow: auto; }
-body[data-convo] .main { grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-content: stretch; min-height: 0; }
-body[data-convo] #page { overflow-y: auto; min-height: 0; align-content: start; scrollbar-width: thin; padding: 0 2px 2px 0; }
-body[data-convo] .inbox-head { gap: 8px; }
-body[data-convo] .inbox-head h1 { font-size: var(--fs-2xl); }
-body[data-convo] #page .card { padding: 8px 10px; }
-body[data-convo] #page .item { padding: 9px 6px; border-radius: var(--r-md); border-top-color: transparent; }
-body[data-convo] #page .item.sel { background: var(--fg); color: var(--bg-surface); }
-body[data-convo] #page .item.sel .s, body[data-convo] #page .item.sel .muted, body[data-convo] #page .item.sel .late, body[data-convo] #page .item.sel .via { color: color-mix(in srgb, var(--bg-surface) 72%, transparent); border-color: color-mix(in srgb, var(--bg-surface) 35%, transparent); }
+/* Inbox is a mail app (inbox.js): folders, the folder's list, and on the
+   right the open conversation (convo.js) or the pane for the folder. The three
+   columns fill the window; the page never scrolls, the lists and the
+   conversation do, each in its own box. Reading has no right pane
+   (data-ib-wide). Below 1100px they stack and the page scrolls. */
+body[data-page="inbox"] { height: 100vh; overflow: hidden; }
+body[data-page="inbox"] .frame { height: 100vh; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: stretch; padding-bottom: var(--sp-4); }
+body[data-page="inbox"] .panel { display: none; }
+body[data-page="inbox"] .main { grid-template-columns: max-content minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-content: stretch; min-height: 0; }
+body[data-page="inbox"][data-ib-wide] .main { grid-template-columns: minmax(0, 1fr); }
+body[data-page="inbox"] #page { display: block; min-height: 0; overflow: hidden; }
+.ib { display: grid; grid-template-columns: var(--ib-folders-w) var(--ib-list-w); gap: var(--sp-4); height: 100%; min-height: 0; }
+body[data-ib-wide] .ib { grid-template-columns: var(--ib-folders-w) minmax(0, 1fr); }
+
+.ib-nav { display: flex; flex-direction: column; gap: var(--sp-2); min-height: 0; min-width: 0; }
+.ib-nav h1 { margin: 0 0 var(--sp-1); line-height: 1; white-space: nowrap; }
+.ib-new { width: 100%; justify-content: center; margin-bottom: var(--sp-2); }
+.ib-folders { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; scrollbar-width: thin; }
+.ib-folder { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); border: 0; border-radius: var(--r-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--fs-base); text-align: left; cursor: pointer; }
+.ib-folder:hover { background: var(--bg-hover); color: var(--fg); }
+.ib-folder[aria-current="true"] { background: var(--hud-tint); color: var(--hud-text); font-weight: 600; box-shadow: inset 2px 0 0 var(--hud); }
+.ib-folder .nm { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ib-folder .n { flex: none; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); font-weight: 400; }
+.ib-folder .n.hot { color: var(--accent-text); }
+.ib-hash { color: var(--fg-muted); margin-right: var(--sp-1); }
+.ib-label { margin: var(--sp-4) var(--sp-3) var(--sp-1); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--hud-text); opacity: .85; white-space: nowrap; }
+.ib-foot { flex: none; padding-top: var(--sp-2); border-top: 1px solid var(--border-faint); }
+.ib-foot .proj-filter, .ib-foot select { width: 100%; }
+
+.ib-list { display: flex; flex-direction: column; min-height: 0; min-width: 0; margin: 0; padding: var(--sp-3) var(--sp-2) var(--sp-2); }
+.ib-head { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: var(--sp-7); padding: 0 var(--sp-2) var(--sp-2); border-bottom: 1px solid var(--border-faint); }
+.ib-head h2 { margin: 0; font-size: var(--fs-lg); white-space: nowrap; }
+.ib-head .count { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.ib-head select { width: auto; min-width: 0; }
+.ib-rows { flex: 1; min-height: 0; overflow-y: auto; align-content: start; scrollbar-width: thin; padding-top: var(--sp-1); }
+.ib-rows > .empty, .ib-list > .empty-cta { padding: var(--sp-4) var(--sp-2); }
+
+/* A row: two lines that never wrap. Project square, who, when; then where it came from, what it says, a mark. */
+.ib-row { grid-template-columns: var(--sp-4) minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: var(--sp-2); row-gap: 2px; align-items: center; padding: var(--sp-2); border-radius: var(--r-sm); }
+.ib-row .tag { margin: 0; justify-self: center; }
+.ib-row .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.ib-row .s { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-sm); -webkit-line-clamp: none; }
+.ib-when { justify-self: end; font-size: var(--fs-xs); white-space: nowrap; }
+.ib-src { justify-self: center; display: inline-flex; color: var(--fg-muted); }
+.ib-ico { width: var(--ib-ico); height: var(--ib-ico); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ib-mark { justify-self: end; display: inline-flex; gap: var(--sp-1); }
+.ib-mark .mt-mark { margin: 0; }
+.ib-feed { color: var(--fg); }
+
+/* The right column with nothing open. */
+.ib-pane { display: flex; flex-direction: column; }
+.ib-pane-empty { margin: auto; padding: var(--sp-6); text-align: center; }
+.ib-pane-big { margin: 0 0 var(--sp-2); font-family: var(--font-display); font-size: var(--fs-xl); color: var(--fg); white-space: nowrap; }
+.ib-pane-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-5); scrollbar-width: thin; }
+.ib-pane-body.mt-side { display: flex; flex-direction: column; gap: var(--sp-3); }
 
 .convo { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 0; overflow: hidden; }
 .cv-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-faint); min-width: 0; }
@@ -98,12 +139,25 @@ body[data-convo] #page .item.sel .s, body[data-convo] #page .item.sel .muted, bo
 .cv-hint { font-size: var(--fs-sm); color: var(--fg-muted); padding-left: 4px; }
 .cv-hint kbd { font-family: var(--font-mono); font-size: var(--fs-xs); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--r-sm); padding: 0 4px; }
 
-@media (max-width: 1280px) { body[data-convo] .frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); } }
-@media (max-width: 1100px) { body[data-convo] .main { grid-template-columns: minmax(0, 1fr); } body[data-convo] #page { display: none; } }
+@media (max-width: 1100px) {
+  body[data-page="inbox"] { height: auto; overflow: auto; }
+  body[data-page="inbox"] .frame { height: auto; }
+  body[data-page="inbox"] .main { grid-template-columns: minmax(0, 1fr); }
+  body[data-page="inbox"] #page { overflow: visible; }
+  .ib, body[data-ib-wide] .ib { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .ib-nav { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .ib-nav h1 { margin: 0 var(--sp-2) 0 0; }
+  .ib-new { width: auto; margin: 0; }
+  .ib-folders { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; overflow: visible; }
+  .ib-folder { width: auto; }
+  .ib-label { margin: 0 var(--sp-2); align-self: center; }
+  .ib-foot { border: 0; padding: 0; }
+  .ib-rows { max-height: 70vh; }
+  body[data-page="inbox"]:not([data-convo]) #convo:not(:has(.bk-reader)) { display: none; }
+  body[data-convo] #page { display: none; }
+  body[data-convo] .convo { height: calc(100vh - var(--ring-h) - var(--sp-8) * 2); }
+}
 @media (max-width: 860px) {
-  body[data-convo] { height: auto; overflow: auto; }
-  body[data-convo] .frame { height: auto; grid-template-columns: minmax(0, 1fr); }
-  body[data-convo] .convo { height: calc(100vh - 140px); }
   .cv-side { display: none; }
   .cv-acts .btn:not([data-act]) { display: none; }
 }
@@ -163,9 +217,3 @@ a.feed-item { color: inherit; text-decoration: none; }
 .cv-file:hover { border-color: var(--fg-muted); }
 .cv-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .cv-file-size { flex: none; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
-/* The list beside an open conversation is narrow: its header wraps onto three
-   lines. As a grid, Chrome sized that row before the wrap (with the text-size
-   zoom), so the picker overlapped the filters; a column of blocks sizes each
-   one as it is drawn. */
-body[data-convo] #page { display: flex; flex-direction: column; gap: var(--sp-4); }
-body[data-convo] #page > * { flex: none; }

@@ -19,7 +19,7 @@ function memberTile(m, repos) {
   // A page whose own project this is moves to Personal; a person on the About card comes off it.
   const what = m.from === 'page' ? 'Move to Personal' : m.from === 'card' ? 'Take off this card (it stays in Notes)' : m.from === 'about' ? 'Take off the About card' : 'Take out of this project';
   const out = m.own && !m.from ? '' : `<button class="mb-out" type="button" data-mb-out="${esc(m.key)}" ${m.rule != null && !m.own ? `data-mb-rule="${esc(m.rule)}"` : ''} aria-label="${what}: ${esc(m.label)}" title="${what}">×</button>`;
-  return `<div class="mb-tile"><span class="mb-ico">${esc(memberIcon(m))}</span><span class="mb-text"><b>${esc(m.label)}</b>${m.line ? `<small>${esc(m.line)}</small>` : ''}${tie}</span>${out}</div>`;
+  return `<div class="mb-tile"><span class="mb-ico">${esc(memberIcon(m))}</span><span class="mb-text" title="${esc(m.label)}${m.line ? ' · ' + esc(m.line) : ''}"><b>${esc(m.label)}</b>${m.line ? `<small>${esc(m.line)}</small>` : ''}${tie}</span>${out}</div>`;
 }
 function membersCard(id) {
   loadMembers(id);

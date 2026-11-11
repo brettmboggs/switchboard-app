@@ -46,7 +46,18 @@ function renderProject() {
     ${files.length ? `<div class="list">${files.map((f) => `<div class="item file-row"><a class="t" href="/api/projects/${encodeURIComponent(id)}/files/${encodeURIComponent(f.name)}" data-proj-file>${esc(f.name)}</a><span class="mono muted">${fmtSize(f.size)} · ${ago(f.at)}</span><button class="btn btn--quiet" type="button" data-proj-rmfile="${esc(f.name)}" aria-label="Remove ${esc(f.name)}">Remove</button></div>`).join('')}</div>` : ''}
     <p class="drop-hint muted">Drop files here: briefs, contracts, logos, photos. Any kind of file, up to 1 GB each. They stay on this computer, in Switchboard's data folder.</p></section>`;
 
-  const head = `<span class="dot proj-dot" style="background:${safeColor(sp.color)}"></span><h1>${esc(sp.name)}</h1><span class="muted">${esc(sp.group || '')}</span><span class="grow"></span>${shareHead(id)}<button class="btn btn--ghost" type="button" data-proj-settings>Project settings</button>`;
+  const tabs = `<nav class="seg proj-tabs" aria-label="Project views"><a href="#project/${esc(id)}" aria-current="${projView !== 'dashboard' ? 'page' : 'false'}">Overview</a><a href="#project/${esc(id)}/dashboard" aria-current="${projView === 'dashboard' ? 'page' : 'false'}">Dashboard</a></nav>`;
+  if (projView === 'dashboard') {
+    // The dashboard (dashboard.js) takes the page under the same head; redrawn whole, except a form being typed in.
+    const dhead = `<span class="dot proj-dot" style="background:${safeColor(sp.color)}"></span><h1>${esc(sp.name)}</h1>${tabs}<span class="grow"></span>${dashboardActions(id)}`;
+    const html = `<div class="page-head proj-head">${dhead}</div>${dashboardHtml(id)}`;
+    const typing = document.activeElement?.closest?.('.dash form') && document.querySelector(`#page .dash[data-dash="${CSS.escape(id)}"]`);
+    if (typing) { const h = document.querySelector('#page .proj-head'); if (h && h.dataset.html !== dhead) { h.innerHTML = dhead; h.dataset.html = dhead; } return; }
+    if ($('page').dataset.html !== html) { $('page').innerHTML = html; $('page').dataset.html = html; }
+    return;
+  }
+  delete $('page').dataset.html;
+  const head = `<span class="dot proj-dot" style="background:${safeColor(sp.color)}"></span><h1>${esc(sp.name)}</h1>${tabs}<span class="muted">${esc(sp.group || '')}</span><span class="grow"></span>${shareHead(id)}<button class="btn btn--ghost" type="button" data-proj-settings>Project settings</button>`;
   // The board redraws whenever anything changes (mail, a session, the file
   // list). Once this project's page is up, only the parts that changed are
   // redrawn, and the About form is never touched while it is open, so what is

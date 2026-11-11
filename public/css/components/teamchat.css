@@ -1,5 +1,4 @@
 /* Team chat in the Inbox's conversation view (public/js/teamchat.js, docs/DESIGN.md "Team chat").
-     .tc-start      the chips above the Inbox list that open a project channel (# Acme) or a chat with one person
      .tc-quote      the message a reply answers, above its text; click to jump to it
      .tc-at         an @name in a message
      .tc-acts       Reply, Pin, Edit, Delete: shown on hover or focus, like the quick reactions
@@ -12,8 +11,6 @@
      .tc-mention    the people offered after typing @
      .tc-pins       Details: the pinned messages
    None of it is orange: a chat message is not "needs you" by itself. */
-.tc-start { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
-.tc-start-label { font-size: var(--fs-sm); color: var(--fg-muted); margin-right: var(--sp-1); }
 
 .tc-quote { display: block; max-width: 100%; margin: var(--sp-1) 0; padding: var(--sp-1) var(--sp-2); border: 0; border-left: calc(var(--sp-1) / 2) solid var(--border); border-radius: var(--r-sm); background: var(--bg-hover); color: var(--fg-muted); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tc-quote b { color: var(--fg); font-weight: 600; }

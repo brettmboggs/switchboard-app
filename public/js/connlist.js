@@ -13,6 +13,7 @@ const CONN_CATS = [['all', 'All'], ['messages', 'Messages'], ['calendars', 'Cale
 const CONN_CATALOG = [
   { key: 'email', cat: 'messages', name: 'Email', what: 'Gmail, iCloud, Yahoo, Fastmail or work mail: people, not ads, with reply and archive.', on: (S) => S.status.gmail.length > 0 },
   { key: 'microsoft', cat: 'messages', name: 'Teams and Outlook', what: 'Work chats and mail; reply without opening Teams.', on: (S) => !!S.status.microsoft?.connected },
+  { key: 'mailtrack', cat: 'messages', name: 'Mail tracking', what: 'Your own tracker: who opens and clicks what you send, and which senders track you.', on: (S) => !!S.mailtrack?.connected },
   { key: 'calendars', cat: 'calendars', name: 'Calendars', what: 'Google, Outlook, iCloud, school and team calendars on Now and Calendar.', on: (S) => (S.calendars || []).length > 0 },
   { key: 'granola', cat: 'calendars', name: 'Granola', what: 'Your meeting notes in Notes, in the right project, for you and your sessions.', on: (S) => !!S.granola?.connected },
   { key: 'bank-alerts', cat: 'money', name: 'Bank and card alerts', what: 'Charges, receipts and payments read from alert emails. No bank sign-in.', on: (S) => S.status.gmail.length > 0 },
@@ -26,10 +27,11 @@ const CONN_CATALOG = [
   { key: 'asana', cat: 'automation', name: 'Asana', what: 'Tasks assigned to you, due today, on Now; Done completes them.', on: (S) => !!S.taskStatus?.asana?.connected },
   { key: 'notion', cat: 'automation', name: 'Notion', what: 'Your Notion task database\'s due pages on Now; Done ticks them off.', on: (S) => !!S.taskStatus?.notion?.connected },
   { key: 'feeds', cat: 'automation', name: 'News and blogs', what: 'Sites and blogs you follow, quietly on Inbox, Reading.', on: (S) => (S.feedCount || 0) > 0 || (S.reading || []).length > 0 },
+  { key: 'voice', cat: 'automation', name: 'Read-aloud voice', what: 'A natural voice on this computer that reads your books aloud, and can be Jarvis\'s voice.', on: (S) => !!S.voice?.installed },
   { key: 'webhooks', cat: 'automation', name: 'Links for other apps (webhooks)', what: 'IFTTT, Zapier, Home Assistant or a script puts things on your board.', on: (S) => (S.webhooks || 0) > 0 }
 ];
 // Setup registry ids (public/setup.js) to the card they open.
-const SETUP_CONN = { gmail: 'email', email: 'email', microsoft: 'microsoft', calendars: 'calendars', 'account-calendars': 'calendars', github: 'github', claude: 'claude', codex: 'codex', gemini: 'gemini', localai: 'localai', lmstudio: 'localai', tasks: 'tasks', granola: 'granola', trello: 'trello', asana: 'asana', notion: 'notion', feeds: 'feeds', webhooks: 'webhooks' };
+const SETUP_CONN = { gmail: 'email', email: 'email', microsoft: 'microsoft', mailtrack: 'mailtrack', readaloud: 'voice', calendars: 'calendars', 'account-calendars': 'calendars', github: 'github', claude: 'claude', codex: 'codex', gemini: 'gemini', localai: 'localai', lmstudio: 'localai', tasks: 'tasks', granola: 'granola', trello: 'trello', asana: 'asana', notion: 'notion', feeds: 'feeds', webhooks: 'webhooks' };
 let connCat = 'all';
 
 const connOn = (c) => { try { return !!c.on(S); } catch { return false; } };

@@ -16,6 +16,15 @@ a { color: var(--hud-text); }
 ::selection { background: var(--hud-ring); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 [hidden] { display: none !important; }
+
+/* Labels never wrap (Nov 10 2026; DESIGN.md, "Text never wraps a
+   label"). A time, a date, an amount, a name, a title in a row, a button, a
+   chip, a tab, a menu item stays on one line. The layout makes room for it
+   (max-content or a width in ch); where a long one can't fit, it ends in …
+   with its whole text in its title (.one-line). Only sentences wrap, and only
+   between words. scripts/wrapcheck.js lists any label that still breaks. */
+.btn, .chip, .seg button, [role="tab"], [role="menuitem"], kbd, time, .kicker, .one-line { white-space: nowrap; }
+.one-line { display: block; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 [inert] { pointer-events: none; }
 
 /* The one display setting: Space Grotesk (since the HUD), one weight, upright, numbers in columns.

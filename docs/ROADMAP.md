@@ -151,6 +151,60 @@ connection has no entry. Remaining: more empty states as pages grow.
   allowed on the Switchboard app (a setting in Microsoft Entra, Brett's), and
   Switchboard holds one Microsoft account at a time today.
 
+## Project dashboards (Brett, Nov 11) — first part done Nov 11
+
+Done Nov 11: the Dashboard tab on every project (templates, tiles, Set up),
+website checks from outside (pages, links, speed in a headless browser on
+Lighthouse's scale, Google PageSpeed with a free key), fixes worst first,
+numbers of your own, the analysis in words, the baseline and change since,
+weekly re-checks, Make PDF into the project's Files, CSV, and Jarvis entries.
+Next: Search Console, Analytics and Business Profile once a client gives
+access (sign-in per lib/checkauth.js's pattern), a live page the client can
+open without Switchboard (the web board's share links), and an AI-written
+monthly summary from Jarvis's model.
+
+Every project gets a dashboard of its own, set up for what that project is:
+pick the tiles from a catalogue, or start from a template (a client's website,
+a product, a household). It reads plainly at a glance, carries its
+own analysis in words, and exports outside Switchboard as a PDF report (the
+browser's own print to PDF, no new dependency) and the numbers as CSV.
+
+First real use: SEO and marketing for a client (meeting Fri Nov 13). What it
+has to do there:
+- **Baseline first.** A dated snapshot of every measurable thing on day one,
+  before any work, so every later number is "from here to here". This is the
+  part that can't be made up later: miss the start and the proof is gone.
+- **Track over time.** The same readings on a schedule (weekly), kept in the
+  project, drawn as charts that fill the screen (no scrolling).
+- **Analysis.** What moved since the baseline and since last time, what
+  probably caused it (work done, logged as notes in the project), what to do
+  next; written by Jarvis's model or Claude.
+- **The report.** One click: a clean PDF with the baseline, the change, the
+  charts and the analysis, ready to hand the client.
+
+What can be measured for free (No paid services rule):
+- With the client's permission (they add Brett as a user; sign-in follows
+  lib/checkauth.js's pattern): Google Search Console (clicks, impressions,
+  click rate, average position per search and per page, pages indexed),
+  Google Analytics 4 (visits from search, leads, calls, sales), Google
+  Business Profile (rating, review count, calls, direction requests; its API
+  needs Google's approval, which can take weeks), Bing Webmaster Tools
+  (incoming links).
+- Public, no permission needed: speed and Core Web Vitals (PageSpeed
+  Insights), a crawl of their site (titles, descriptions, headings, broken
+  links, structured data, images), the public star rating and review count,
+  whether AI assistants mention them, and uptime (browser checks).
+- Paid only: daily rank tracking for many keywords, full backlink indexes
+  (DataForSEO, Ahrefs, Semrush). Needs Brett's yes on the paid rule, perhaps
+  billed to the client.
+
+Rules it keeps: a client's data stays in its own project (Shared accounts
+rule); Jarvis can read any dashboard and make the report ("how is <client>
+doing", "export the report"); a tile is a new component with its own CSS file
+and a paragraph in DESIGN.md.
+
+Open questions for Brett: listed in the Nov 11 conversation; answers go here.
+
 ## Connections
 
 Ordered by how many people they help per hour of work.
@@ -171,6 +225,9 @@ Ordered by how many people they help per hour of work.
 | Home Assistant | Sensors, alerts (freezer, gate, water) | Local REST API, free | M |
 | Weather | Today, frost and storm alerts | Done Nov 3: Open-Meteo forecast, NWS warnings in the US | S |
 | System monitor | How busy this computer is (processor, memory, graphics, network, storage, temperatures, fans, apps) in Settings | Done Nov 4: live page, Linux verified; Mac and Windows unverified. Next: Windows fan and CPU temperature only through a tool the person runs (LibreHardwareMonitor) | M |
+| Calendar by voice and Ctrl K | One line adds, moves, renames or cancels an event on a Google calendar ("lunch with Sam fri noon to my calendar"); Jarvis reads the calendar back; Add event always on the Calendar page | Done Nov 10: tried end to end on Brett's Google calendar: added, moved, renamed, cancelled with a yes, all through Jarvis's quick commands; an event made on Google directly reached the board in 22 s. Google read every minute; duplicates from an old link hidden. Next: Google push notifications through the sync service for instant updates | S |
+| Mail tracking | Brett's mail tracker through Switchboard: tracked sends and replies, Inbox, Tracking with opens, clicks and verdicts, "Tracks you" on mail from senders who track you, alerts, Jarvis | Done Nov 10: tried end to end against the tracker Worker run locally (registered, pixel and link answered, a likely-person open with its reasons, a Mailtrack sender caught). Waits for Brett's token for his live tracker. Next: Outlook replies tracked; clean tracked links in received mail; decide whether the tracker's code moves into this repo | M |
+| Books and read aloud | Brett's notes, Nov 10: read archive.org books like a book, bookmarks, highlights, notes, tags, a library, read aloud. Inbox, Reading: free archive.org books on their own scans with an OCR word layer (highlight, note, read from here), Width/Page/Text/Night, shelves and tags, sentence-by-sentence read aloud with Piper (Ryan, American) or the built-in voice, LibriVox audiobooks, a corner player on other pages, Jarvis "continue reading", "read to me" | Done Nov 10: tried on Pride and Prejudice (1927 scan) in a test copy: added, highlighted, noted, read aloud across a page turn, LibriVox chapter played. Next: library, places and notes synced between computers; a PDF or EPUB from disk; keep a whole book offline in one go; highlights out to a Notes page; Jarvis speaking with Piper is a switch, off until Brett picks it | L |
 | Network test | A speed test built in (download, upload, latency, jitter, packet loss, bufferbloat, router vs internet, past results) in Settings, System and on the monitor | Done Nov 10: Linux verified on cable. Mac and Windows unverified (router and loss Linux first; Wi-Fi details need nmcli). Jarvis runs it ("test my internet") and says the result. One screen, no scrolling. Next: a scheduled test to catch slow evenings | M |
 | Jarvis does everything | Every action in Switchboard is in one catalogue Jarvis searches and runs (find_action, do_action); deletes wait for a yes, sends stay Brett's click; a test keeps every route in it | Done Nov 10: catalogue of 242 routes, tried on the live server with the tools directly. The model path waits for LM Studio to be running. Next: voice yes for deletes tried by voice | M |
 | Webhooks in | Anything else (IFTTT, Zapier, Home Assistant, a phone shortcut, a script) posts a note, to-do, reminder or "needs you" | Done Nov 3: a private link per webhook, on this computer and (signed in) from anywhere through the sync service, which seals each message to the webhook's own key | S |

@@ -98,3 +98,7 @@ body::before { content: ""; position: fixed; inset: calc(var(--ring-h) + var(--s
   .rail .pages { flex: none; overflow: visible; }
   .ring-projects .projects { position: fixed; top: var(--ring-h); left: var(--sp-4); }
 }
+/* Notes: the formatting bar (mic, styles, Send to session) and the page list
+   stay just under the ring as you scroll, not tucked behind it. */
+.ed-bar, .nb-side { top: calc(var(--ring-h) + var(--sp-2)); }
+.nb-side { max-height: calc(100vh / var(--zoom, 1) - var(--ring-h) - var(--sp-6)); }

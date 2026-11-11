@@ -59,7 +59,7 @@ function sessionLines() {
     const ask = t.state === 'waiting' || t.state === 'finished';
     const more = [t.queued.length ? `${t.queued.length} queued` : '', sessionBuildWord(t), t.agent !== 'claude' ? esc(t.agentName) : '', t.remote ? 'on ' + esc(t.deviceName) : ''].filter(Boolean).join(' · ');
     return `<button class="line ${esc(t.state)}" type="button" data-term="${esc(t.key)}" aria-pressed="${t.key === currentTerm}" title="${esc([t.name, t.ci?.branch, t.remote ? '' : 'double-click to rename'].filter(Boolean).join(' · '))}">
-      <span class="l-name">${esc(name)}</span><span class="l-state">${esc(TERM_STATE[t.state] || t.state)}${ask && t.updatedAt ? ` <span class="l-ago">${shortAgo(t.updatedAt)}</span>` : ''}</span>${more ? `<span class="l-more">${more}</span>` : ''}</button>`;
+      <span class="l-name" title="${esc(name)}">${esc(name)}</span><span class="l-state">${esc(TERM_STATE[t.state] || t.state)}${ask && t.updatedAt ? ` <span class="l-ago">${shortAgo(t.updatedAt)}</span>` : ''}</span>${more ? `<span class="l-more">${more}</span>` : ''}</button>`;
   };
   return `<nav class="lines" aria-label="Sessions">${[...groups].map(([g, list]) => `<div class="line-group" role="group" aria-label="${esc(g)}"><div class="lg-name">${esc(g)}</div>${list.map((t) => line(t, g, list)).join('')}</div>`).join('')}
     <button class="line-new" type="button" data-new-term><span aria-hidden="true">+</span> New session</button>

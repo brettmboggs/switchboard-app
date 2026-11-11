@@ -99,7 +99,7 @@ async function act(name, btn) {
     } else if (name === 'send') {
       const text = $('r-text').value.trim();
       if (!text) { toast('Write something first.'); return; }
-      await api('/api/reply', { key: x.key, text, from: $('r-from')?.value, messageId: x.messageId });
+      await api('/api/reply', { key: x.key, text, from: $('r-from')?.value, messageId: x.messageId, track: mtTrackValue('r-track') });
       delete draft[x.key];
       if (t === 'awaiting') await api('/api/clear', { key: 'await:' + x.key });
       selected = null; toast('Sent.');
@@ -133,8 +133,6 @@ document.addEventListener('click', (e) => {
   if (nf) { nowFilter = nf.dataset.now; store.set('nowFilter', nowFilter); render(); return; }
   const tb = e.target.closest('[data-tab]');
   if (tb) { inboxTab = tb.dataset.tab; inboxSource = 'all'; store.set('inboxTab', inboxTab); selected = null; render(); return; }
-  const src = e.target.closest('[data-source]');
-  if (src) { inboxSource = src.dataset.source; render(); return; }
   const a = e.target.closest('[data-act]');
   if (a) { act(a.dataset.act, a); return; }
   const it = e.target.closest('[data-type]');

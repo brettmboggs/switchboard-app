@@ -140,7 +140,7 @@ document.addEventListener('submit', (e) => {
 });
 // Esc from any module comes back to the Deck (when nothing else is open or being typed in).
 document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || e.defaultPrevented || page === 'deck' || topDialog() || CV || jv.open) return;
+  if (e.key !== 'Escape' || e.defaultPrevented || page === 'deck' || topDialog() || CV || jv.open || bkOn()) return;   // an open book keeps Esc (bookreader.js)
   if (document.activeElement && document.activeElement !== document.body) return;
   location.hash = '#deck';
 });

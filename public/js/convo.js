@@ -31,12 +31,25 @@ function syncConvo() {
   if (page !== 'inbox') delete $('page').dataset.view;
   const x = convoWanted();
   document.body.toggleAttribute('data-convo', !!x);
-  if (!x) { if (CV) unmountConvo(); return; }
+  if (!x) { if (CV) unmountConvo(); paintPane(); return; }
   if (!CV || CV.key !== x.key) { mountConvo(x); return; }
   CV.thread = x;
   paintHead(); paintSide(); paintDrafts();
   // The board heard of something newer (a poll, a notification): fetch it now.
   if (x.date > CV.newest + 1000) pullConvo();
+}
+
+// With nothing open, Inbox's right column says what the folder has to say
+// (inbox.js, inboxPane): left alone while a draft in it is being edited.
+let paneShown = '';
+function paintPane() {
+  const host = $('convo');
+  if (page !== 'inbox' || inboxWide()) { if (!host.hidden || paneShown) { host.hidden = true; host.innerHTML = ''; paneShown = ''; } bkSync(); return; }
+  if (host.querySelector('.cv-draft.editing')) return;
+  const html = inboxPane();
+  if (html !== paneShown || host.hidden) { host.className = 'convo ib-pane'; host.innerHTML = html; paneShown = html; }
+  host.hidden = false;
+  bkSync();   // the open book paints itself inside its shell (bookreader.js)
 }
 
 // ---------- building blocks
@@ -93,7 +106,7 @@ function composerHtml(x) {
   if ((x.kind === 'teams' || x.kind === 'outlook') && ms && ms.canWrite === false) {
     return `<p class="note-line">Replying in ${x.kind === 'teams' ? 'Teams' : 'Outlook'} needs one more Microsoft sign-in: Settings, Microsoft 365, Connect.</p>`;
   }
-  const from = x.kind === 'mail' && S.sendAs.length ? `<div class="cv-from"><label for="r-from">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>${esc(a.address)}</option>`).join('')}</select></div>` : '';
+  const from = x.kind === 'mail' && S.sendAs.length ? `<div class="cv-from"><label for="r-from">From</label><select id="r-from">${S.sendAs.map((a) => `<option value="${esc(a.address)}" ${a.address === guessFrom(x) ? 'selected' : ''}>${esc(a.address)}</option>`).join('')}</select>${mtToggle('r-track')}</div>` : '';
   const hint = x.kind === 'team' ? tcHint(x) : x.kind.startsWith('voice') ? 'Sends as a text from your Google Voice number.' : x.kind === 'teams' ? 'Sends in the Teams chat.' : x.kind === 'outlook' ? 'Replies in Outlook.' : 'Replies in the same email thread.';
   const ph = cvChat(x.kind) ? `Message ${x.who}` : `Reply to ${x.who}`;
   return `${from}${x.kind === 'team' ? tcComposerTop(x) : ''}<div class="cv-box"><label for="r-text" class="sr">Reply</label><textarea id="r-text" rows="1" placeholder="${esc(ph)}">${esc(draft[x.key] || '')}</textarea>
@@ -108,6 +121,7 @@ function mountConvo(x) {
   CV = { key: x.key, kind: x.kind, chat: cvChat(x.kind), thread: x, msgs: [], byId: new Map(), full: new Set(), limit: CV_PAGE, more: false,
     timer: null, fails: 0, busy: false, again: false, loaded: false, atBottom: true, unseen: 0, newest: 0, seq: 0, headHtml: '', sideHtml: '' };
   const host = $('convo');
+  paneShown = '';
   host.className = 'convo ' + (CV.chat ? 'cv-chat' : 'cv-mail');
   host.innerHTML = `<header class="cv-head" id="cv-head"></header>
     <div class="cv-body"><div class="cv-main">
@@ -309,7 +323,7 @@ async function convoSend(x) {
   const m = { id: 'pending-' + (++CV.seq), from_me: 1, from_name: 'You', text, date: Date.now(), state: 'sending', ...(images.length ? { pictures: images.map((im) => `data:${im.type};base64,${im.data}`) } : {}) };
   appendMsgs([m], true);
   try {
-    const r = await api('/api/reply', { key: x.key, text, from, messageId: x.messageId, images, ...(x.kind === 'team' ? { replyTo: tcReplyTake() } : {}) });
+    const r = await api('/api/reply', { key: x.key, text, from, messageId: x.messageId, images, track: mtTrackValue('r-track'), ...(x.kind === 'team' ? { replyTo: tcReplyTake() } : {}) });
     if (CV?.key === x.key && CV.byId.get(m.id) === m) {
       const was = m.id;
       if (r.id && !CV.byId.has(r.id)) { CV.byId.delete(was); m.id = r.id; CV.byId.set(m.id, m); }
@@ -357,5 +371,6 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || !CV || document.querySelector('.scrim.open')) return;
   if (e.target.closest?.('input, textarea, select') && e.target.value) return;
+  e.preventDefault();   // the conversation closes; the Deck's Esc (deck.js) stays put
   selected = null; render();
 });

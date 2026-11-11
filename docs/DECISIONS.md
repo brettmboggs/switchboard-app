@@ -219,6 +219,99 @@ There is no kill button: a monitor that can end programs is a different, riskier
 feature. Would change if: Windows or macOS opens these readings to ordinary
 programs, or a person asks for history that survives a restart.
 
+**Mail tracking: Switchboard is one more client of the person's own tracker.**
+(Nov 10 2026, Brett: the mail tracker's tracking goes through Switchboard.) The
+pixel and the tracked links have to be answered on a public address, which a
+local Switchboard is not, so the mail-tracker Worker on the person's own
+Cloudflare stays the tracker, and Switchboard talks to its API with an access
+token pasted in Settings, like the extension and the add-on (a token pasted in
+Settings is one of the allowed sign-ins). Its rules carry over: register before
+send with a 2.5 s cap, untracked rather than a broken link; every verdict comes
+with its reasons. Incoming mail from people is reported to its detector as the
+inbox scan does (source "scan", so the Worker needed no change; mail from
+servers other than Gmail goes under a hashed key, as the Worker takes Gmail-style
+ids only). Switchboard shows mail as text, so it never loads a sender's pixel:
+nothing to block. Alerts are desktop only; the Worker's ntfy already reaches the
+phone. Would change if: the tracker's code moves into this repo (as sync-worker
+did), or Outlook replies get tracked too (Graph takes HTML the same way).
+
+**Books are read on archive.org's own scans, with its OCR as a word layer.**
+(Nov 10 2026, Brett: read archive.org books "naturally like a book", with
+bookmarks, highlights, notes, tags, a library, and read aloud.) A scan is how
+the book looks, so it is the page; archive.org's hOCR gives every word with its
+box, so a transparent box over each word makes the scan selectable, and a
+highlight is a run of word numbers on a page (it survives any view: scan, two
+pages, text). One page's hOCR is a Range request on the whole-book file using
+archive.org's page index, so nothing big is downloaded; pages and words are
+kept once read. Only books free to download are taken: lending-library books
+are copy-protected, and getting around that is not something Switchboard
+does. Read aloud is Piper on this computer (free, offline, a person's
+sound), installed by a button into DATA_DIR/readaloud, never the PATH
+(a mouse tool there is also called piper) and never DATA_DIR/voice (talk to
+type's model lives there); one Piper process takes a sentence a line, so
+each comes back in about 0.3 s, and the browser's own voice stands in until
+it is installed. LibriVox audio streams from archive.org, so the page's
+media-src allows archive.org. Library, places and notes are local for now.
+Would change if: the library should follow across computers (the sync
+service), or a book arrives as a PDF or EPUB from disk (needs a renderer).
+
+**Turning a page keeps the old page until the new one is in.** (Nov 10 2026,
+after Brett: "serious issues between the pages … loading … not sustainable".)
+Pages came from archive.org on every turn, at full size (2 to 6 s) because a
+display wider than 700 pixels asked for the big picture, and nothing showed
+meanwhile. Now the half-size picture (about 950 pixels wide) is used unless the
+page is shown wider than that; the server fetches the 4 pages ahead and 2
+behind, two at a time, dropping that queue when another page is asked for; the
+browser preloads the next two turns. A turn puts the new pages behind the old
+ones and swaps when their pictures are in, at most a third of a second, then
+shows "Loading page…" on the paper (and Try again if archive.org fails), never
+blank paper. One page or two side by side is decided on the book's usual page
+shape, so turning never flips between them. Older scans (before about 2020)
+have their words in one _djvu.xml instead of hOCR: it is fetched once (5 to 30
+MB), kept a page a file, and the page numbers printed at the head or foot of
+the pages fill in printed numbers where archive.org has none. Uploads with the
+web address as the title or a biography as the author are tidied, and both
+can be edited under Notes.
+
+**Inbox is a mail app: folders, a list, the conversation.** (Nov 10 2026,
+Brett: "features are good, bad design is not"; he picked this of three
+layouts.) The page had grown three rows of filters (Business, Personal,
+Reading, Tracking; then All, Email, Teams; then the team chats), fifteen drafts
+above the mail, a separate Replied card and boxed EMAIL labels on two-line
+snippets, and it squeezed into a scrolling column when a conversation opened.
+Every one of those became a folder on the left, so the page has one way to
+choose what you see; the source filter is a small select that shows only when
+a folder mixes sources; a row is two lines that never wrap with a line icon for
+its source. The three columns are the same with or without a conversation open
+(the right one says "Pick a conversation" when empty), so nothing jumps. The
+right column is the conversation's own box (#convo) showing a pane when nothing
+is open, rather than a second element, so the conversation keeps mounting as it
+always did. The side detail panel never opens on Inbox. Would change if: a
+folder needs more than the middle column's width (Reading takes the right
+column's room already), or a person wants one unified list of every source.
+
+**Calendar events from one line go through the command bar's own route.**
+(Nov 10 2026, Brett: add to my calendar within Switchboard, with Jarvis.)
+/api/capture tries lib/eventline.js first, so Ctrl K and Jarvis share one
+reader and one save, with no model: a line is an event when it starts with
+event, meeting, appointment, schedule or cal, or says "to/on my (or the X)
+calendar"; a question or a line starting with the bar's own words (note,
+remind, todo…) never is. Times come from capture.js's parseWhen; a range or
+"for 90 min" sets the end, else an hour; no time means all day. It goes on the
+named calendar, else the Google account's own, since only Google calendars can
+be written to (links and CalDAV stay read only). Changes the same way
+(lib/eventedit.js): move, rename, cancel, the event found by its words, a day or
+a time among the next three months; a cancel waits for a yes (a Delete button in
+Ctrl K, "yes" to Jarvis). Sync with Google (Brett: everything should always
+sync): Google calendars are read every minute, not every 10 (two small requests
+a minute, far inside Google's free quota), the Calendar page's cache for them is
+30 s, and a change made here is read back before the answer, so the board never
+shows the old event. Google's push notifications would be instant but need a
+public web address to call; a minute is the price of staying local. The same
+event from an old private link and from Google shows once, the editable copy.
+Would change if: CalDAV calendars learn to take events, or the sync service
+relays Google's push notifications.
+
 **Jarvis reaches everything through one catalogue, not a tool per feature.**
 (Nov 10 2026, Brett: Jarvis must be able to do anything in Switchboard.) A
 local model cannot hold 240 tool definitions, so it gets two general tools:
@@ -1219,3 +1312,42 @@ yet.
   only let a page speak after a click or key, so it waits for the first one of
   the day.
 
+**Jarvis's model unloads after 5 idle minutes, and a lingering model process is stopped.**
+(Nov 10 2026, Brett, on finding Gemma holding 9 of 12 GB of video memory for
+hours: unloading models not in use is the standard.) LM Studio's own idle
+timer (lms load --ttl) works, but once its llama-server process outlived the
+model LM Studio listed as unloaded. Switchboard now loads with a 5-minute
+timer (was 15; Ctrl+Space reloads it while you talk, about 4 seconds), and asks
+for the same timer on every question (a model LM Studio loads for a question on
+its own keeps it for an hour). Every 2 minutes Switchboard unloads any model
+LM Studio lists as unused for 5 minutes, whoever loaded it, and, when nothing
+is listed as loaded, stops an LM Studio model process seen on two sweeps in a
+row. A model answering or used in the last 5 minutes is never touched; a chat
+in LM Studio's own app reloads its model when next used. Linux only for now
+(/proc); elsewhere nothing is stopped.
+
+## Project dashboards (Nov 11 2026)
+Website numbers are measured here, from outside, with no paid service: pages
+read with plain requests (regex, not a parser package: titles, meta tags and
+links are all a check needs), and speed in a headless Chromium driven over the
+DevTools protocol with Node's own WebSocket (lib/headless.js), scored with
+Lighthouse's published curves. Google's PageSpeed API refuses calls without a
+key (429), so its scores are an extra with a free key pasted on the dashboard,
+not the base. The test browser identifies as itself; a site whose firewall
+turns it away gets that said in words, never a disguise. The PDF is the
+report page printed by the same headless browser, so page and PDF never
+drift, and no PDF package is needed. Readings live in this computer's tables
+(dash_*), like browser checks: one computer checks a site, not every one that
+shares the settings. The analysis is sentences built from the numbers, not a
+model, so it is there on every machine and never wrong about a number.
+Inbox's Teams folder lists every recent chat whoever spoke last: the waiting
+list alone made an answered chat vanish (Brett, Nov 11).
+AI search (Nov 11): the dashboard scores readiness, what can be checked from
+outside (crawler access in robots.txt, structured data, question-and-answer
+pages, llms.txt), and keeps it apart from visibility, whether ChatGPT or
+Google's AI actually names the business. Visibility has no free, honest
+source (asking the AIs through their APIs costs money and differs from what a
+person sees), so it is a fixed list of questions asked by hand each month and
+tracked as numbers. Sites behind a firewall rate-limit a burst of reads: the
+check reads two pages at a time with pauses, waits when told 429, never counts
+a 429 as a broken link, and times the home page before reading the rest.

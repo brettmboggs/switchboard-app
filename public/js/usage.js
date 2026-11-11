@@ -20,10 +20,20 @@ function useReset(t) {
 }
 const useWhen = (t) => (t - Date.now() < 20 * 3600e3 ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }));
 
+// What is left, spread to the reset: "39% a day" while more than a day is left,
+// then the plain total ("29% in the 18h left"), since a daily rate with less
+// than a day to go reads as more room than there is. Short windows go by the hour.
+function useRoom(w, compact) {
+  if (w.perDay == null) return null;
+  const left = w.resetsAt - Date.now(), hr = w.perDay / 24;
+  if (w.len <= 86400e3) return compact ? `${hr.toFixed(1)}%/h` : `${hr.toFixed(hr < 10 ? 1 : 0)}% an hour`;
+  if (left < 86400e3) { const h = Math.max(1, Math.round(left / 3600e3)), p = Math.max(0, Math.round(100 - w.pct)); return compact ? `${p}% / ${h}h` : `${p}% in the ${h}h left`; }
+  return compact ? `${Math.round(w.perDay)}%/day` : `${Math.round(w.perDay)}% a day`;
+}
+
 // The forecast in one plain line.
 function useLine(w) {
-  const short = w.len <= 86400e3;
-  const room = w.perDay == null ? '' : short ? `${Math.max(0, (w.perDay / 24)).toFixed(w.perDay / 24 < 10 ? 1 : 0)}% an hour` : `${Math.round(w.perDay)}% a day`;
+  const room = useRoom(w) || '';
   if (w.reset) return 'Fresh window';
   if (w.state === 'out') return `Limit reached · back ${useReset(w.resetsAt)}`;
   if (w.state === 'over') return `Runs out about ${useWhen(w.outAt)} at this pace${room ? ` · ${room} lasts to the reset` : ''}`;

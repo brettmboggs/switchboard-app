@@ -246,10 +246,10 @@ rail (`.space`, `.page-link`) and a few page-specific pressables keep their
 own rules, on tokens.
 
 **Tabs** (`chip.css`, `.chips.tabs`). A page's own tabs (Now's filters,
-Inbox's Business · Personal · Reading, Notes' four, Sessions' three) are one
-style everywhere: words in 600, muted, with a 2 px line under the one you are
-on and its count in mono beside it. Pills (plain `.chips`) are only for the
-smaller filters inside a tab (Inbox's All · Email · Teams).
+Notes' four, Sessions' three) are one style everywhere: words in 600, muted,
+with a 2 px line under the one you are on and its count in mono beside it.
+Pills (plain `.chips`) are only for the smaller filters inside a tab. Inbox
+has folders instead (below).
 
 The rail's current page is paper with a hairline, not a solid ink block, and
 the need-you count is an orange-tinted bar with the number in `--accent-text`
@@ -296,7 +296,7 @@ above one. Placeholders are `--placeholder` everywhere.
 
 **The side panel lines up** (`detail.js`, `alignPanel`). The detail panel on
 the right starts level with the first block under the page's title (its first
-card, Money's tiles, Inbox's list below its chips), not with the title, so the
+card, Money's tiles), not with the title, so the
 top edges of the two columns meet. Measured after each draw; Sessions places
 its own panel, and in a narrow window the panel sits underneath.
 
@@ -361,8 +361,46 @@ dragged over the page, never orange. `.proj-filter` is the project picker in a
 list page's head (a `.field--sm` select); with a project picked its edge turns
 ink, so a narrowed list never passes for the whole list.
 
-**Reading** (`pages/inbox.css`, `public/js/feeds.js`). The third tab on Inbox:
-one row per post, the feed's name as the `via` label, unread in bold and read
+**Inbox** (`pages/inbox.css`, `public/js/inbox.js`). A mail app in three
+columns that fill the window, and the page never scrolls: on the left the
+folders (`.ib-folder`: Business, Personal, Drafts, Replied, Tracking, Reading,
+then under a mono Team chat label the project channels and one-to-one chats),
+with the title and New email above them and the project picker at their foot;
+the folder you are in is lit cyan with a line on its left, its count in mono
+(Business's in `--accent-text`: a business conversation waiting is "needs
+you"). In the middle the folder's list in one card: its name, count and, where
+a folder holds more than one kind, a small Show select (Everything, Email,
+Teams…), then the rows. A row (`.ib-row`) is two lines that never wrap: the
+project square, who, and when; then a small line icon for where it came from
+(envelope, chat bubble, phone; `--ib-ico`), what it says cut with "…", and a
+mark at the end (Opened, Tracks you). No boxed EMAIL labels and no long
+snippets. On the right the open conversation, or with nothing open a quiet
+"Pick a conversation", a draft for a new email, or Tracking's detail.
+Reading has no right column: its list takes the room. Below 1100px the
+folders become a row, the list sits under them and an open conversation
+takes the page.
+
+**Books** (`components/books.css`, `public/js/books.js`, `bookreader.js`,
+`bookvoice.js`). Inbox, Reading's middle column is the library: Inbox rows
+with a small cover spanning both lines and a thin cyan progress line under
+them; Add book opens a search row and results with Add (Borrow only is muted
+text, never a button). The open book fills the right column: a head (title and
+author, ‹ page of N › with the printed page number beside it when the page has one, the bookmark ribbon, a Width · Page · Text segment,
+Night, Read aloud, Notes with its count, ⤢ whole width, ×), the stage, Notes
+on the side, and a foot with the player and the page slider. The scan sits on
+`--book-paper` with a shadow; its word boxes are invisible until marked:
+highlights are the four `--hl-*` colours at about 40% (multiply on paper,
+screen at night), a selection is cyan tint, the sentence being read is a cyan
+tint with a cyan underline, a note is a small info dot. A selection gets a
+floating bar (four swatches, Note, Read from here, Copy). Text view is the page
+in `--font-book` at `--fs-book`, 66ch wide. Night inverts the paper to dark.
+The corner player (`.bk-mini`) shows on other pages while a book is being read.
+Page (the whole page, two side by side when there is room) is the default. While
+it reads aloud the view follows the voice: down the page, and on to the next.
+Never orange: a book never needs you.
+
+**Reading** (`pages/inbox.css`, `public/js/feeds.js`). A folder on Inbox:
+one row per post, the feed's name at the start of the second line, unread in bold and read
 ones muted. Unread has no dot: the orange dot on Inbox means a person is
 waiting on you, and a blog post never is.
 
@@ -419,6 +457,16 @@ for (tiles with a coloured left edge: good --ok, OK --warn, poor --bad), details
 (the bufferbloat grade as a small filled badge), past tests (a sparkline and
 rows; click one to see it). Never orange: a slow line does not need you.
 `prefers-reduced-motion` stops the ring, the breathing and the needle's easing.
+
+**Mail tracking** (`mailtrack.css`, `public/js/mailtrack.js`). Inbox, Tracking:
+the sent list is Inbox's middle column (a Show select: All sent, Opened, Not
+opened, Clicked; Inbox rows of subject and when, then who, opens and a status
+pill), and the right column is one email's timeline
+(each open or click on a card whose left edge says the verdict: --ok confirmed
+person, --info likely, plain automated or you; the reasons under it as a small
+sentence), or "Tracked by others" when none is picked. Marks on Inbox rows are small pills: info blue Opened or Clicked, muted
+Unopened, warn "Tracks you". The Track switch is a small checkbox beside Send.
+Never orange: none of it needs you.
 
 **Shared projects** (`share.css`, `public/js/share.js`). A shared project's
 head has `.share-line`: a pill with the members' initials (`.share-face`, info
@@ -483,8 +531,8 @@ with ink text, the mark sent inside the email.
 a one-to-one chat is a conversation in the Inbox like any other: the same
 view, composer, mic, pictures and reactions (`pages/inbox.css`,
 `teamspics.js`). It adds, all quiet grey and never orange (a chat line is not
-"needs you" by itself): `.tc-start`, chips above the Inbox list to open one
-(`# Acme`, a person); `.tc-quote`, the message a reply answers, a muted bar
+"needs you" by itself): the chats are folders on Inbox's left, under
+Team chat (`# Acme`, a person); `.tc-quote`, the message a reply answers, a muted bar
 above the text that jumps to it; `.tc-at`, an @name, on an info tint (on your
 own dark bubble, underlined instead); `.tc-acts`, Reply, Pin, Edit and Delete
 in a small pill floating over the message's top corner on hover or focus (in
@@ -581,6 +629,31 @@ more), past windows as bars to the 100% line with the last four weeks by day
 under them, and habits (six numbers) with the big sessions. A past window that
 ran out is amber, not orange: it is history and does not need you.
 
+### Project dashboard (components/dashboard.css)
+A project page's Dashboard tab (Overview | Dashboard, a small tab pair beside
+the project's name). Tiles in a three-column grid that fills the window under
+the head (Analysis two columns wide, Fixes two rows tall); each tile's list
+scrolls in its own box, and below 1100px they stack. A headline number is big
+display type with its grade in words beside it (Good, Needs work, Poor) and
+coloured --ok / --warn / --bad to match the word; a change since the baseline
+is an arrow, the amount and a hidden word, green when better and red when
+worse, whichever way the number moved. Lines over time are one cyan series
+(--hud) with a dot per reading that names its date and value on hover. Fixes
+carry a Serious / Worth fixing / Small chip. A score out of 100 sits over its
+parts: one row each, the part's name, a thin cyan bar of how much of its share
+it earns and the points as mono text, so the number is never a black box. The
+full website dashboard is a fixed four-column map (Analysis, Speed, Fixes;
+Site health, AI search, Tracking; Your numbers, Google), one screen. Orange is
+never used: nothing on a dashboard needs you by itself.
+
+### Dashboard report (components/report.css)
+The report a dashboard prints (lib/dashreport.js): not the HUD but a document
+on white paper, for screen, print and PDF. Its own tokens in tokens.css
+(--report-paper, --report-ink, --report-accent and good / warn / bad on light tints). Display
+face for headings, mono for numbers, one accent line under each section
+title, charts as thin accent lines on a faint grid with the first and last
+value and date written on them, and tables that never split a row across pages.
+
 ## Signing in
 
 Every sign-in is a click away and easy to finish. The block is one section in
@@ -592,7 +665,28 @@ card on Now with the label "Sign in". Built in public/js/checksauth.js; copy it
 for the next one rather than inventing a new flow. The rules behind it are in
 AGENTS.md.
 
-## Layout and z-order
+## Text never wraps a label
+
+Since Nov 10 2026: a time broken over two lines ("12:00 PM – 12:30 / PM") is
+not acceptable anywhere. The rule:
+
+- **A label stays on one line.** A time, a date, an amount, a name, a title in
+  a row, a button, a chip, a tab, a menu item, a kicker. base.css makes `.btn`,
+  `.chip`, `.seg button`, tabs, menu items, `kbd`, `time` and `.kicker` one line
+  everywhere; anything else that is a label gets `white-space: nowrap`, or
+  `.one-line` when it may need to end in "…".
+- **The layout makes room first.** A column of times is `max-content` (or a
+  width in `ch` that fits the longest, so rows line up); a side list is wide
+  enough for a usual name (`--sessions-side-w`); a status moves under a name
+  rather than beside it. Cutting with "…" is the last resort, and then the
+  whole text is the element's `title`, so hovering shows it.
+- **Only sentences wrap**, between words: descriptions, messages, notes, help.
+- **Check it:** `scripts/wrapcheck.js` run in the browser on a page (and its
+  dialogs) lists every label drawn on more than one line; it must come back
+  empty at the person's text size and one step larger. It ran clean across
+  every page, project, Settings pane, the monitor and the network test on
+  Nov 10.
+
 
 `layout.css`: there is no top bar. The frame (`.frame`) is a grid of the
 rail (`--rail-w`, 244 px), the page, and the detail panel (360 px), which is

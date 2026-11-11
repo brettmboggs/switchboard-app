@@ -8,18 +8,13 @@
 //   Reply      quote a message in yours; click the quote to jump to it
 //   @mention   type @ and a name; they get an alert and a phone push
 //   Pin        keep a message at hand in Details, for everyone in the chat
-// Start a chat from the chips above the Inbox list.
+// Start a chat from its folder on the left of Inbox.
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 let TC = { key: null, reply: null, members: [], pins: [], unreadable: 0, editing: null, sideHtml: '' };
 const tcOn = () => CV && CV.kind === 'team';
 
-// ---------- Inbox: start a chat
-function tcStartHtml() {
-  const list = S?.chat?.channels || [];
-  if (!list.length || !['all', 'team'].includes(inboxSource)) return '';
-  return `<div class="tc-start" role="group" aria-label="Team chat"><span class="tc-start-label">Team chat</span>${list.map((c) => `<button class="chip" type="button" data-tc-open="${esc(c.key)}" title="${c.kind === 'project' ? `Everyone in ${esc(c.who)}` : `Just you and ${esc(c.who)}`}">${c.kind === 'project' ? '# ' : ''}${esc(c.who)}</button>`).join('')}</div>`;
-}
+// ---------- Inbox: the chats are folders on the left (inbox.js)
 // A chat with nothing in it yet is not in the lists; this is it, for find().
 function tcThread(key) {
   const c = (S?.chat?.channels || []).find((x) => x.key === key);

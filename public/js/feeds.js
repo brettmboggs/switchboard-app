@@ -8,11 +8,11 @@ const readingList = () => (S.reading || []).filter(inProject);
 
 function readingHtml() {
   const list = readingList(), unread = list.filter((i) => !i.read_at).length;
-  if (!list.length) return `<section class="card"><div class="empty-cta"><p class="empty">${S.feedCount ? 'All caught up. New posts show here as they come out.' : 'Follow news sites and blogs and their newest posts show here, quietly: never as something that needs you.'}</p>
-    ${S.feedCount ? '' : `<form class="form-row feed-add" data-feed-add><label for="feed-url" class="sr">Site or feed address</label><input id="feed-url" class="field" placeholder="A site or its feed, e.g. example.com/blog" autocomplete="off"><button class="btn btn--primary" type="submit">Follow</button></form>`}</div></section>`;
-  return `<section class="card"><div class="group-head"><h2>Reading</h2><span class="sum">${unread ? `${unread} unread` : 'All read'}</span>${unread ? '<button class="btn btn--ghost" type="button" data-feed-allread>Mark all read</button>' : ''}</div>
-    <div class="list">${list.map((i) => `<a class="item feed-item ${i.read_at ? '' : 'unread'}" href="${safeHref(i.link)}" target="_blank" rel="noopener noreferrer" data-feed-open="${esc(i.feed)}" data-guid="${esc(i.guid)}">${tag(i.space)}
-      <span><span class="t">${esc(i.title)}</span><br><span class="s"><span class="via">${esc(i.feedName)}</span>${esc(i.summary || '')}</span></span><span class="r"><span class="mono muted">${ago(i.date)}</span></span></a>`).join('')}</div></section>`;
+  if (!list.length) return `<div class="ib-head"><h2>Reading</h2></div><div class="empty-cta"><p class="empty">${S.feedCount ? 'All caught up. New posts show here as they come out.' : 'Follow news sites and blogs and their newest posts show here, quietly: never as something that needs you.'}</p>
+    ${S.feedCount ? '' : `<form class="form-row feed-add" data-feed-add><label for="feed-url" class="sr">Site or feed address</label><input id="feed-url" class="field" placeholder="A site or its feed, e.g. example.com/blog" autocomplete="off"><button class="btn btn--primary" type="submit">Follow</button></form>`}</div>`;
+  return `<div class="ib-head"><h2>Reading</h2><span class="count">${unread ? `${unread} unread` : 'All read'}</span><span class="grow"></span>${unread ? '<button class="btn btn--quiet btn--sm" type="button" data-feed-allread>Mark all read</button>' : ''}</div>
+    <div class="ib-rows list">${list.map((i) => `<a class="item ib-row feed-item ${i.read_at ? '' : 'unread'}" href="${safeHref(i.link)}" target="_blank" rel="noopener noreferrer" data-feed-open="${esc(i.feed)}" data-guid="${esc(i.guid)}">${tag(i.space)}<span class="t" title="${esc(i.title)}">${esc(i.title)}</span><span class="ib-when mono muted">${ago(i.date)}</span>
+      <span></span><span class="s"><span class="ib-feed">${esc(i.feedName)}</span> · ${esc(i.summary || '')}</span><span class="ib-mark"></span></a>`).join('')}</div>`;
 }
 
 // Settings, Connections: the feeds followed, with Add.

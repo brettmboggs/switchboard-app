@@ -2,11 +2,11 @@
 // One of the page's scripts in public/js, loaded in order by index.html; they
 // share one scope, so names defined in an earlier file are usable here.
 // ---------- routing
-// The page the address names; a project's own page is #project/<id> (project.js).
+// The page the address names; a project's own page is #project/<id> (project.js), its dashboard #project/<id>/dashboard (dashboard.js).
 function pageFromHash() {
   const h = location.hash.replace('#', '');
-  const pm = h.match(/^project\/([a-z0-9-]{1,60})$/);
-  if (pm) { if (openProject !== pm[1]) projEdit = false; openProject = pm[1]; page = 'project'; }
+  const pm = h.match(/^project\/([a-z0-9-]{1,60})(\/dashboard)?$/);
+  if (pm) { if (openProject !== pm[1]) projEdit = false; openProject = pm[1]; page = 'project'; projView = pm[2] ? 'dashboard' : 'overview'; }
   else page = PAGES.some(([id]) => id === h) ? h : 'deck';   // the Deck is home (deck.js)
 }
 // Each page remembers where it was (scroll and the open item) for this tab, so
@@ -65,8 +65,15 @@ $('cmd-input').addEventListener('keydown', async (e) => {
   try {
     const item = await api('/api/capture', { line, space: captureSpace() });
     closeDialog('cmd-scrim');
-    const label = { note: 'Note saved', todo: 'To-do added', reminder: 'Reminder set for ' + (item.due_at ? when(item.due_at) : ''), paid: 'Payment logged', bill: 'Bill added', invoice: 'Invoice logged, waiting on them', routine: 'Routine added: ' + (item.every || '').toLowerCase(), list: `Added ${item.count === 1 ? 'it' : item.count} to ${item.text}`, log: `Logged ${item.amount} in ${item.text}`, today: `On today's page, ${item.text}` }[item.kind];
-    toast(`${label} · ${spaceOf(item.space).name}`);
+    // A calendar change: say what was done; a delete waits for its button (lib/eventedit.js).
+    if (item.kind === 'event' || item.kind === 'event-edit') cal.key = '';   // the Calendar page reads its month again
+    if (item.kind === 'event-edit') { toast(item.say); await load(); return; }
+    if (item.kind === 'confirm') {
+      toast(item.question, { action: { label: 'Delete', run: async (b) => { b.disabled = true; try { const r = await api('/api/capture', { line: item.line, confirmed: true }); toast(r.say); await load(); } catch (err) { toast(err.message, { kind: 'error' }); } } } });
+      return;
+    }
+    const label = { note: 'Note saved', todo: 'To-do added', reminder: 'Reminder set for ' + (item.due_at ? when(item.due_at) : ''), paid: 'Payment logged', bill: 'Bill added', invoice: 'Invoice logged, waiting on them', routine: 'Routine added: ' + (item.every || '').toLowerCase(), list: `Added ${item.count === 1 ? 'it' : item.count} to ${item.text}`, log: `Logged ${item.amount} in ${item.text}`, today: `On today's page, ${item.text}`, event: `${item.text}, ${item.allDay ? new Date(item.start).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : when(item.start)}, on ${item.calendarName}` }[item.kind];
+    toast(item.kind === 'event' ? label : `${label} · ${spaceOf(item.space).name}`);
     await load();
   } catch (err) { $('cmd-hint').textContent = err.message; }
 });
@@ -77,6 +84,7 @@ function openCompose() {
   $('c-from').innerHTML = S.sendAs.map((a) => `<option value="${esc(a.address)}">${esc(a.address)}</option>`).join('');
   $('c-from').value = guessFrom({ space: project === 'all' ? 'personal' : project });
   $('c-msg').textContent = '';
+  $('c-track-slot').innerHTML = mtToggle('c-track');   // mail tracking (mailtrack.js)
   openDialog('compose-scrim');
   $('c-to').focus();
 }
@@ -85,7 +93,7 @@ $('compose-form').addEventListener('submit', async (e) => {
   const btn = e.submitter; if (btn) btn.disabled = true;
   $('c-msg').textContent = 'Sending…'; $('c-msg').className = 'small muted';
   try {
-    await api('/api/compose', { from: $('c-from').value, to: $('c-to').value, subject: $('c-subject').value, text: $('c-body').value });
+    await api('/api/compose', { from: $('c-from').value, to: $('c-to').value, subject: $('c-subject').value, text: $('c-body').value, track: mtTrackValue('c-track') });
     closeDialog('compose-scrim');
     $('c-to').value = $('c-subject').value = $('c-body').value = '';
     toast('Sent.');

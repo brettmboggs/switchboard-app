@@ -57,7 +57,14 @@ import { route as localFileRoutes } from './lib/routes/localfile.js';
 import { route as jarvisRoutes } from './lib/routes/jarvis.js';
 import { route as usageRoutes } from './lib/routes/usage.js';
 import { route as speedtestRoutes } from './lib/routes/speedtest.js';
-import { tidyNow, tidyDue } from './lib/jarvis.js';
+import { route as mailtrackRoutes } from './lib/routes/mailtrack.js';
+import { route as bookRoutes } from './lib/routes/books.js';
+import { route as dashboardRoutes } from './lib/routes/dashboard.js';
+import { dueChecks } from './lib/dashboard.js';
+import { booksForBoard } from './lib/books.js';
+import { voiceStatus } from './lib/tts.js';
+import { pollMailtrack, mailtrackForBoard } from './lib/mailtrack.js';
+import { tidyNow, tidyDue, sweepModels } from './lib/jarvis.js';
 import { pollTasks, tasks, taskStatus } from './lib/tasks.js';
 import { pollGranola, granolaStatus } from './lib/granola.js';
 import { noteMarks } from './lib/notemarks.js';
@@ -66,7 +73,7 @@ import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
 // Team chat first: it answers the Inbox's conversation routes for its own "team:" keys only.
-const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes, usageRoutes, speedtestRoutes];
+const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes, usageRoutes, speedtestRoutes, mailtrackRoutes, bookRoutes, dashboardRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)
@@ -134,6 +141,7 @@ async function boardState() {
     .sort((a, b) => b.date - a.date);
   const email = mail.email.filter((t) => !isCleared(t.key, t.date)).slice(0, 60);
   const recent = [...mail.recent, ...microsoft().recent, ...team.recent].sort((a, b) => b.date - a.date).slice(0, 40);
+  const teamsChats = microsoft().chats || [];   // every recent Teams chat, for the Inbox's Teams folder
   const awaiting = awaitingReply().filter((t) => !isCleared('await:' + t.key, t.date));
   const items = db.prepare('SELECT * FROM items WHERE done_at IS NULL ORDER BY COALESCE(due_at, created_at) ASC').all();
   const recentDone = db.prepare(`SELECT * FROM items WHERE done_at > ? AND kind IN ('note', 'todo', 'reminder') ORDER BY done_at DESC LIMIT 20`).all(now - 3 * 86400e3);
@@ -145,12 +153,12 @@ async function boardState() {
     now,
     spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), granola: granolaStatus(), noteMarks: noteMarks(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, belongs: belongsAll(), unsorted: unsortedCount(), share: shareState(), chat: chatBoard(), changedBy: changedBy(), sharedBy: sharedBy(), sharedPrs: github().sharedPrs || [], voice: voiceState(), agents: agentsNow(),
     webhooks: webhookList().length,
-    deliveries: deliveriesForBoard(),
+    deliveries: deliveriesForBoard(), mailtrack: mailtrackForBoard(), books: booksForBoard(), voice: voiceStatus(),
     routines: routines(),
     pages: pageList(),
     checks: checksForBoard(),
     events: calendarEvents().filter((e) => e.end > now && e.start < now + 7 * 86400e3), calendars: calendarStatus(), weather: weather(), usage: usageForBoard(),
-    sessions: sessions.map((x) => ({ ...x, termId: termBy.get(x.id) || null, ci: repoFor(x.cwd) })), runs, reviews, actions: gh.actions, threads, email, awaiting, recent, drafts: drafts(),
+    sessions: sessions.map((x) => ({ ...x, termId: termBy.get(x.id) || null, ci: repoFor(x.cwd) })), runs, reviews, actions: gh.actions, threads, email, awaiting, recent, teamsChats, drafts: drafts(),
     terms: terms.map((t) => ({ ...t, ci: repoFor(t.cwd) })), links: allLinks(), remoteTerms: remoteTerms(), relay: relayState(),
     items: items.filter((i) => ['note', 'todo', 'reminder'].includes(i.kind)),
     recentDone,
@@ -415,6 +423,8 @@ function startAll() {
   }, 2e3);
   setInterval(tickReminders, 15e3);
   // Jarvis's nightly tidy of what he knows (lib/jarvismemory.js): checked each hour, never starts LM Studio.
+  // A local model LM Studio has let go of but whose process lingers on the graphics card: stopped (lib/jarvis.js).
+  setInterval(() => sweepModels().catch(() => {}), 2 * 60e3);
   setInterval(() => { if (tidyDue()) tidyNow({ wake: false }).catch((e) => console.warn('[jarvis] tidy', e.message)); }, 60 * 60e3);
   // Codex's plan limits, from its newest session log (Claude Code's come with its status line).
   readCodexLimits(); setInterval(() => { if (readCodexLimits()) changed(); }, 5 * 60e3);
@@ -427,11 +437,17 @@ function startAll() {
   // Granola meeting notes into Notes (lib/granola.js): soon after start, then every 10 minutes.
   setTimeout(() => pollGranola().then((c) => c && changed()).catch(() => {}), 20e3);
   setInterval(() => pollGranola().then((c) => c && changed()).catch(() => {}), 10 * 60e3);
+  // Your mail tracker (lib/mailtrack.js): opens and clicks every two minutes, and the incoming mail just read.
+  pollMailtrack().then((c) => c && changed()).catch(() => {});
+  setInterval(() => pollMailtrack().then((c) => c && changed()).catch(() => {}), 2 * 60e3);
+  // Project dashboards' website checks that are due (lib/dashboard.js): hourly look, each site on its own schedule.
+  setInterval(() => dueChecks(changed).catch(() => {}), 60 * 60e3);
   // News and blogs: soon after start, then every 30 minutes (feeds change slowly).
   setTimeout(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 20e3);
   setInterval(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 30 * 60e3);
   pollCalendars().then((c) => c && changed());
   setInterval(() => pollCalendars().then((c) => c && changed()), 10 * 60e3);
+  setInterval(() => pollCalendars({ only: 'google' }).then((c) => c && changed()), 60e3);   // Google every minute: a change on the phone shows here soon
   setInterval(tickEvents, 30e3);
   pollWeather().then((c) => c && changed());
   setInterval(() => pollWeather().then((c) => c && changed()), 30 * 60e3);

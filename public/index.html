@@ -25,9 +25,12 @@
 <link rel="stylesheet" href="/css/components/fileview.css">
 <link rel="stylesheet" href="/css/components/notemarks.css">
 <link rel="stylesheet" href="/css/components/members.css">
+<link rel="stylesheet" href="/css/components/mailtrack.css">
+<link rel="stylesheet" href="/css/components/books.css">
 <link rel="stylesheet" href="/css/components/share.css">
 <link rel="stylesheet" href="/css/components/team.css">
 <link rel="stylesheet" href="/css/components/teamchat.css">
+<link rel="stylesheet" href="/css/components/dashboard.css">
 <link rel="stylesheet" href="/css/components/web.css">
 <link rel="stylesheet" href="/css/components/jarvis.css">
 <link rel="stylesheet" href="/css/components/usage.css">
@@ -161,7 +164,7 @@
     </div>
     <label for="c-body" class="sr">Message</label>
     <textarea id="c-body" rows="10" class="body-text" required></textarea>
-    <div class="form-row"><button class="mic" type="button" data-mic="c-body" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><button class="btn btn--primary" type="submit">Send</button><span id="c-msg" class="small"></span></div>
+    <div class="form-row"><button class="mic" type="button" data-mic="c-body" title="Talk to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="sr">Dictate</span></button><span id="c-track-slot"></span><button class="btn btn--primary" type="submit">Send</button><span id="c-msg" class="small"></span></div>
   </form>
 </div>
 
@@ -280,6 +283,7 @@
             </details>
           </div>
         </div>
+        <div class="acct-card" id="mailtrack-card" data-conn="mailtrack"></div>
         </div>
         <div class="conn-group" data-cat="calendars">
           <h4 class="section-label">Calendars</h4>
@@ -321,6 +325,7 @@
         <div class="acct-card" id="asana-card" data-conn="asana"></div>
         <div class="acct-card" id="notion-card" data-conn="notion"></div>
         <div class="acct-card" id="feeds-card" data-conn="feeds"></div>
+        <div class="acct-card" id="voice-card" data-conn="voice"></div>
         <div class="acct-card" id="hook-card" data-conn="webhooks">
           <div class="acct-main"><b>Links for other apps (webhooks)</b><span class="acct-line">IFTTT, Zapier, Home Assistant, a phone shortcut or a script puts things on your board</span></div>
           <button class="btn" type="button" id="hook-open">Add</button>
@@ -361,6 +366,7 @@
           <label class="toggle"><span>New Teams messages</span><input type="checkbox" data-notify="teams"></label>
           <label class="toggle"><span>A teammate writes to you or @mentions you (also on your phone)</span><input type="checkbox" data-notify="chat"></label>
           <label class="toggle"><span>Packages: out for delivery, delivered, delayed</span><input type="checkbox" data-notify="deliveries"></label>
+          <label class="toggle"><span>Mail tracking: someone opens or clicks your email, or a person tracks one they sent you</span><input type="checkbox" data-notify="tracking"></label>
         </div>
         <div class="toggles">
           <label class="toggle"><span>Quiet hours</span><input type="checkbox" id="quiet-on"></label>
@@ -439,6 +445,7 @@
 <div id="welcome" class="scrim welcome-scrim" role="dialog" aria-modal="true" aria-label="Welcome to Switchboard"></div>
 <div id="acct-prompts" class="acct-prompts"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="bk-mini" id="bk-mini" role="group" aria-label="Reading aloud" hidden></div>
 <script src="/vendor/xterm.js"></script>
 <script src="/vendor/addon-fit.js"></script>
 <script src="/vendor/addon-webgl.js"></script>
@@ -461,6 +468,10 @@
 <script src="/js/rundown.js"></script>
 <script src="/js/tasks.js"></script>
 <script src="/js/taskcards.js"></script>
+<script src="/js/mailtrack.js"></script>
+<script src="/js/books.js"></script>
+<script src="/js/bookreader.js"></script>
+<script src="/js/bookvoice.js"></script>
 <script src="/js/granolacard.js"></script>
 <script src="/js/calc.js"></script>
 <script src="/js/sanitize.js"></script>
@@ -477,6 +488,7 @@
 <script src="/js/calendarform.js"></script>
 <script src="/js/people.js"></script>
 <script src="/js/project.js"></script>
+<script src="/js/dashboard.js"></script>
 <script src="/js/members.js"></script>
 <script src="/js/share.js"></script>
 <script src="/js/websessions.js"></script>

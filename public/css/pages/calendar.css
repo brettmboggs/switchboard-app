@@ -13,11 +13,12 @@
 .cal-chip { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 var(--sp-1); border-left: 3px solid var(--cal-c); font-size: var(--fs-xs); }
 .cal-chip .mono { color: var(--fg-muted); }
 .cal-more { font-size: var(--fs-xs); }
-.cal-ev { grid-template-columns: 9rem minmax(0, 1fr) auto; gap: var(--sp-3); }
-.cal-when { font-size: var(--fs-sm); color: var(--fg-muted); }
-.cal-what .t { font-weight: 600; overflow-wrap: anywhere; }
-.cal-what .s { display: block; color: var(--fg-muted); font-size: var(--fs-sm); }
-.cal-from { font-size: var(--fs-sm); text-align: right; }
+.cal-ev { grid-template-columns: max-content minmax(0, 1fr) auto; gap: var(--sp-3); align-items: baseline; }
+.cal-when { font-size: var(--fs-sm); color: var(--fg-muted); white-space: nowrap; min-width: 19ch; }   /* "12:00 PM – 12:30 PM" on one line; every row the same width */
+.cal-what .t { font-weight: 600; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cal-what .t > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-what .s { display: block; color: var(--fg-muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-from { font-size: var(--fs-sm); text-align: right; white-space: nowrap; }
 @media (max-width: 720px) { .cal-cell { min-height: 4.5rem; } .cal-ev { grid-template-columns: minmax(0, 1fr); } .cal-from { text-align: left; } }
 .cal-dt { display: flex; gap: var(--sp-2); }
 button.cal-ev { border-radius: var(--r-sm); }
