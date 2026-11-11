@@ -11,3 +11,9 @@ test('settings synced as JSON text become real values on the board', () => {
   assert.equal(data.spaces()[0].name, 'Acme');
   assert.equal(data.getSetting('note'), 'plain words');
 });
+
+test('a list this browser saved earlier as JSON text is read back as a list', () => {
+  const data = makeData();
+  data.setSetting('spaces', JSON.stringify([{ id: 'a', name: 'Acme' }]));
+  assert.equal(data.spaces()[0].name, 'Acme');
+});

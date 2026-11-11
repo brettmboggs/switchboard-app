@@ -12,6 +12,8 @@
 export const LOCAL_ONLY = (k) => k === 'sync' || k === 'syncServer' || k === 'boardUrl' || k === 'inviteTokens' || k === 'deviceId' || k === 'codeRoot' || k === 'rules_v2' || k === 'allowRemote' || k.startsWith('contacts_seeded:');
 // The app syncs every setting as its JSON text; the page keeps real values.
 const fromWire = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch { return v; } };
+// A setting this browser saved earlier, before the board converted, may still be JSON text: lists and objects are read back as such.
+const asValue = (v) => { if (typeof v !== 'string' || !/^\s*[[{]/.test(v)) return v; const r = fromWire(v); return r && typeof r === 'object' ? r : v; };
 const DEFAULT_SPACES = [{ id: 'personal', name: 'Personal', color: '#8A8F98', group: 'Mine' }];
 const ITEM_COLS = ['uid', 'kind', 'text', 'space', 'due_at', 'amount', 'cadence', 'created_at', 'done_at', 'notified_at', 'updated_at'];
 
@@ -30,7 +32,7 @@ export function makeData() {
     onLocalChange: () => changed('local'),
     onChange: (f) => listeners.add(f),
     // ---- settings
-    getSetting: (k, d) => settings.has(k) ? settings.get(k).v : d,
+    getSetting: (k, d) => settings.has(k) ? asValue(settings.get(k).v) : d,
     setSetting: (k, v) => { settings.set(k, { v, at: Math.max(now(), (settings.get(k)?.at || 0) + 1) }); changed(LOCAL_ONLY(k) ? 'local-only' : 'settings'); },
     spaces: () => D.getSetting('spaces', DEFAULT_SPACES),
     saveSpaces: (list) => D.setSetting('spaces', list),
