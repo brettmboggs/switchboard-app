@@ -10,6 +10,8 @@
 
 // Settings that belong to one computer and never travel (lib/sync.js keeps the same list).
 export const LOCAL_ONLY = (k) => k === 'sync' || k === 'syncServer' || k === 'boardUrl' || k === 'inviteTokens' || k === 'deviceId' || k === 'codeRoot' || k === 'rules_v2' || k === 'allowRemote' || k.startsWith('contacts_seeded:');
+// The app syncs every setting as its JSON text; the page keeps real values.
+const fromWire = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch { return v; } };
 const DEFAULT_SPACES = [{ id: 'personal', name: 'Personal', color: '#8A8F98', group: 'Mine' }];
 const ITEM_COLS = ['uid', 'kind', 'text', 'space', 'due_at', 'amount', 'cadence', 'created_at', 'done_at', 'notified_at', 'updated_at'];
 
@@ -92,7 +94,7 @@ export function makeData() {
           for (const [k, { v, at }] of Object.entries(remote || {})) {
             if (LOCAL_ONLY(k)) continue;
             const cur = settings.get(k);
-            if (!cur || preferRemote || (cur.at || 0) < at) { settings.set(k, { v, at: Math.max(at, 1) }); n++; }
+            if (!cur || preferRemote || (cur.at || 0) < at) { settings.set(k, { v: fromWire(v), at: Math.max(at, 1) }); n++; }
           }
           return n;
         }
