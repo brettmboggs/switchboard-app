@@ -1319,12 +1319,19 @@ timer (lms load --ttl) works, but once its llama-server process outlived the
 model LM Studio listed as unloaded. Switchboard now loads with a 5-minute
 timer (was 15; Ctrl+Space reloads it while you talk, about 4 seconds), and asks
 for the same timer on every question (a model LM Studio loads for a question on
-its own keeps it for an hour). Every 2 minutes Switchboard unloads any model
-LM Studio lists as unused for 5 minutes, whoever loaded it, and, when nothing
+its own keeps it for an hour). Every 2 minutes Switchboard unloads a model
+that carries such a timer and has been unused for 5 minutes, and, when nothing
 is listed as loaded, stops an LM Studio model process seen on two sweeps in a
-row. A model answering or used in the last 5 minutes is never touched; a chat
-in LM Studio's own app reloads its model when next used. Linux only for now
-(/proc); elsewhere nothing is stopped.
+row. A model answering, reading a prompt or used in the last 5 minutes is never
+touched. Linux only for now (/proc); elsewhere nothing is stopped.
+Changed Nov 12 2026 (Brett: "for offloading models on switchboard we can add a
+button"): automatic for Jarvis's own models, a button for everything else. A
+model loaded by hand in LM Studio has no timer and is no longer unloaded by the
+sweep (it had cut a long prompt off in a big model); Settings, Connections,
+Local AI models lists what is loaded (size, status, idle minutes, who unloads
+it) with Unload and Unload all, each confirmed on the button itself, and Jarvis
+can list and unload them ("unload models"). A model loaded by hand that has sat
+idle 30 minutes gets a quiet note in that card; it is never unloaded on its own.
 
 ## Project dashboards (Nov 11 2026)
 Website numbers are measured here, from outside, with no paid service: pages

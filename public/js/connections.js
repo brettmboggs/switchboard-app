@@ -118,6 +118,7 @@ function modelName(id, hint = '') {
   return size ? `${name} · ${size}` : name;
 }
 const OLLAMA_INSTALL = { linux: 'curl -fsSL https://ollama.com/install.sh | sh', darwin: 'brew install ollama && brew services start ollama', win32: 'winget install Ollama.Ollama' };
+let laiArmed = null, laiMsg = '', laiDisarm = null;   // the Unload button waiting for its second click, and the last result
 function renderLocalAI() {
   const el = $('local-ai-card'), L = SET?.localAI; if (!el || !L) return;
   const ollama = L.servers.find((s) => s.id === 'ollama'), others = L.servers.filter((s) => s.id !== 'ollama');
@@ -144,11 +145,37 @@ function renderLocalAI() {
     else line += ` LM Studio: ${n} model${n === 1 ? '' : 's'}, from New session: Agent, Local model (LM Studio).`;
     if (n) wide += `<div class="lai-list">${lm.models.map((m) => `<span title="${esc(m.id)}"><b>${esc(m.name)}</b>${size(m.size)}</span>`).join('')}</div>`;
   }
+  // Loaded now (lib/lmloaded.js): each with Unload, and Unload all. Jarvis's own models unload themselves;
+  // one loaded by hand waits for this button, with a quiet note once it has sat unused for a while.
+  const loaded = L.loaded || [];
+  if (loaded.length) {
+    const STATUS = { idle: 'Idle', generating: 'Answering', processingprompt: 'Reading a prompt', loading: 'Loading' };
+    const state = (m) => m.idleMin != null ? (m.idleMin < 1 ? 'Idle, just used' : `Idle ${m.idleMin} min`) : (STATUS[m.status] || m.status || 'Loaded');
+    wide += `<div class="lai-get"><span class="muted small">Loaded now, in the graphics card and memory:</span>${loaded.map((m) => `<div class="lai-row"><span><b title="${esc(m.id)}">${esc(m.name)}</b>${size(m.size)} <span class="muted small">${esc(state(m))} · ${m.auto ? 'unloads itself' : 'loaded by you'}</span>${m.nudge ? ` <span class="small">Nothing has used it for ${m.idleMin} minutes; unload it to free the card.</span>` : ''}</span><button class="btn" type="button" data-lai-unload="${esc(m.id)}">${laiArmed === m.id ? 'Unload? Yes' : 'Unload'}</button></div>`).join('')}`
+      + `<div class="lai-row"><span class="small" data-lai-msg>${esc(laiMsg)}</span>${loaded.length > 1 ? `<button class="btn btn--quiet" type="button" data-lai-unload="*">${laiArmed === '*' ? 'Unload all? Yes' : 'Unload all'}</button>` : ''}</div></div>`;
+  } else if (laiMsg) wide += `<div class="lai-get"><span class="small">${esc(laiMsg)}</span></div>`;
   const rest = others.filter((s) => !(lm && s.id === 'lmstudio'));
   if (rest.length) wide += `<div class="lai-list">${rest.map((s) => `<span>${esc(s.name)}: ${s.models.length} model${s.models.length === 1 ? '' : 's'} running</span>`).join('')}</div>`;
   el.innerHTML = `<div class="acct-main"><b>Local AI models</b><span class="acct-line">${line}</span></div>
     <div class="form-row">${actions}<button class="btn btn--quiet" type="button" data-lai-refresh>Check again</button></div>${wide ? `<div class="acct-wide">${wide}</div>` : ''}`;
 }
+// Unload: the first click arms the button ("Unload? Yes"), the second unloads; the result shows in the card.
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-lai-unload]'); if (!b) return;
+  const id = b.dataset.laiUnload;
+  if (laiArmed !== id) {
+    laiArmed = id; laiMsg = ''; renderLocalAI();
+    clearTimeout(laiDisarm); laiDisarm = setTimeout(() => { laiArmed = null; renderLocalAI(); }, 6000);
+    return;
+  }
+  clearTimeout(laiDisarm); laiArmed = null;
+  b.disabled = true; b.textContent = 'Unloading…';
+  try {
+    const r = await api('/api/localai/unload', id === '*' ? { all: true } : { id });
+    SET.localAI = { ...SET.localAI, loaded: r.loaded || [] }; laiMsg = r.message || 'Unloaded.';
+  } catch (err) { laiMsg = err.message; }
+  renderLocalAI();
+});
 document.addEventListener('click', async (e) => {
   if (!e.target.closest('[data-lai-refresh]')) return;
   try { SET.localAI = await api('/api/localai/refresh', {}); renderLocalAI(); toast('Checked.'); } catch (err) { toast(err.message, { kind: 'error' }); }
