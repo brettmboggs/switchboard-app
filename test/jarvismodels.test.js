@@ -1,5 +1,5 @@
-// Jarvis's local model never sits on the graphics card unused (lib/jarvis.js): a model process LM Studio
-// has let go of is stopped once it has been seen twice with nothing loaded; while a model is loaded, none is.
+// Local models on the graphics card (lib/jarvis.js, lib/lmloaded.js): Jarvis's own unload themselves when
+// idle; anything loaded by hand, in LM Studio or held by another app such as Bionic, waits for Unload.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -7,18 +7,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 process.env.SWITCHBOARD_DATA = mkdtempSync(join(tmpdir(), 'sb-jvmodels-'));
-const { strays, idleModels, IDLE } = await import('../lib/jarvis.js');
-const { loadedFrom, NUDGE_MIN } = await import('../lib/lmloaded.js');
+const { idleModels, IDLE } = await import('../lib/jarvis.js');
+const { loadedFrom, heldFrom, ownerOf, NUDGE_MIN } = await import('../lib/lmloaded.js');
 
-test('a lingering model process is stopped on the second sweep, never while LM Studio has a model loaded', () => {
-  let r = strays(new Set(), [101], 0);
-  assert.deepEqual(r.kill, []);   // first sight: it may be loading
-  r = strays(r.suspects, [101, 202], 0);
-  assert.deepEqual(r.kill, [101]);
-  assert.deepEqual([...r.suspects], [101, 202]);
-  r = strays(r.suspects, [202], 1);   // a model is loaded: LM Studio's own
-  assert.deepEqual(r.kill, []);
-  assert.equal(r.suspects.size, 0);
+test('a model process another app holds (Bionic) is listed with its owner and idle time, never stopped on its own', () => {
+  const seen = new Map(), t0 = 1_000_000;
+  const info = { model: '/m/llmfan46/Qwen3.6-35B-A3B-uncensored-heretic-Q4_K_M.gguf', cgroup: '0::/user.slice/app.slice/app-ai.elementlabs.bionic-570780.scope', ticks: 100, rss: 4e9 };
+  let h = heldFrom(587977, info, seen, t0, 9.6e9);
+  assert.deepEqual([h.id, h.name, h.held, h.status, h.idleMin, h.auto, h.nudge, h.size], ['pid:587977', 'Qwen3.6-35B-A3B-uncensored-heretic-Q4_K_M', 'Bionic', 'idle', 0, false, false, 13.6e9]);
+  h = heldFrom(587977, { ...info, ticks: 250 }, seen, t0 + 120e3);   // used the processor since the last look: working
+  assert.deepEqual([h.status, h.idleMin], ['working', null]);
+  h = heldFrom(587977, { ...info, ticks: 250 }, seen, t0 + 120e3 + 31 * 60e3);   // then quiet for 31 minutes
+  assert.deepEqual([h.status, h.idleMin, h.nudge], ['idle', 31, true]);
+  assert.equal(ownerOf('0::/user.slice/app.slice/something.scope'), 'another app');
 });
 
 test('the model unloads itself after five idle minutes', () => {

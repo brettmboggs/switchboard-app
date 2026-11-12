@@ -149,9 +149,9 @@ function renderLocalAI() {
   // one loaded by hand waits for this button, with a quiet note once it has sat unused for a while.
   const loaded = L.loaded || [];
   if (loaded.length) {
-    const STATUS = { idle: 'Idle', generating: 'Answering', processingprompt: 'Reading a prompt', loading: 'Loading' };
+    const STATUS = { idle: 'Idle', generating: 'Answering', processingprompt: 'Reading a prompt', loading: 'Loading', working: 'Working' };
     const state = (m) => m.idleMin != null ? (m.idleMin < 1 ? 'Idle, just used' : `Idle ${m.idleMin} min`) : (STATUS[m.status] || m.status || 'Loaded');
-    wide += `<div class="lai-get"><span class="muted small">Loaded now, in the graphics card and memory:</span>${loaded.map((m) => `<div class="lai-row"><span><b title="${esc(m.id)}">${esc(m.name)}</b>${size(m.size)} <span class="muted small">${esc(state(m))} · ${m.auto ? 'unloads itself' : 'loaded by you'}</span>${m.nudge ? ` <span class="small">Nothing has used it for ${m.idleMin} minutes; unload it to free the card.</span>` : ''}</span><button class="btn" type="button" data-lai-unload="${esc(m.id)}">${laiArmed === m.id ? 'Unload? Yes' : 'Unload'}</button></div>`).join('')}`
+    wide += `<div class="lai-get"><span class="muted small">Loaded now, in the graphics card and memory:</span>${loaded.map((m) => `<div class="lai-row"><span><b title="${esc(m.path || m.id)}">${esc(m.name)}</b>${m.vram ? ` <span class="muted small">${(m.vram / 1e9).toFixed(1)} GB card · ${((m.ram || 0) / 1e9).toFixed(1)} GB memory</span>` : size(m.size)} <span class="muted small">${esc(state(m))} · ${m.held ? `held by ${esc(m.held)}` : m.auto ? 'unloads itself' : 'loaded by you'}</span>${m.nudge ? ` <span class="small">Nothing has used it for ${m.idleMin} minutes; unload it to free the card.</span>` : ''}</span><button class="btn" type="button" data-lai-unload="${esc(m.id)}">${laiArmed === m.id ? 'Unload? Yes' : 'Unload'}</button></div>`).join('')}`
       + `<div class="lai-row"><span class="small" data-lai-msg>${esc(laiMsg)}</span>${loaded.length > 1 ? `<button class="btn btn--quiet" type="button" data-lai-unload="*">${laiArmed === '*' ? 'Unload all? Yes' : 'Unload all'}</button>` : ''}</div></div>`;
   } else if (laiMsg) wide += `<div class="lai-get"><span class="small">${esc(laiMsg)}</span></div>`;
   const rest = others.filter((s) => !(lm && s.id === 'lmstudio'));

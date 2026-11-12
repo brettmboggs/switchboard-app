@@ -1332,6 +1332,13 @@ Local AI models lists what is loaded (size, status, idle minutes, who unloads
 it) with Unload and Unload all, each confirmed on the button itself, and Jarvis
 can list and unload them ("unload models"). A model loaded by hand that has sat
 idle 30 minutes gets a quiet note in that card; it is never unloaded on its own.
+The same day the stray-process cleanup went too. Bionic (LM Studio's chat app)
+runs its model in its own process, which `lms ps` does not list, so the sweep
+took Brett's Qwen for a leftover and stopped it twice while he used it; Bionic's
+reload then failed with "unable to allocate CUDA0 buffer". Such processes are
+now listed in the same card as "held by Bionic" (model file, card and memory
+use, idle minutes from processor time) with Unload, and are never stopped on
+their own.
 
 ## Project dashboards (Nov 11 2026)
 Website numbers are measured here, from outside, with no paid service: pages
