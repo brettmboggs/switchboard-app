@@ -138,6 +138,8 @@ document.addEventListener('click', (e) => {
   const it = e.target.closest('[data-type]');
   if (it) {
     if (it.dataset.type === 'window') { api('/api/focus', { windowId: Number(it.dataset.key) }).catch(() => {}); closeDialog('windows-scrim'); return; }
+    // Google signed Switchboard out: its Sign in button is in Settings, Connections, Calendars.
+    if (it.dataset.type === 'google') { openSettings('connections').then(() => $('cal-google')?.scrollIntoView({ block: 'center' })); return; }
     selected = { type: it.dataset.type, key: it.dataset.key };
     extra = { key: null, html: '' };
     mergeArmed = null;

@@ -17,6 +17,12 @@ function renderGoogleCal() {
     return;
   }
   if (!g.configured) { host.innerHTML = ''; return; }
+  // Google signed Switchboard out (lib/google.js): the account and its calendars stay; one click signs in again.
+  if (g.connected && g.expired) {
+    host.innerHTML = `<div class="cal-acct"><span>Google: <b>${esc(g.email || 'your account')}</b> <span class="bad-text small">signed Switchboard out, so its calendars are paused</span></span>
+      <span class="form-row"><button class="btn btn--primary" type="button" data-g="signin">Sign in with Google</button><button class="btn btn--quiet" type="button" data-g="disconnect">Sign out of Google</button></span></div>`;
+    return;
+  }
   host.innerHTML = g.connected
     ? `<div class="cal-acct"><span>Google: <b>${esc(g.email || 'connected')}</b>${mine.length ? ` <span class="muted small">${mine.length} calendar${mine.length === 1 ? '' : 's'} added</span>` : ''}${gPick?.error ? ` <span class="bad-text small">${esc(gPick.error)}</span>` : ''}</span>
         <span class="form-row"><button class="btn" type="button" data-g="find">${gPick?.busy ? 'Looking…' : mine.length ? 'Add more' : 'Choose calendars'}</button><button class="btn btn--quiet" type="button" data-g="disconnect">Sign out of Google</button></span></div>`
@@ -42,10 +48,11 @@ document.addEventListener('click', async (e) => {
       if (tab) tab.location = r.url; else location.href = r.url;
       toast('Google\'s sign-in is open in a new tab. Sign in there, then come back.');
       // The new tab finishes the sign-in; when this page sees it, offer the calendars.
-      const was = SET.google.connected;
+      // Signing in again after Google signed Switchboard out keeps the calendars already chosen.
+      const was = SET.google.connected && !SET.google.expired, again = !!SET.google.expired;
       const t = setInterval(async () => {
         SET = await api('/api/settings').catch(() => SET);
-        if (SET.google?.connected && !was) { clearInterval(t); renderCalendars(); gFind(); }
+        if (SET.google?.connected && !SET.google.expired && !was) { clearInterval(t); renderCalendars(); if (again) toast('Signed in to Google again. Your calendars are back.'); else gFind(); }
         else if (!document.body.contains($('cal-google'))) clearInterval(t);
       }, 2000);
       setTimeout(() => clearInterval(t), 10 * 60e3);

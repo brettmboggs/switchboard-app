@@ -27,7 +27,7 @@ import { route as agentRoutes } from './lib/routes/agentapi.js';
 import { route as sessionViewRoutes } from './lib/routes/sessionview.js';
 import { route as checkRoutes } from './lib/routes/browserchecks.js';
 import { route as calendarRoutes } from './lib/routes/calendar.js';
-import { route as googleRoutes } from './lib/routes/google.js';
+import { route as googleRoutes, googleStatus } from './lib/routes/google.js';
 import { route as inboxRoutes } from './lib/routes/inbox.js';
 import { route as projectRoutes } from './lib/routes/projects.js';
 import { route as sortingRoutes } from './lib/routes/sorting.js';
@@ -173,6 +173,7 @@ async function boardState() {
       hooks: lastHookAt(),
       github: { at: gh.at, ok: gh.ok, error: gh.error },
       gmail: gmailStatus(),
+      google: googleStatus(),
       microsoft: (() => { const m = microsoft(), c = msConfig(); return { connected: !!c?.refreshToken, email: c?.account?.email || null, at: m.at, ok: m.ok, error: m.error, signIn: m.signIn, canWrite: canWrite() }; })()
     }
   };

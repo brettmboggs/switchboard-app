@@ -264,6 +264,9 @@ function flight() {
     }
   }
   cards.push(...deliveryCards(), ...routineCards(), ...checkCards(), ...taskCards());
+  // Google signed Switchboard out (lib/google.js): one card that opens its Sign in button.
+  const gs = S.status?.google;
+  if (gs?.connected && gs.expired) cards.push({ type: 'google', key: 'google', space: 'personal', st: 'needs', label: 'Sign in', where: 'Google Calendar', what: 'Google signed Switchboard out. Sign in again to keep your calendars up to date.', at: gs.expired });
   for (const v of S.money.invoices) cards.push({ type: 'invoice', key: String(v.id), space: v.space, st: 'others', label: 'Invoice out', where: `${$$(v.amount)} · sent ${since(v.created_at)}`, what: v.text, at: v.created_at });
   for (const a of S.awaiting) cards.push({ type: 'awaiting', key: a.key, space: a.space, st: 'others', label: 'No reply yet', where: `Emailed ${a.who} · ${since(a.date)}`, what: a.subject, at: a.date });
   return cards;

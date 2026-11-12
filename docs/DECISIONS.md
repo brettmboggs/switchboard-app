@@ -1351,3 +1351,36 @@ person sees), so it is a fixed list of questions asked by hand each month and
 tracked as numbers. Sites behind a firewall rate-limit a burst of reads: the
 check reads two pages at a time with pauses, waits when told 429, never counts
 a 429 as a broken link, and times the home page before reading the rest.
+
+## Connections ride out blips (Nov 12 2026)
+
+Brett: Microsoft, Gmail and GitHub kept showing "not connecting". Each poller
+marked itself broken on its first failed check, and on his machine checks fail
+now and then for reasons that pass on their own: DNS goes through Tailscale's
+resolver, which drops a query now and then (a 3-second stall on about one
+lookup in fifty, sometimes a failure), and Microsoft answers 502 for a moment.
+lib/steady.js is the one place that decides: a check that fails for a passing
+reason (lookups, timeouts, resets, 429 and 5xx) is tried twice more, after 2
+and 6 seconds; if it still fails, the last good status stays on the page until
+the trouble has lasted 10 minutes. Anything that needs the person (a refused
+password, a sign-in that ran out) shows at once. Only reads are retried, never
+a send or a change, so nothing happens twice. A Microsoft 5xx while renewing
+the sign-in no longer reads as "sign-in expired". Rejected: hiding every
+error for a while (a wrong password would sit unseen), and fixing it only in
+the machine's DNS (the board should not depend on one resolver behaving).
+Microsoft's mail read can fail inside Microsoft while Teams works (that day,
+every form of it answered 502 UnknownError for a while), so lib/microsoft.js
+reads a mail folder in the lightest form Microsoft will answer (no sort, then
+no date filter, with the dates checked here) and remembers the form that
+worked; and when mail still fails, Teams stays fresh and the last mail read
+stays on the board, with a message that says it is only mail.
+
+## Google sign-outs ask for a sign-in (Nov 12 2026)
+
+When Google signs Switchboard out (a week after sign-in while the app is in
+testing, or access removed), the refresh token is refused but the account was
+still saved, so Settings said "connected" and offered only Sign out while each
+calendar said "Press Sign in with Google again" with no such button. Now the
+refusal is remembered on the account (lib/google.js, `expired`): the Google row
+shows Sign in with Google, Now shows a Needs-you card that opens it, and signing
+in again keeps the calendars already chosen and reads them at once.

@@ -26,6 +26,7 @@ test('fetch failed, programs that failed and missing files say so without code',
   assert.equal(friendlyError(git), 'Git could not finish what Switchboard asked of it. Try again; if it keeps happening, ask for help.');
   assert.match(friendlyError(new Error('Command failed: /usr/bin/gh repo create x\nHTTP 401: Bad credentials')), /^The GitHub tool is not signed in/);
   assert.match(friendlyError(new Error('Command failed: git fetch\nfatal: unable to access: Could not resolve host: github.com')), /^Git could not reach the internet/);
+  assert.match(friendlyError(new Error('Command failed: gh api user/repos\nerror connecting to api.github.com\ncheck your internet connection')), /^The GitHub tool could not reach the internet/);
   assert.doesNotMatch(friendlyError(git), /init|-b|fatal/);
   assert.match(friendlyError(Object.assign(new Error('spawn gh ENOENT'), { code: 'ENOENT' })), /^The GitHub tool is not installed on this computer/);
   assert.match(friendlyError(Object.assign(new Error("ENOENT: no such file or directory, open '/home/sam/x.json'"), { code: 'ENOENT', path: '/home/sam/x.json' })), /^A file or program Switchboard needs is missing/);
