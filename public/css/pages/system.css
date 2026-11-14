@@ -58,7 +58,7 @@
 .apps-bar { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
 .apps-bar input { flex: 1; min-width: 160px; }
 .apps { width: 100%; border-collapse: collapse; font-size: var(--fs-base); }
-.apps th { text-align: left; font-size: var(--fs-xs); font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .06em; padding: var(--sp-1) var(--sp-2) var(--sp-2); }
+.apps th { white-space: nowrap; text-align: left; font-size: var(--fs-xs); font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .06em; padding: var(--sp-1) var(--sp-2) var(--sp-2); }
 .apps th.n, .apps td.n { text-align: right; }
 .apps td { padding: var(--sp-2); border-top: 1px solid var(--border-faint); vertical-align: middle; }
 .apps td.n { font-family: var(--font-mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
@@ -69,3 +69,25 @@
 .apps tr:hover td { background: var(--bg-hover); }
 .mon-pane { display: grid; gap: var(--sp-3); }
 .sys-open { display: grid; gap: var(--sp-3); justify-items: start; }
+
+/* Ending apps (lib/procs.js): each app's label, click a row for its processes,
+   End on each. Safe is green, ask first is amber, keep is grey; never orange,
+   which is for "needs you". */
+.apps tr.pick { cursor: pointer; }
+.apps tr.pick:focus-visible td { background: var(--bg-hover); outline: none; }
+.lvl--safe { background: var(--ok-tint); color: var(--ok); }
+.lvl--ask { background: var(--warn-tint); color: var(--warn); }
+.lvl--keep { background: var(--border-faint); color: var(--fg-muted); }
+.mon-hog { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-top: var(--sp-2); }
+.mon-hog .mon-note { flex: 1 1 320px; }
+.mon-hog b { color: var(--fg); }
+.app-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-2); }
+.app-head > b { font-size: var(--fs-lg); white-space: nowrap; }
+.app-why { flex: 1 1 260px; }
+.app-sum { white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 40ch; vertical-align: middle; }
+.procs-box { max-height: 55vh; overflow: auto; overscroll-behavior: contain; }
+.procs-box .apps td:first-child { max-width: 0; width: 100%; }
+.procs-box .apps td .one { max-width: 26ch; }
+.apps .nm small { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apps .end { display: flex; gap: var(--sp-2); align-items: center; justify-content: flex-end; }

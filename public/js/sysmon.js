@@ -8,7 +8,8 @@
 // here, in a few small arrays. The skeleton is built once and updated in place,
 // so hovering a chart, typing in the search box and scrolling are never
 // interrupted by a refresh.
-const MON = { token: 0, paused: false, snap: null, built: false, gpuN: -1, sort: 'cpu', filter: '', more: false, hist: { t: [], cpu: [], mem: [], down: [], up: [], gpu: [] } };
+const MON = { token: 0, paused: false, snap: null, built: false, gpuN: -1, sort: 'cpu', filter: '', more: false, hist: { t: [], cpu: [], mem: [], down: [], up: [], gpu: [] },
+  app: null, appData: null, appAt: 0, ends: {} };   // the app whose details are open, and End buttons mid-way (armed, busy, force)
 const HIST = 120, EVERY = 1000;   // two minutes at one reading a second
 
 const fmtB = (b, d = 1) => { if (b == null) return '–'; const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0, n = b; while (n >= 1024 && i < 4) { n /= 1024; i++; } return (i >= 3 ? n.toFixed(d) : n >= 100 || i === 0 ? Math.round(n) : n.toFixed(d)) + ' ' + u[i]; };
@@ -69,7 +70,7 @@ document.addEventListener('pointerleave', () => document.querySelectorAll('.char
 // ---------- the skeleton, built once
 function buildMonitor() {
   $('sys-body').innerHTML = `
-    <div class="verdict" id="mon-verdict" aria-live="polite"><p id="mon-say">Reading this computer…</p><small id="mon-say2"></small></div>
+    <div class="verdict" id="mon-verdict" aria-live="polite"><p id="mon-say">Reading this computer…</p><small id="mon-say2"></small><div class="mon-hog" id="mon-hog" hidden></div></div>
     <div class="mon-grid">
       <section class="card res" aria-label="Processor">
         <div class="res-head"><h3>Processor</h3><span class="aside" id="cpu-model"></span></div>
@@ -96,12 +97,15 @@ function buildMonitor() {
       <section class="card res" aria-label="Temperatures"><div class="res-head"><h3>Temperatures</h3><span class="aside" id="temp-aside"></span></div><div class="rows" id="mon-temps"></div></section>
       <section class="card res wide" aria-label="Apps">
         <div class="res-head"><h3>Apps</h3><span class="aside" id="apps-aside"></span></div>
-        <div class="apps-bar">
-          <div class="chips" role="group" aria-label="Sort apps by"><button class="chip" type="button" data-mon-sort="cpu" aria-pressed="true">Processor</button><button class="chip" type="button" data-mon-sort="mem" aria-pressed="false">Memory</button></div>
-          <input class="field" id="mon-filter" type="search" placeholder="Find an app" aria-label="Find an app" autocomplete="off">
+        <div id="mon-list">
+          <div class="apps-bar">
+            <div class="chips" role="group" aria-label="Sort apps by"><button class="chip" type="button" data-mon-sort="cpu" aria-pressed="true">Processor</button><button class="chip" type="button" data-mon-sort="mem" aria-pressed="false">Memory</button></div>
+            <input class="field" id="mon-filter" type="search" placeholder="Find an app" aria-label="Find an app" autocomplete="off">
+          </div>
+          <table class="apps"><thead id="mon-apps-head"></thead><tbody id="mon-apps"></tbody></table>
+          <div><button class="btn btn--quiet btn--sm" type="button" id="mon-more">Show more</button></div>
         </div>
-        <table class="apps"><thead><tr><th>App</th><th class="n">Processor</th><th class="n">Memory</th></tr></thead><tbody id="mon-apps"></tbody></table>
-        <div><button class="btn btn--quiet btn--sm" type="button" id="mon-more">Show more</button></div>
+        <div id="mon-app" hidden></div>
       </section>
     </div>`;
   MON.built = true; MON.gpuN = -1;
@@ -148,6 +152,7 @@ function updateMonitor(s) {
   v.classList.toggle('strained', s.say.length > 0);
   $('mon-say').textContent = s.say.length ? s.say[0].text : 'Everything is calm.';
   $('mon-say2').textContent = s.say.length > 1 ? s.say.slice(1).map((x) => x.text).join(' ') : s.say.length ? '' : 'Nothing is straining this computer.';
+  renderHog(s.hog);
 
   // processor
   $('cpu-big').innerHTML = `${Math.round(s.cpu.pct)}<small>%</small>`;
@@ -209,16 +214,87 @@ function updateGpus(s) {
   });
 }
 
+// ---------- apps: the list, an app's details, End (lib/procs.js labels each one)
+const LEVEL = { safe: 'Safe to end', ask: 'Ask first', keep: 'Keep' };
+const levelPill = (l, why) => (l ? `<span class="pill lvl lvl--${l}" title="${esc(why || '')}">${LEVEL[l]}</span>` : '');
+const fmtAge = (s) => (s == null ? '–' : s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : s < 172800 ? `${Math.floor(s / 3600)} h ${Math.round(s % 3600 / 60)} min` : `${Math.round(s / 86400)} days`);
+const gpuCell = (b) => (b ? fmtB(b) : '–');
+
 function renderApps(s) {
-  const q = MON.filter.trim().toLowerCase(), by = MON.sort;
+  const q = MON.filter.trim().toLowerCase(), by = MON.sort, can = !!s.canEnd, gpus = can && s.apps.some((a) => a.gpu);
   let list = s.apps.filter((a) => !q || a.name.toLowerCase().includes(q)).sort((a, b) => b[by] - a[by] || b.mem - a.mem);
   const total = list.length; list = list.slice(0, MON.more ? 40 : 12);
   const maxCpu = Math.max(1, ...list.map((a) => a.cpu)), maxMem = Math.max(1, ...list.map((a) => a.mem));
-  $('apps-aside').textContent = `${s.apps.length ? 'top ' + list.length + (total > list.length ? ' of ' + total : '') : ''}`;
-  $('mon-apps').innerHTML = list.map((a) => `<tr><td><div class="nm"><b title="${esc(a.name)}">${esc(a.name)}${a.count > 1 ? `<span class="x">×${a.count}</span>` : ''}</b><div class="meter meter--${by === 'cpu' ? heat(a.cpu * 2) : 'lo'}"><i style="width:${(by === 'cpu' ? a.cpu / maxCpu : a.mem / maxMem) * 100}%"></i></div></div></td><td class="n">${a.cpu.toFixed(1)}%</td><td class="n">${fmtB(a.mem)}</td></tr>`).join('') || '<tr><td colspan="3"><span class="mon-note">No app matches.</span></td></tr>';
+  $('apps-aside').textContent = MON.app ? '' : `${s.apps.length ? 'top ' + list.length + (total > list.length ? ' of ' + total : '') : ''}${can ? ' · click one for details and End' : ''}`;
+  const head = `<tr><th>App</th><th class="n">Processor</th><th class="n">Memory</th>${gpus ? '<th class="n">Graphics</th>' : ''}${can ? '<th class="n">End it?</th>' : ''}</tr>`;
+  if ($('mon-apps-head').innerHTML !== head) $('mon-apps-head').innerHTML = head;
+  $('mon-apps').innerHTML = list.map((a) => `<tr${can ? ` class="pick" data-mon-app="${esc(a.name)}" tabindex="0" aria-label="${esc(a.name)}: details"` : ''}><td><div class="nm"><b title="${esc(a.name)}">${esc(a.name)}${a.count > 1 ? `<span class="x">×${a.count}</span>` : ''}</b><div class="meter meter--${by === 'cpu' ? heat(a.cpu * 2) : 'lo'}"><i style="width:${(by === 'cpu' ? a.cpu / maxCpu : a.mem / maxMem) * 100}%"></i></div></div></td><td class="n">${a.cpu.toFixed(1)}%</td><td class="n">${fmtB(a.mem)}</td>${gpus ? `<td class="n">${gpuCell(a.gpu)}</td>` : ''}${can ? `<td class="n">${levelPill(a.level, a.why)}</td>` : ''}</tr>`).join('') || `<tr><td colspan="5"><span class="mon-note">No app matches.</span></td></tr>`;
   $('mon-more').hidden = total <= 12; $('mon-more').textContent = MON.more ? 'Show fewer' : 'Show more';
   document.querySelectorAll('[data-mon-sort]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.monSort === by)));
 }
+
+// An End button: what it ends ({pid, start} each), how careful to be, and where
+// it is in its two steps (an "ask" one arms first; one that would not close
+// turns into Force end). Its state lives in MON.ends so a refresh keeps it.
+function endBtn(key, targets, level, label, text = 'End') {
+  if (!targets.length || level === 'keep') return '';
+  const st = MON.ends[key] || {};
+  const words = st.busy ? 'Ending…' : st.force ? 'Force end' : st.armed ? 'Sure? End it' : text;
+  return `<button class="btn btn--sm ${st.armed || st.force ? 'btn--danger' : 'btn--quiet'}" type="button"${st.armed ? ' data-sure="1"' : ''} data-mon-end="${esc(key)}" data-targets="${esc(JSON.stringify(st.force ? st.force : targets))}" data-level="${level}" data-label="${esc(label)}"${st.busy ? ' disabled' : ''}>${words}</button>`;
+}
+
+function renderHog(h) {
+  const box = $('mon-hog');
+  if (!h) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `<span class="mon-note"><b>${esc(h.what)}</b> is holding ${fmtB(h.mem)}, has been open ${fmtAge(h.age)} and is using no processor now.</span>${endBtn('hog', [{ pid: h.pid, start: h.start }], h.level, h.what, 'End it')}<button class="btn btn--quiet btn--sm" type="button" data-mon-app="${esc(h.name)}">Details</button>`;
+}
+
+async function loadApp(force = false) {
+  if (!MON.app || (!force && Date.now() - MON.appAt < 1800)) return;
+  MON.appAt = Date.now();
+  const name = MON.app;
+  try { const d = await api('/api/system/app?name=' + encodeURIComponent(name)); if (MON.app === name) { MON.appData = d; renderApp(); } } catch {}
+}
+function renderApp() {
+  const box = $('mon-app'), list = $('mon-list');
+  box.hidden = !MON.app; list.hidden = !!MON.app;
+  if (!MON.app) { box.innerHTML = ''; return; }
+  const d = MON.appData;
+  if (!d || d.name !== MON.app) { box.innerHTML = `<div class="app-head"><button class="btn btn--quiet btn--sm" type="button" data-mon-back>All apps</button><b>${esc(MON.app)}</b></div><p class="mon-note">Reading…</p>`; return; }
+  const open = d.procs.filter((p) => p.level !== 'keep');
+  const gpus = d.procs.some((p) => p.gpu);
+  const rows = d.procs.map((p) => `<tr><td><div class="nm"><b title="${esc(p.cmd || p.what)}">${esc(p.what)}</b><small>pid ${p.pid}${p.ports.length ? ` · port ${p.ports.join(', ')}` : ''}</small></div></td>
+    <td><span class="mon-note one" title="${esc(p.folder || '')}">${esc(p.session || (p.folder ? p.folder.split('/').pop() : '–'))}</span></td>
+    <td class="n">${fmtAge(p.age)}</td><td class="n">${p.cpu.toFixed(1)}%</td><td class="n">${fmtB(p.mem)}</td>${gpus ? `<td class="n">${gpuCell(p.gpu)}</td>` : ''}
+    <td class="n"><div class="end">${levelPill(p.level, p.why)}${endBtn('p' + p.pid, [{ pid: p.pid, start: p.start }], p.level, p.what)}</div></td></tr>`).join('');
+  box.innerHTML = `<div class="app-head"><button class="btn btn--quiet btn--sm" type="button" data-mon-back>All apps</button><b title="${esc(d.name)}">${esc(d.name)}</b>${levelPill(d.level, d.why)}
+      <span class="mon-note app-why">${esc(d.count ? (d.why || '') + (d.some ? ' Some of its processes stay.' : '') : 'It has closed.')}</span>
+      <span class="mon-note app-sum">${d.count} process${d.count === 1 ? '' : 'es'} · ${d.cpu.toFixed(1)}% · ${fmtB(d.mem)}${d.gpu ? ' · ' + fmtB(d.gpu) + ' video' : ''}</span>
+      ${open.length > 1 ? endBtn('all', open.map((p) => ({ pid: p.pid, start: p.start })), open.some((p) => p.level === 'ask') ? 'ask' : 'safe', d.name, `End all ${open.length}`) : ''}</div>
+    <div class="procs-box"><table class="apps"><thead><tr><th>Process</th><th>Session or folder</th><th class="n">Open</th><th class="n">Processor</th><th class="n">Memory</th>${gpus ? '<th class="n">Graphics</th>' : ''}<th class="n">End it?</th></tr></thead><tbody>${rows || `<tr><td colspan="7"><span class="mon-note">No processes by this name are running now.</span></td></tr>`}</tbody></table></div>`;
+}
+function openApp(name) { MON.app = name; MON.appData = null; MON.ends = {}; renderApp(); loadApp(true); if (MON.snap) renderApps(MON.snap); $('mon-app').scrollIntoView({ block: 'nearest' }); }
+
+async function endClick(b) {
+  const key = b.dataset.monEnd, level = b.dataset.level, label = b.dataset.label, st = MON.ends[key] || (MON.ends[key] = {});
+  const targets = JSON.parse(b.dataset.targets || '[]');
+  if (level === 'ask' && !st.armed && !st.force) { st.armed = true; clearTimeout(st.timer); st.timer = setTimeout(() => { if (MON.ends[key]?.armed && !MON.ends[key].busy) { delete MON.ends[key]; reEnd(); } }, 5000); reEnd(); return; }
+  clearTimeout(st.timer);
+  const force = !!st.force; st.busy = true; reEnd();
+  try {
+    const r = await api('/api/system/end', { targets, sure: level === 'ask', force });
+    if (r.left?.length) { MON.ends[key] = { force: r.left }; toast(`${label} is still running after 5 seconds. Force end makes it stop.`); }
+    else { delete MON.ends[key]; toast(r.ended?.length ? `Ended ${label}.` : `${label} had already closed.`); }
+    // Off the list now; the next reading (a couple of seconds old at most) agrees.
+    const gone = new Set([...(r.ended || []), ...targets.map((t) => t.pid).filter((p) => !(r.left || []).some((l) => l.pid === p))]);
+    if (MON.appData) MON.appData = { ...MON.appData, procs: MON.appData.procs.filter((p) => !gone.has(p.pid)), count: MON.appData.procs.filter((p) => !gone.has(p.pid)).length };
+    if (MON.snap?.hog && gone.has(MON.snap.hog.pid)) MON.snap.hog = null;
+    MON.appAt = Date.now() + 2500;
+  } catch (e) { delete MON.ends[key]; toast(e.message, { kind: 'error' }); }
+  reEnd();
+}
+function reEnd() { if (MON.app) renderApp(); if (MON.snap) renderHog(MON.snap.hog); }
 
 // ---------- the loop: runs only while the monitor is open and visible
 async function monTick(token) {
@@ -226,7 +302,7 @@ async function monTick(token) {
   const open = $('sys-scrim').classList.contains('open');
   if (!open) { MON.token++; return; }
   if (!MON.paused && !document.hidden) {
-    try { const s = await api('/api/system'); if (token !== MON.token) return; MON.snap = s; pushHist(s); updateMonitor(s); $('mon-live').textContent = 'live'; }
+    try { const s = await api('/api/system'); if (token !== MON.token) return; MON.snap = s; pushHist(s); updateMonitor(s); loadApp(); $('mon-live').textContent = 'live'; }
     catch (e) { $('mon-live').textContent = 'no answer'; }
   }
   setTimeout(() => monTick(token), EVERY);
@@ -243,6 +319,13 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#sys-open')) { closeDialog('settings-scrim'); openMonitor(); return; }
   if (e.target.closest('#mon-pause')) { MON.paused = !MON.paused; $('mon-pause').textContent = MON.paused ? 'Resume' : 'Pause'; $('mon-live').toggleAttribute('data-paused', MON.paused); $('mon-live').textContent = MON.paused ? 'paused' : 'live'; return; }
   const sort = e.target.closest('[data-mon-sort]'); if (sort) { MON.sort = sort.dataset.monSort; if (MON.snap) renderApps(MON.snap); return; }
-  if (e.target.closest('#mon-more')) { MON.more = !MON.more; if (MON.snap) renderApps(MON.snap); }
+  if (e.target.closest('#mon-more')) { MON.more = !MON.more; if (MON.snap) renderApps(MON.snap); return; }
+  const end = e.target.closest('[data-mon-end]'); if (end) { endClick(end); return; }
+  if (e.target.closest('[data-mon-back]')) { MON.app = null; MON.ends = {}; renderApp(); if (MON.snap) renderApps(MON.snap); return; }
+  const app = e.target.closest('[data-mon-app]'); if (app) openApp(app.dataset.monApp);
+});
+document.addEventListener('keydown', (e) => {
+  const row = e.target.closest?.('tr[data-mon-app]');
+  if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openApp(row.dataset.monApp); }
 });
 document.addEventListener('input', (e) => { if (e.target.id === 'mon-filter') { MON.filter = e.target.value; if (MON.snap) renderApps(MON.snap); } });

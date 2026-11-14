@@ -56,6 +56,30 @@ function busyTyping() {
 // in unscaled units: divide by this, or anything placed by measuring drifts
 // further off the lower it is on the page.
 function pageZoom() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom')) || 1; }
+// Redraw a page without losing what is being typed (Nov 13 2026: a pasted eBay key vanished
+// when the board refreshed under it). Every field the person changed (its value differs from
+// the one drawn) is put back after the redraw, found by id or by its form and name, with the
+// focus and the cursor. forget: true after a save, so the saved values show instead.
+function keepEdits(root, draw, { forget = false } = {}) {
+  const key = (el) => el.id ? '#' + el.id : el.name ? `${el.form?.dataset ? Object.keys(el.form.dataset).join('.') : ''}|${el.name}` : null;
+  const edited = new Map();
+  let focus = null;
+  const same = root?.dataset.keptFor === String(page);   // only the same page's own fields, never another page's
+  if (root && !forget && same) for (const el of root.querySelectorAll('input, textarea, select')) {
+    const k = key(el); if (!k || el.type === 'file') continue;
+    const changed = el.type === 'checkbox' || el.type === 'radio' ? el.checked !== el.defaultChecked : el.tagName === 'SELECT' ? [...el.options].some((o) => o.selected !== o.defaultSelected) : el.value !== el.defaultValue;
+    if (changed) edited.set(k, el.type === 'checkbox' || el.type === 'radio' ? { checked: el.checked } : { value: el.value });
+    if (el === document.activeElement) focus = { k, start: el.selectionStart, end: el.selectionEnd };
+  }
+  draw();
+  if (root) root.dataset.keptFor = String(page);
+  if (!root || (!edited.size && !focus)) return;
+  for (const el of root.querySelectorAll('input, textarea, select')) {
+    const k = key(el), v = k && edited.get(k);
+    if (v) { if ('checked' in v) el.checked = v.checked; else el.value = v.value; }
+    if (focus && k === focus.k) { el.focus(); try { if (focus.start != null) el.setSelectionRange(focus.start, focus.end); } catch {} }
+  }
+}
 async function api(path, body) {
   // The web board (public/js/web/): answered in the browser, from shared projects.
   if (window.WEB) { await window.WEB.ready; return window.WEB.api(path, body); }
@@ -286,7 +310,7 @@ function inboxCount(space = 'all') {
 // session (a plain chat with your account, a desktop worker) slot in here later.
 // On the web board (public/js/web/): Now, Sessions (your shared projects' sessions, websessions.js), Builds and
 // Browser checks, Calendar and Money (what your shared projects share), Inbox (your own Teams and Outlook), Notes.
-const PAGES = [['deck', 'Deck'], ['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['notes', 'Notes'], ['usage', 'AI plans'], ['unsorted', 'Unsorted', 'unsorted']]
+const PAGES = [['deck', 'Deck'], ['now', 'Now'], ['sessions', 'Sessions'], ['builds', 'Builds', 'sessions'], ['checks', 'Browser checks', 'sessions'], ['calendar', 'Calendar'], ['inbox', 'Inbox'], ['money', 'Money'], ['flips', 'Flips', 'money'], ['fliplog', 'Flip log', 'money'], ['notes', 'Notes'], ['usage', 'AI plans'], ['unsorted', 'Unsorted', 'unsorted']]
   .filter(([id]) => !window.WEB || ['deck', 'now', 'sessions', 'builds', 'checks', 'calendar', 'inbox', 'money', 'notes'].includes(id));
 const PAGE_MOVED = { actions: 'builds' };   // old links keep working
 // Pages with no place on the rail: opened from another page, which stays lit

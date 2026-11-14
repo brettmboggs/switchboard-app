@@ -11,7 +11,7 @@ function renderMoney() {
   const paid = S.money.paid.filter(inProject);
   const mail = S.money.mail.filter(inProject).filter((m) => now - m.date < 30 * 86400e3);
   const charged = mail.filter((m) => m.kind === 'charge' && now - m.date < 14 * 86400e3);
-  let html = `<div class="page-head"><h1>Money</h1><span class="grow"></span>${projectPicker()}</div>
+  let html = `<div class="page-head"><h1>Money</h1>${S.flips && !window.WEB ? subTabs() : ''}<span class="grow"></span>${projectPicker()}</div>
     <div class="tiles">
       <div class="tile"><div class="big">${$$(inv.reduce((a, b) => a + (b.amount || 0), 0))}</div><div class="muted small">owed to you</div></div>
       <div class="tile"><div class="big in">${$$(paid.filter((p) => now - p.created_at < 30 * 86400e3).reduce((a, b) => a + (b.amount || 0), 0))}</div><div class="muted small">paid to you, 30 days</div></div>

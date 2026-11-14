@@ -57,6 +57,10 @@ import { route as localFileRoutes } from './lib/routes/localfile.js';
 import { route as jarvisRoutes } from './lib/routes/jarvis.js';
 import { route as usageRoutes } from './lib/routes/usage.js';
 import { route as speedtestRoutes } from './lib/routes/speedtest.js';
+import { route as flipRoutes } from './lib/routes/flips.js';
+import { route as aiRoutes } from './lib/routes/ai.js';
+import * as engine from './lib/engine.js';
+import { sweepChats } from './lib/localchats.js';
 import { route as mailtrackRoutes } from './lib/routes/mailtrack.js';
 import { route as bookRoutes } from './lib/routes/books.js';
 import { route as dashboardRoutes } from './lib/routes/dashboard.js';
@@ -69,11 +73,12 @@ import { pollTasks, tasks, taskStatus } from './lib/tasks.js';
 import { pollGranola, granolaStatus } from './lib/granola.js';
 import { noteMarks } from './lib/notemarks.js';
 import { pollFeeds, reading, feeds } from './lib/feeds.js';
+import { pollGsa, pollEbay, pollAuctions, ebayDue, flipsBrief, alertable, takeGsaNews } from './lib/flips.js';
 import { checksForBoard, startChecks } from './lib/browserchecks.js';
 import { routines } from './lib/routines.js';
 import { hookInLocal, startWebhooks, collect as collectWebhooks, hooks as webhookList } from './lib/webhooks.js';
 // Team chat first: it answers the Inbox's conversation routes for its own "team:" keys only.
-const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes, usageRoutes, speedtestRoutes, mailtrackRoutes, bookRoutes, dashboardRoutes];
+const ROUTES = [chatRoutes, boardRoutes, accountRoutes, settingsRoutes, connectionRoutes, sessionRoutes, systemRoutes, webhookRoutes, routineRoutes, pageRoutes, agentRoutes, checkRoutes, calendarRoutes, googleRoutes, sessionViewRoutes, inboxRoutes, slashRoutes, projectRoutes, sortingRoutes, shareRoutes, costRoutes, feedRoutes, taskRoutes, granolaRoutes, fileRoutes, localFileRoutes, draftRoutes, jarvisRoutes, usageRoutes, speedtestRoutes, mailtrackRoutes, bookRoutes, dashboardRoutes, flipRoutes, aiRoutes];
 
 // How the page looks and opens, set in Settings, Appearance.
 // welcome: { done, seen: [setup ids], uses: [use ids], hideLeft } (see public/setup.js)
@@ -151,7 +156,7 @@ async function boardState() {
   const windows = await listWindows();
   return {
     now,
-    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, tasks: tasks(), taskStatus: taskStatus(), granola: granolaStatus(), noteMarks: noteMarks(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, belongs: belongsAll(), unsorted: unsortedCount(), share: shareState(), chat: chatBoard(), changedBy: changedBy(), sharedBy: sharedBy(), sharedPrs: github().sharedPrs || [], voice: voiceState(), agents: agentsNow(),
+    spaces: spaces(), profiles: profiles(), reading: reading(), feedCount: feeds().length, flips: flipsBrief(), tasks: tasks(), taskStatus: taskStatus(), granola: granolaStatus(), noteMarks: noteMarks(), prefs: { ...PREFS, ...getSetting('prefs', {}) }, belongs: belongsAll(), unsorted: unsortedCount(), share: shareState(), chat: chatBoard(), changedBy: changedBy(), sharedBy: sharedBy(), sharedPrs: github().sharedPrs || [], voice: voiceState(), engine: engine.brief(), agents: agentsNow(),
     webhooks: webhookList().length,
     deliveries: deliveriesForBoard(), mailtrack: mailtrackForBoard(), books: booksForBoard(), voice: voiceStatus(),
     routines: routines(),
@@ -426,6 +431,12 @@ function startAll() {
   // Jarvis's nightly tidy of what he knows (lib/jarvismemory.js): checked each hour, never starts LM Studio.
   // A local model LM Studio has let go of but whose process lingers on the graphics card: stopped (lib/jarvis.js).
   setInterval(() => sweepModels().catch(() => {}), 2 * 60e3);
+  // Switchboard's own model (lib/engine.js): one left running across a restart is taken over; it stops after its idle minutes.
+  engine.adopt().catch(() => {});
+  setInterval(() => engine.sweep().then((c) => c && changed()).catch(() => {}), 60e3);
+  // Past Local AI chats clear themselves after 30 days (lib/localchats.js).
+  const sweepLocalChats = () => { try { if (sweepChats()) changed(); } catch (e) { console.warn('[localchats]', e.message); } };
+  sweepLocalChats(); setInterval(sweepLocalChats, 60 * 60e3);
   setInterval(() => { if (tidyDue()) tidyNow({ wake: false }).catch((e) => console.warn('[jarvis] tidy', e.message)); }, 60 * 60e3);
   // Codex's plan limits, from its newest session log (Claude Code's come with its status line).
   readCodexLimits(); setInterval(() => { if (readCodexLimits()) changed(); }, 5 * 60e3);
@@ -443,6 +454,27 @@ function startAll() {
   setInterval(() => pollMailtrack().then((c) => c && changed()).catch(() => {}), 2 * 60e3);
   // Project dashboards' website checks that are due (lib/dashboard.js): hourly look, each site on its own schedule.
   setInterval(() => dueChecks(changed).catch(() => {}), 60 * 60e3);
+  // Flips (lib/flips.js): eBay every five minutes or so (a good listing goes
+  // fast; a new deal is an alert; ebayDue spaces the looks under eBay's daily
+  // limit), auction sites' alert emails every 10 minutes, GSA's surplus list
+  // every half hour (hourly on the shared key). None runs
+  // until set up.
+  const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
+  const flipAlert = (fresh) => {
+    const where = { misspelled: ' (misspelled)', pickup: ' (pickup near you)', ending: ' (auction ending)' };
+    const worth = fresh.filter(alertable).sort((a, b) => b.hot - a.hot);
+    for (const d of worth.slice(0, 3)) {
+      const what = d.auction ? `bid up to ${money(d.bidTo)}${d.endsAt ? `, ends ${new Date(d.endsAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}` : `${money(d.total)}, about ${money(d.v.profit)} profit after fees`;
+      alert('flips', `${d.hot ? 'Hot deal' : 'Deal'}${d.how === 'alert' ? ` on ${d.sourceName}` : where[d.how] || ''}: ${d.name.slice(0, 60)}`, `${what}; sells for about ${money(d.sells)}`);
+    }
+    if (fresh.length) changed();
+  };
+  const gsaAlert = (c) => { for (const l of takeGsaNews().slice(0, 2)) alert('flips', `Surplus lot near you: ${l.name.slice(0, 60)}`, `${l.city}, ${l.state}; matches ${l.hits.join(', ')}; ${l.bid ? money(l.bid) + ' bid' : 'no bids yet'}`); if (c) changed(); };
+  setTimeout(() => { pollGsa().then(gsaAlert).catch(() => {}); pollEbay().then(flipAlert).catch(() => {}); }, 40e3);
+  setTimeout(() => pollAuctions().then(flipAlert).catch(() => {}), 120e3);
+  setInterval(() => { if (ebayDue()) pollEbay().then(flipAlert).catch(() => {}); }, 60e3);
+  setInterval(() => pollAuctions().then(flipAlert).catch(() => {}), 10 * 60e3);   // auction sites' alert emails (lib/flipmail.js)
+  setInterval(() => pollGsa().then(gsaAlert).catch(() => {}), 30 * 60e3);
   // News and blogs: soon after start, then every 30 minutes (feeds change slowly).
   setTimeout(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 20e3);
   setInterval(() => pollFeeds().then((c) => c && changed()).catch(() => {}), 30 * 60e3);

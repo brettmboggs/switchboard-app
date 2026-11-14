@@ -75,3 +75,11 @@ test('a new project gets an id no other project has, and the page is told which,
   assert.deepEqual(r.made, { 'new-abc123': 'garden-2' });
   assert.ok(!getSetting('spaces', []).some((s) => 'tmp' in s), 'the temporary id is not kept');
 });
+
+test('every notification switch stays off once switched off (Nov 13: eBay deals kept turning back on)', async () => {
+  const { NOTIFY_DEFAULTS } = await import('../lib/notify.js');
+  const off = Object.fromEntries(Object.keys(NOTIFY_DEFAULTS).filter((k) => k !== 'quiet').map((k) => [k, false]));
+  await call('POST', { notify: off });
+  const saved = (await call('GET')).notify;
+  for (const k of Object.keys(off)) assert.equal(saved[k], false, k);
+});

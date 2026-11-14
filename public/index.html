@@ -22,6 +22,8 @@
 <link rel="stylesheet" href="/css/components/keys.css">
 <link rel="stylesheet" href="/css/components/chart.css">
 <link rel="stylesheet" href="/css/components/speedtest.css">
+<link rel="stylesheet" href="/css/components/flips.css">
+<link rel="stylesheet" href="/css/components/fliplog.css">
 <link rel="stylesheet" href="/css/components/fileview.css">
 <link rel="stylesheet" href="/css/components/notemarks.css">
 <link rel="stylesheet" href="/css/components/members.css">
@@ -91,6 +93,7 @@
         <label for="q-text" class="sr">Message</label>
         <textarea id="q-text" rows="1" placeholder="Message the agent, or drop a file, picture or conversation here"></textarea>
         <div class="prompt-tools">
+          <label class="toggle q-think" id="q-think-box" hidden title="It works the question through before answering: better for hard questions, slower to start"><span>Think first</span><input type="checkbox" id="q-think"></label>
           <button class="ptool" type="button" id="q-attach" title="Add files or pictures"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg><span class="sr">Add files or pictures</span></button>
           <input type="file" id="q-file" multiple hidden>
           <button class="ptool txt ptool-label" type="button" id="q-bring" title="Bring in an email or chat from this project" aria-expanded="false" aria-controls="bring-pop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg><span>Messages</span></button>
@@ -367,6 +370,7 @@
           <label class="toggle"><span>A teammate writes to you or @mentions you (also on your phone)</span><input type="checkbox" data-notify="chat"></label>
           <label class="toggle"><span>Packages: out for delivery, delivered, delayed</span><input type="checkbox" data-notify="deliveries"></label>
           <label class="toggle"><span>Mail tracking: someone opens or clicks your email, or a person tracks one they sent you</span><input type="checkbox" data-notify="tracking"></label>
+          <label class="toggle"><span>Flips: a new eBay listing priced well under the usual</span><input type="checkbox" data-notify="flips"></label>
         </div>
         <div class="toggles">
           <label class="toggle"><span>Quiet hours</span><input type="checkbox" id="quiet-on"></label>
@@ -519,6 +523,8 @@
 <script src="/js/connlist.js"></script>
 <script src="/js/sysmon.js"></script>
 <script src="/js/speedtest.js"></script>
+<script src="/js/flips.js"></script>
+<script src="/js/fliplog.js"></script>
 <script src="/js/webhooks.js"></script>
 <script src="/js/favicon.js"></script>
 <script src="/js/boot.js"></script>

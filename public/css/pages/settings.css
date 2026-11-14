@@ -178,4 +178,8 @@
 .lai-list { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); font-size: var(--fs-sm); }
 .lai-get { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); }
 .lai-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.lai-engine-set { justify-content: flex-start; flex-wrap: wrap; }
+.lai-engine-set label { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
+.lai-engine-set select { max-width: 22rem; }
+.warn-text { color: var(--warn); }
 .feed-list { display: grid; gap: var(--sp-2); }

@@ -41,7 +41,7 @@ function renderSessions() {
 // is kept for the one thing that asks for you, as on Now; a second line shows
 // only when there is something more to know (a queue, a build gone wrong).
 const shortAgo = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'now' : m < 60 ? m + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
-function lineGroup(t) { return t.ci?.fullName?.split('/')[1] || (t.cwd || '').split(/[\\/]/).filter(Boolean).pop() || t.name; }
+function lineGroup(t) { if (t.agent === 'engine') return 'Local AI chats'; return t.ci?.fullName?.split('/')[1] || (t.cwd || '').split(/[\\/]/).filter(Boolean).pop() || t.name; }
 function sessionLines() {
   const terms = visibleTerms();
   const groups = new Map();
@@ -84,6 +84,18 @@ const TERM_STATE = { running: 'Working', waiting: 'Needs you', finished: 'Your t
 
 // The bar over the terminal: what it is, how long it has been doing it, and the
 // controls a terminal window would have.
+// A Local AI (Switchboard) session: whether the model is on the graphics card, and Unload (lib/engine.js).
+function engineChip() {
+  const e = S.engine || {};
+  if (e.status === 'ready') return `<span class="tb-engine" title="${esc(e.name || '')} is on the graphics card. It unloads by itself after a few idle minutes.">model loaded <button class="tb-btn" type="button" data-engine-unload>Unload</button></span>`;
+  if (e.status === 'loading') return '<span class="tb-engine">model loading…</span>';
+  return '<span class="tb-engine" title="It loads onto the graphics card with your next message (about 10 seconds).">model not loaded</span>';
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-engine-unload]'); if (!b) return;
+  b.disabled = true;
+  try { await api('/api/ai/stop', {}); toast('Unloaded the model. It loads again with your next message.'); await load(); } catch (err) { toast(err.message, { kind: 'error' }); }
+});
 function renderTermBar() {
   const t = termByKey(currentTerm), el = $('term-bar');
   if (!t || !el) return;
@@ -91,6 +103,7 @@ function renderTermBar() {
   const size = Number(S?.prefs?.termSize) || 13.5;
   const meta = [
     t.agent !== 'claude' ? `<span>${esc(t.agentName)}</span>` : '',
+    t.agent === 'engine' ? engineChip() : '',
     liveReadout(t),
     branch && !/^(main|master)$/.test(branch) ? `<span title="The branch: a separate line of work in this folder">on ${esc(branch)}</span>` : '',
     devChips(t),
@@ -237,6 +250,10 @@ function syncTerminal() {
       navigator.clipboard.writeText(term.getSelection()).then(() => toast('Copied.'), () => {});
       return false;
     }
+    // Ctrl+V in a Claude session is the browser's paste (caught below), not ^V:
+    // ^V makes Claude Code read the clipboard itself and fold long text into
+    // "[Pasted text #1 +22 lines]".
+    if (!e.shiftKey && !e.altKey && !e.metaKey && e.ctrlKey && (e.key === 'v' || e.key === 'V') && isClaudeTerm()) return false;
     // Ctrl+Backspace deletes the word before the cursor, as in every text box.
     // The terminal would send ^H (one character back); ^W is "delete a word" in
     // Claude Code, Codex and any shell.
@@ -248,14 +265,24 @@ function syncTerminal() {
     // new line (its Ctrl+J), Ctrl+Enter sends now even while it works (its
     // Ctrl+X Ctrl+S). Anywhere else Enter stays Enter.
     if (e.key === 'Enter' && !e.altKey && !e.metaKey && (e.shiftKey !== e.ctrlKey)) {
-      const t = termByKey(currentTerm);
-      if (t && (t.agent === 'claude' || t.claude_id)) {
+      if (isClaudeTerm()) {
         if (e.type === 'keydown') { e.preventDefault(); term.input(e.shiftKey ? '\n' : '\x18\x13'); }
         return false;
       }
     }
     return true;
   });
+  // Text pasted into a Claude session is typed in, so it shows as text, not
+  // "[Pasted text #1 +22 lines]" (typeSlowly).
+  host.addEventListener('paste', (e) => {
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (!isClaudeTerm()) return;
+    // A picture (no text): Claude Code's own Ctrl+V takes it from the clipboard, as before.
+    if (!text) { e.preventDefault(); e.stopImmediatePropagation(); term.input('\x16'); return; }
+    if (!typedPieces(text)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    typeSlowly(term, text);
+  }, onWin);   // #term-host outlives this terminal: the listener goes with it (termMouse)
   termGpu(term);
   try { fit.fit(); } catch {}
   const t0 = termByKey(currentTerm);
@@ -363,8 +390,43 @@ function termDetail() {
   if (!t && window.WEB) return `<div class="lines-empty"><h2>Shared sessions</h2><p class="muted">Open one to follow it as the Chat view. What you send goes to whoever shares it, who lets it in.</p></div>`;
   if (!t) return `${allTerms().length ? sessionLines() : ''}<div class="lines-empty"><h2>Claude, inside Switchboard</h2><p class="muted">Start a session and it shows here: type in the terminal like always, or queue messages so they go in when Claude is free.</p></div>`;
   const rename = renaming === t.key ? `<form class="rename-form" id="rename-form"><label for="rename-input" class="sr">Session name</label><input id="rename-input" type="text" maxlength="60" value="${esc(renameVal ?? (t.named ? t.name : ''))}" placeholder="${esc(termLabel(t))}" autocomplete="off"><button class="btn btn--primary" type="submit">Save</button><button class="btn" type="button" data-rename-cancel>Cancel</button></form>` : '';
-  return rename + sessionLines() + sessionMessages(t) + sessionNotes(t);
+  return rename + sessionLines() + (t.agent === 'engine' ? pastChats(t) : sessionMessages(t) + sessionNotes(t));
 }
+
+// Past Local AI chats (lib/localchats.js): only while a Local AI chat is open (Nov 13 2026).
+// Click one to carry it on; Delete asks once ("Delete? Yes"); they clear themselves after 30 days.
+const lc = { list: null, at: 0, armed: null, busy: false };
+async function lcLoad(force = false) {
+  if (lc.busy || (!force && lc.list && Date.now() - lc.at < 15000)) return;
+  lc.busy = true;
+  try { const r = await api('/api/ai/chats'); lc.list = r.chats; lc.keep = r.keepDays; lc.at = Date.now(); } catch {}
+  lc.busy = false;
+  const el = $('lc-past'); if (el) el.outerHTML = pastChats(termByKey(currentTerm));
+}
+function pastChats(t) {
+  lcLoad();
+  const past = (lc.list || []).filter((c) => !c.open);
+  const rows = past.map((c) => `<div class="lc-row"><button class="lc-open" type="button" data-lc-open="${esc(c.id)}" title="${esc(c.title)}"><span class="lc-title">${esc(c.title)}</span><span class="lc-ago">${shortAgo(c.at)}</span></button><button class="btn btn--quiet lc-del" type="button" data-lc-del="${esc(c.id)}">${lc.armed === c.id ? 'Delete? Yes' : 'Delete'}</button></div>`).join('');
+  return `<section class="lc-past" id="lc-past" aria-label="Past Local AI chats"><div class="lc-head"><span class="lg-name">Past chats</span>${past.length > 1 ? `<button class="btn btn--quiet lc-del" type="button" data-lc-del="*">${lc.armed === '*' ? 'Delete all? Yes' : 'Delete all'}</button>` : ''}</div>
+    ${!lc.list ? '<p class="lines-note">Loading…</p>' : past.length ? `<div class="lc-list">${rows}</div>` : '<p class="lines-note">Chats you end show here to pick up again.</p>'}
+    <p class="lines-note">Kept ${lc.keep || 30} days after their last message, then cleared.</p></section>`;
+}
+document.addEventListener('click', async (e) => {
+  const op = e.target.closest('[data-lc-open]');
+  if (op) {
+    op.disabled = true;
+    try { const r = await api('/api/ai/chats/reopen', { id: op.dataset.lcOpen }); currentTerm = r.id; store.set('term', r.id); lc.at = 0; await load(); openTerm(r.id); }
+    catch (err) { toast(err.message, { kind: 'error' }); op.disabled = false; }
+    return;
+  }
+  const del = e.target.closest('[data-lc-del]'); if (!del) return;
+  const id = del.dataset.lcDel;
+  if (lc.armed !== id) { lc.armed = id; lcLoad(true); setTimeout(() => { if (lc.armed === id) { lc.armed = null; const el = $('lc-past'); if (el) el.outerHTML = pastChats(termByKey(currentTerm)); } }, 6000); return; }
+  lc.armed = null; del.disabled = true;
+  try { const r = await api('/api/ai/chats/delete', id === '*' ? { all: true } : { id }); lc.list = r.chats; lc.at = Date.now(); toast(r.deleted === 1 ? 'Chat deleted.' : `${r.deleted} chats deleted.`); }
+  catch (err) { toast(err.message, { kind: 'error' }); }
+  const el = $('lc-past'); if (el) el.outerHTML = pastChats(termByKey(currentTerm));
+});
 
 // End session: End on the bar, then "End it" in the same place. The question
 // stays until it is answered (no timer), and a click anywhere else, or another
@@ -408,6 +470,7 @@ function renderTermCompose() {
   qs.querySelector('.sr').textContent = free ? 'Send' : 'Queue';
   if (!free && !qs.querySelector('.ql')) qs.insertAdjacentHTML('afterbegin', '<span class="ql">Queue</span>');
   if (free) qs.querySelector('.ql')?.remove();
+  $('q-think-box').hidden = t.agent !== 'engine';   // Think first: only a Local AI (Switchboard) session
   $('q-hint').textContent = asking ? 'Enter sends this instead (answers No)' : free ? 'Enter to send · Shift+Enter for a new line' : `${t.agentName} is working · Enter queues it`;
   // Drawn again only when it changes: a redraw under the mouse swallowed clicks on its buttons.
   const qHtml = t.queued.map((q, i) => `<div class="qline ${q.held ? 'held' : ''}" title="${esc(q.text)}"><span class="qn">${q.held ? 'Held' : 'Next' + (i ? ' +' + i : '')}</span><span class="txt">${esc(q.text)}</span><span class="src">${esc(q.source)}</span>${q.held ? `<button type="button" class="go" data-q="${esc(q.id)}" data-qa="release">Send when free</button>` : ''}${q.held && / asks$/.test(q.source || '') ? `<button type="button" data-letin="${esc(q.id)}" title="Send this, and let their messages into this session from now on without asking">Always let them in</button>` : ''}<button type="button" data-q="${esc(q.id)}" data-qa="now" title="Send it in right now: stops what ${esc(t.agentName)} is doing first, like Ctrl+Enter">Send now</button>${q.source === 'You' ? `<button type="button" data-q="${esc(q.id)}" data-qa="back" title="Take it out of the queue and back into the message bar, to change it or send it later">Edit</button>` : `<button type="button" data-q="${esc(q.id)}" data-qa="drop" title="Remove from the queue">Remove</button>`}</div>`).join('');
@@ -670,7 +733,10 @@ function syncNewFolder() {
 $('nt-folder').addEventListener('change', syncNewFolder);
 $('nt-git').addEventListener('change', () => { $('nt-gh').disabled = !$('nt-git').checked; if (!$('nt-git').checked) $('nt-gh').checked = false; });
 function syncAgentFields() {
-  const a = ntAgent(), custom = $('nt-agent').value === 'custom';
+  const a = ntAgent(), custom = $('nt-agent').value === 'custom', chat = $('nt-agent').value === 'engine';
+  // A Local AI chat needs no folder: it runs in Switchboard's own (lib/terminals.js LOCAL_CHATS).
+  for (const el of [$('nt-folder'), document.querySelector('label[for="nt-folder"]')]) if (el) el.hidden = chat;
+  if (chat) document.querySelectorAll('.nt-new').forEach((el) => { el.hidden = true; }); else syncNewFolder();
   document.querySelectorAll('.nt-custom').forEach((el) => { el.hidden = !custom; });
   document.querySelectorAll('.nt-model').forEach((el) => { el.hidden = !a.models; });
   document.querySelectorAll('.nt-effort').forEach((el) => { el.hidden = !a.efforts; });
@@ -681,7 +747,9 @@ function syncAgentFields() {
   if (a.modelFree) $('nt-free').value = mem.model || '';
   $('nt-1m').checked = !!mem.long;
   syncLongBox();
-  $('nt-note').textContent = $('nt-agent').value === 'claude'
+  $('nt-note').textContent = $('nt-agent').value === 'engine'
+    ? 'A chat with the AI model on this computer, the same one Jarvis uses. It loads onto the graphics card with your first message (about 10 seconds) and unloads after a few idle minutes. Nothing leaves this computer.'
+    : $('nt-agent').value === 'claude'
     ? 'Runs Claude Code in that folder, inside Switchboard. Switchboard knows exactly when it is busy or free. Default keeps the model and effort you set in Claude Code itself.'
     : 'Runs it in that folder, signed in with your own account for it. Switchboard treats it as busy while it prints and free after a few quiet seconds.';
 }
@@ -709,7 +777,7 @@ $('newterm-form').addEventListener('submit', async (e) => {
     const mem = store.get('ntChoices', {});
     mem[ntKey()] = { model: picked, long, effort };
     store.set('ntChoices', mem);
-    let cwd = $('nt-folder').value;
+    let cwd = agent === 'engine' ? '' : $('nt-folder').value;
     if (cwd === '__new') {
       if (!$('nt-newname').value.trim()) { $('nt-msg').textContent = 'Give the new folder a name.'; $('nt-newname').focus(); return; }
       $('nt-msg').textContent = $('nt-gh').checked ? 'Making the folder and its private copy on GitHub…' : 'Making the folder…';
@@ -752,3 +820,35 @@ document.addEventListener('submit', async (e) => {
   try { await api(`/api/terms/${encodeURIComponent(t.id)}/rename`, { name: $('rename-input').value }); renaming = null; renameVal = null; await load(); toast('Renamed.'); }
   catch (err) { toast(err.message, { kind: 'error' }); }
 });
+
+// Claude Code folds a paste of more than two lines or a burst over ~800
+// characters into "[Pasted text #1 +22 lines]". In a Claude session, long text
+// is typed in instead: pieces of 400 characters a moment apart, lines joined by
+// its new-line key (Ctrl+J), tabs as spaces, a closing space so a last @file is
+// not completed. Starting with / ! or ? it stays a paste (typed, those open
+// Claude's menus). The server types queued messages the same way
+// (lib/terminals.js typedPieces).
+function isClaudeTerm() { const t = termByKey(currentTerm); return !!t && ((t.agent || 'claude') === 'claude' || !!t.claude_id); }
+function typedPieces(text) {
+  text = String(text || '').replace(/\r\n?/g, '\n');
+  if (text.split('\n').length <= 3 && text.length <= 800) return null;
+  if (/^\s*[/!?]/.test(text)) return null;
+  const out = [];
+  text.replace(/\t/g, '    ').split('\n').forEach((line, i) => {
+    if (i) out.push('\n');
+    for (let at = 0; at < line.length; at += 400) out.push(line.slice(at, at + 400));
+  });
+  out.push(' ');
+  return out;
+}
+async function typeSlowly(term, text) {
+  for (const p of typedPieces(text) || [text]) {
+    if (tv.term !== term) return;
+    term.input(p);
+    await new Promise((r) => setTimeout(r, 30));
+  }
+}
+// Text put into the terminal from elsewhere (Bring, a note): typed the same way in a Claude session.
+function pasteIntoTerm(term, text) {
+  if (isClaudeTerm() && typedPieces(text)) typeSlowly(term, text); else term.paste(text);
+}

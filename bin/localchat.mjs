@@ -2,6 +2,12 @@
 // A chat with a model on this computer, run as a Switchboard session.
 //
 //   node bin/localchat.mjs --server http://127.0.0.1:11434 --model llama3.2 --name Ollama --log <file>
+//   node bin/localchat.mjs --server http://127.0.0.1:4747/api/ai --engine --model "Qwen…" --name Switchboard --log <file>
+//
+// --engine: Switchboard's own model (lib/engine.js, through its /api/ai/v1 routes),
+// which loads on the first message. A message starting with a "/think" line lets it
+// think first (Sessions' "Think first" switch); pictures whose paths are in the
+// message (the message bar's paperclip) are sent to it as pictures.
 //
 // It talks to the model through the local server's OpenAI-style chat API
 // (Ollama on 11434, LM Studio on 1234; both offer /v1/chat/completions), prints
@@ -18,8 +24,9 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
 const arg = (k) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : null; };
-const SERVER = arg('server') || 'http://127.0.0.1:11434', MODEL = arg('model'), NAME = arg('name') || 'the local server', LOG = arg('log'), START = arg('start');
-if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(SERVER) || !MODEL) { console.error('Usage: localchat.mjs --server http://127.0.0.1:<port> --model <name> [--log file]'); process.exit(2); }
+const SERVER = arg('server') || 'http://127.0.0.1:11434', MODEL = arg('model'), NAME = arg('name') || 'the local server', LOG = arg('log'), START = arg('start'), ENGINE = process.argv.includes('--engine');
+const HEADERS = { 'Content-Type': 'application/json', 'X-Switchboard': '1' };   // Switchboard takes a POST only with this
+if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+(\/api\/ai)?$/.test(SERVER) || !MODEL) { console.error('Usage: localchat.mjs --server http://127.0.0.1:<port> --model <name> [--log file]'); process.exit(2); }
 
 const out = (s) => process.stdout.write(s);
 const DIM = '\x1b[2m', BOLD = '\x1b[1m', RESET = '\x1b[0m', GREY = '\x1b[90m';
@@ -44,11 +51,15 @@ if (LOG && existsSync(LOG)) {
 }
 
 // ---- the server: answering, or started once (ollama serve / lms server start)
+let loadedNow = true;
 async function answering() {
-  try { const r = await fetch(SERVER + '/v1/models', { signal: AbortSignal.timeout(2500) }); return r.ok; } catch { return false; }
+  try { const r = await fetch(SERVER + '/v1/models', { signal: AbortSignal.timeout(2500) }); if (ENGINE && r.ok) loadedNow = (await r.json()).loaded !== false; return r.ok; } catch { return false; }
 }
 async function ready() {
   if (await answering()) return true;
+  if (ENGINE) {   // Switchboard restarting: wait for it
+    for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 1000)); if (await answering()) return true; }
+  }
   if (START) {
     out(`${GREY}Starting ${NAME}…${RESET}\r\n`);
     const [cmd, ...args] = JSON.parse(START);
@@ -61,19 +72,35 @@ async function ready() {
 
 // ---- one reply, streamed
 let abort = null;
-async function reply() {
+// Pictures named in a message (one path on its own line, as the paperclip adds them), for a model that sees.
+const PIC = /^(\/[^\n]+\.(png|jpe?g|webp|gif))$/gim;
+const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+function withPictures(msgs) {
+  let left = 2;   // pictures go only with the last two messages that have them
+  return msgs.slice().reverse().map((m) => {
+    if (m.role !== 'user' || !ENGINE) return m;
+    const paths = [...m.content.matchAll(PIC)].map((x) => x[1]).filter((f) => existsSync(f));
+    if (!paths.length || left <= 0) return m;
+    left--;
+    const text = m.content.replace(PIC, '').trim() || 'What is in this picture?';
+    return { role: 'user', content: [{ type: 'text', text }, ...paths.map((f) => ({ type: 'image_url', image_url: { url: `data:${MIME[f.split('.').pop().toLowerCase()]};base64,${readFileSync(f).toString('base64')}` } }))] };
+  }).reverse();
+}
+async function reply(think = false) {
   if (!(await ready())) return;
   abort = new AbortController();
   let text = '', thinking = false;
   out(`\r\n${BOLD}${MODEL}${RESET}\r\n`);
+  if (ENGINE && !loadedNow) out(`${GREY}Loading the model onto the graphics card (about 10 seconds)…${RESET}\r\n`);
   try {
     const r = await fetch(SERVER + '/v1/chat/completions', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abort.signal,
-      body: JSON.stringify({ model: MODEL, messages: history, stream: true })
+      method: 'POST', headers: HEADERS, signal: abort.signal,
+      body: JSON.stringify({ model: MODEL, messages: withPictures(history), stream: true, ...(ENGINE ? { chat_template_kwargs: { enable_thinking: think }, ...(think ? { temperature: 0.6, top_p: 0.95, top_k: 20 } : { temperature: 0.7, top_p: 0.8, top_k: 20 }) } : {}) })
     });
     if (!r.ok) {
       const why = await r.text().catch(() => '');
-      throw new Error(r.status === 404 ? `${NAME} has no model called ${MODEL}. Pick another in New session.` : `${NAME} answered ${r.status}${why ? ': ' + why.slice(0, 200) : ''}`);
+      let said = ''; try { said = JSON.parse(why).error || ''; } catch {}
+      throw new Error(said || (r.status === 404 ? `${NAME} has no model called ${MODEL}. Pick another in New session.` : `${NAME} answered ${r.status}${why ? ': ' + why.slice(0, 200) : ''}`));
     }
     const reader = r.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -115,16 +142,21 @@ function draw() {
   shown = rowsOf(input);
 }
 async function submit() {
-  const text = input.trim();
+  let text = input.trim();
   input = ''; shown = 0;
   out('\r\n');
+  const think = /^\/think\s*(\n|$)/.test(text);
+  if (think) text = text.replace(/^\/think\s*\n?/, '').trim();
   if (!text) { draw(); return; }
   history.push({ role: 'user', content: text }); log('user', text);
+  if (history.filter((m) => m.role === 'user').length === 1) nameIt();
   busy = true;
-  await reply();
+  await reply(think);
   busy = false;
   out('\r\n'); draw();
 }
+// The session's name in Sessions: the first thing said (the terminal's title, which Switchboard reads).
+const nameIt = () => { const first = history.find((m) => m.role === 'user')?.content.replace(/^\/[^\n]+\.(png|jpe?g|webp|gif)$/gim, '').replace(/\s+/g, ' ').trim(); out(`\x1b]0;${(first || 'New chat').slice(0, 60).replace(/[\x00-\x1f\x7f]/g, '')}\x07`); };
 function end() { out('\x1b[?2004l\r\n'); process.exit(0); }
 
 function keys(s) {
@@ -158,6 +190,7 @@ process.stdin.setEncoding('utf8');
 out('\x1b[?2004h');   // ask for pasted text to arrive bracketed, newlines and all
 out(`${BOLD}Chat with ${MODEL}${RESET} ${GREY}on ${NAME}, on this computer. Enter sends · Shift+Enter a new line · Esc stops a reply · Ctrl+D ends.${RESET}\r\n`);
 if (history.length) out(`${GREY}Carrying on: ${history.length} earlier messages.${RESET}\r\n`);
+nameIt();
 out('\r\n'); draw();
 process.stdin.on('data', keys);
 process.on('SIGHUP', end);

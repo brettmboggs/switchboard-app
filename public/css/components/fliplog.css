@@ -1,0 +1,23 @@
+/* Flip log (public/js/fliplog.js), a tab of Money: four totals on top, then
+   the log, which scrolls in its own box. Profit up is --ok, a loss --bad;
+   never orange. Each row: what it is (cut with "…" and a title), what it cost,
+   its status, the sale numbers, the profit; nothing wraps. */
+.flog-page { display: flex; flex-direction: column; gap: var(--sp-4); height: calc((100vh - var(--ring-h) - var(--sp-8)) / var(--zoom, 1) - var(--sp-8) * 2 - var(--sp-4) - var(--sp-3)); min-height: 30rem; }
+.flog-stats { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-4); }
+.flog-stat { display: grid; gap: var(--sp-1); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border-faint); border-radius: var(--r-lg); background: var(--bg-raised); min-width: 0; }
+.flog-label { font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flog-stat b { font-family: var(--font-display); font-size: var(--fs-2xl); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flog-card { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.flog-add { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.flog-add #flog-name { flex: 2 1 0; } .flog-add #flog-where { flex: 1 1 0; }
+.flog-row { display: grid; grid-template-columns: minmax(0, 1fr) 6em 7em 8em 7em 6em auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-faint); border-radius: var(--r-md); }
+.flog-row .fl-num { width: 100%; }
+.flog-name { display: grid; min-width: 0; }
+.flog-name > a, .flog-name > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--fg); text-decoration: none; }
+.flog-name > a:hover { text-decoration: underline; }
+.flog-name small { font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flog-num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.flog-profit { font-family: var(--font-display); font-size: var(--fs-md); color: var(--fg-muted); }
+.flog-profit--up { color: var(--ok); } .flog-profit--down { color: var(--bad); }
+
+@media (max-width: 1100px) { .flog-page { height: auto; } .flog-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .flog-row { grid-template-columns: minmax(0, 1fr) 6em 7em; } .flog-list { max-height: 60vh; } }

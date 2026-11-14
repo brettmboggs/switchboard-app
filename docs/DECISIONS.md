@@ -215,8 +215,8 @@ fans come from Linux's own sensor files, an NVIDIA driver, a Mac's battery, or
 OpenHardwareMonitor); when an OS keeps them behind admin or a driver, the
 monitor says so instead of loading a kernel driver or asking for admin. Apps
 are grouped by name, because a browser is thirty processes and one question.
-There is no kill button: a monitor that can end programs is a different, riskier
-feature. Would change if: Windows or macOS opens these readings to ordinary
+Ending programs came later, with care of its own (below, "Ending apps from the
+System monitor"). Would change if: Windows or macOS opens these readings to ordinary
 programs, or a person asks for history that survives a restart.
 
 **Mail tracking: Switchboard is one more client of the person's own tracker.**
@@ -1398,3 +1398,213 @@ calendar said "Press Sign in with Google again" with no such button. Now the
 refusal is remembered on the account (lib/google.js, `expired`): the Google row
 shows Sign in with Google, Now shows a Needs-you card that opens it, and signing
 in again keeps the calendars already chosen and reads them at once.
+
+## Flips: deals from eBay and nearby surplus auctions (Nov 12 2026)
+
+Brett asked for something that makes cash quickly and is exciting: watch for
+things to buy cheap and resell, light clean-up at most, small and easy to ship,
+pickup only within a short drive. The sources are read only through their own
+public APIs, never scraped: eBay's Browse API with his own free developer keys
+(lib/ebay.js) and GSA Auctions' public feed (lib/flips.js). eBay's free tier
+has no sold prices (Marketplace Insights is for approved partners), so "usual"
+is the median asking price of current listings for the same words, with the
+cheapest and dearest tenth left out, and the page says so. GSA lots are almost
+all pickup-only, so they show only within the ZIP areas set (the first three
+digits, kept in settings, not code). Not built: listing an item for sale before
+it is bought ("sell first" dropshipping from another marketplace); eBay's rules
+forbid it and an auction can be lost after the buyer has paid. Buying, bidding
+and listing stay the person's click on each site.
+
+Later the same day Brett asked for the profit math, a quick "green light or bad
+deal" for anything he finds (a ShopGoodwill RTX 3070 at a $156 bid), scans for
+misspelled listings, and more places to buy:
+
+- **Profit, not a share off** (lib/flipmath.js). "60% of the usual" left about
+  $12 on a $100 item after eBay's 13.6% fee (charged on sales tax too) and the
+  label. A deal now leaves at least the least profit worth it ($25, a setting)
+  and a fifth of what it costs, so a $30 profit on $900 is "thin". Buying adds
+  the site's buyer's premium, the person's sales tax and shipping in; the usual
+  premiums and shipping per site are defaults the page lets him change.
+- **Sells for = a third of the way up the listed prices.** Still no sold
+  prices on the free tier, so the price is read from listings of exactly the
+  item: every word of the search in the title, no other model ("Ti", "OLED",
+  "Pro"), no parts or bundles, outliers cut. The cheap end of what is listed is
+  what sells, so the 30th percentile sits near sold prices, where the median
+  asking price ran high. The page says it is from listings and links eBay's own
+  sold search (the person's browser) to make sure; a sold price he types wins.
+- **The price check reads any site through the person's own browser.** A
+  bookmark (Check in Flips) takes the page's heading and the highlighted or
+  "current bid" price and opens Flips with them; Switchboard never fetches
+  ShopGoodwill, HiBid or anyone else's pages. eBay links are read through the
+  Browse API. A web page could open the same #flips?… address; all it can do
+  is fill the form and run one read-only lookup.
+- **Misspellings** (lib/misspell.js): big brands' usual wrong spellings and
+  the typing slips on long words, searched as one eBay OR list per word, every
+  third look, with auctions ending within three hours whose bid is still under
+  the most worth bidding. Looks are spaced so a day stays under 4,000 of eBay's
+  5,000 free calls (the rest for price checks).
+- **Best Buy open box: removed the same evening.** Best Buy no longer gives
+  developer keys to Gmail or free accounts, so nobody here could turn it on.
+- **The category sweep** (Brett: "I want this to all happen without me having
+  to input manual effort"). With no search words, the radar sweeps whole eBay
+  categories (ids checked on ebay.com) between the lowest and top price, and
+  prices each new listing by its eBay catalog product (its epid): the other
+  listings of that product, kept a day, at most 10 new products a look. Search
+  words stay as an extra. Listings not tied to a catalog product are skipped;
+  guessing what they are from the title would make bad alerts.
+- **Outside eBay, nothing else can run on its own within the sites' rules.**
+  HiBid, K-BID, Municibid, Public Surplus, GovDeals, ShopGoodwill and Craigslist
+  publish no API or feed; the tools that cover them scrape, which their terms
+  forbid, and charge. GSA is the one automatic source; the rest come through
+  their alert emails after a one-time saved search on each.
+- **Kept small** (Brett: "keep SB lightweight and not bloated with bullshit
+  that barely gets used"). He chose eBay, GSA, and ShopGoodwill and HiBid
+  through their alert emails; the other eight auction sites the email reader
+  knew were taken out.
+- **Not built: reading auction sites' alert emails.** ShopGoodwill, GovDeals,
+  HiBid and PropertyRoom can email saved-search matches, but none had arrived
+  to build from; the reader waits for a real one rather than guessing formats.
+- **Flip log** (lib/fliplog.js): bought, listed, sold, with the real profit and
+  the money still tied up, in settings on this computer.
+- **The radar** (that evening: "there should be a constant radar and i should
+  get a hot deal alert on something in my buy box"). Every source runs on its
+  own while the computer is on, and a deal inside the buy box (the searches,
+  top price, least profit) is an alert; "hot" (twice the least profit and 40%
+  or more) says so first, and the buy box can alert for hot deals only.
+  Added: eBay listings for pickup only within the drive of the home ZIP (few
+  buyers drive, so they sell cheap), and the auction sites with no public API
+  through their own saved-search alert emails (lib/flipmail.js), read from the
+  person's mail on this computer. ShopGoodwill's terms forbid robots and
+  scripts on its site, and the others say much the same, so the radar never
+  fetches their pages; the emails are what they send by choice. The email
+  reader is general (item links, their names, the price after them) and not yet
+  tried on a real alert from each site; the Radar tab shows which sources are
+  on and when each last sent something.
+- The Check in Flips bookmark missed ShopGoodwill's price, which sits on the
+  line under "Price:"; it now reads a price after the label across lines, and
+  the shipping and handling ShopGoodwill lists (handling alone can be $75).
+- Phone alerts for new deals use a fixed text ("A new flip turned up."), like
+  the other kinds; the sync worker needs a deploy to know the kind.
+
+
+## Ending apps from the System monitor (Nov 12 2026)
+
+Brett asked to close programs from the monitor, with the ones safe to end
+marked. `lib/procs.js` does it, Linux first.
+
+- Every process gets a label from rules, not guesses: **keep** (the system, the
+  desktop, tmux, Switchboard itself, anything run by another user: no End, and
+  the server refuses it too), **ask first** (a Switchboard session's processes,
+  found by the SWITCHBOARD_TERM tag sessions already carry; an AI agent; anything
+  inside tmux; an AI app or an LM Studio model, since a model another app owns
+  is not ours to drop; a browser; an editor; anything busy right now) and
+  **safe to end** (yours and idle). An app takes the most careful label of its
+  processes that can end, so one Switchboard among ten node processes does not
+  hide End for the other nine.
+- End is polite first: SIGTERM to the top processes, which close their own
+  helpers, then to the rest after 1.5 s. Whatever is left after 5 s comes back
+  to the page, which offers Force end (SIGKILL) as a second click. "Ask first"
+  needs a "Sure? End it" click, and Jarvis asks for a yes.
+- The page sends each process's start time with its pid, and the server checks
+  it, so a pid reused by a new program in the meantime is never ended.
+- The hint for something big sitting idle (2 GB or a tenth of memory, no
+  processor use, open half an hour) names it once, in the verdict box, with End
+  and Details. It is not orange: nothing needs you, it is only worth knowing.
+- Left out on purpose, to keep it light: priority and core affinity, which
+  Linux's own System Monitor has and almost nobody uses.
+- Mac and Windows show the numbers only (no labels, no End) until someone can
+  test there; the rules read /proc.
+
+
+## Switchboard runs the local model itself; Bionic retired (Nov 13 2026)
+
+Qwen failed to load in Bionic with "unable to allocate CUDA0 buffer" a third
+time. The log showed why: Jarvis had loaded Gemma (9.3 GB) through LM Studio a
+minute before, and Qwen needs about 7 GB on the card even with most of it in
+system memory; a 12 GB card holds one or the other. On Nov 12 some of Bionic's
+Qwen loads also asked for all 21 GB on the card, which never fits. Brett asked
+for a fix for good, preferring Switchboard over Bionic.
+
+- One model, one engine, one referee. `lib/engine.js` runs llama.cpp's
+  llama-server directly (LM Studio's newest bundled engine and its libraries;
+  no new dependency, nothing downloaded) and both Jarvis and Sessions' Local AI
+  sessions use it. When it is there Jarvis never asks or wakes LM Studio.
+- The chat lives in Sessions, not a page of its own (Brett, Nov 13: "these models
+  should live within Sessions"; a separate AI chat page was built first and taken
+  out the same day). It is a session kind, "Local AI (Switchboard)", run by the
+  same bin/localchat.mjs as Ollama and LM Studio sessions, talking to the model
+  through `/api/ai/v1` (OpenAI-style, Switchboard's own header and host checks),
+  so the Chat view, the paperclip, Stop and the queue all work as they do for
+  Claude. "Think first" in the message bar sends a /think line the chat program
+  takes off. Its settings live in Settings, Connections, Local AI models.
+- No folder for a Local AI chat (Brett: "whys this for just a chat?"): it runs in
+  Switchboard's data folder (chats/local) and is named by its first message (the
+  chat program sets its terminal title). Past chats show in the Sessions list
+  only while a Local AI chat is open (his choice, over always or in New
+  session), click to carry one on in a new session with the same log, Delete or
+  Delete all; they clear 30 days after the last message (lib/localchats.js). A
+  chat reopened and in use is never taken by Delete all or the clear-out.
+- A Local AI session opens in Chat view even when Settings' default for sessions
+  is Terminal (that default is for coding agents); Terminal stays a click away.
+  Chat view reads the chat's kept log (terms.chat): the first build left that
+  column out of the lookup and Chat view showed nothing.
+- The history is the chat files in chats/local, not session records: the first
+  build listed records, and a new chat reusing the name "sb-ai-chat" replaced an
+  ended chat's record, so it vanished from the history (Brett, Nov 13). Local AI
+  sessions now never reuse an ended chat's name either.
+- One loaded copy is shared: Jarvis and every session use it at once loaded,
+  with no reloading between them. Before it loads,
+  models LM Studio or Bionic hold are unloaded: Switchboard owns the card. Other
+  programs on the card (ComfyUI, a game) are never touched, only named, since
+  `--fit` then runs more of the model from system memory: slower, not broken.
+- Gemma retired for Jarvis: Qwen3.6 35B A3B is the stronger model and, measured,
+  answers faster (57 against 44 tokens a second); reading Jarvis's long prompt
+  cold is slower (2.5 s against 1.3 s), so the time and page moved out of the
+  opening into a bracketed note on each question, and the opening and tools are
+  read once and reused (0.6 s after). He is told never to say the note, and a
+  model that starts by repeating it has it cut before it is spoken.
+- Settings measured, not guessed (RTX 4070, Nov 13): `--fit on --fit-target
+  1024` sizes the load to free memory; `--batch-size/--ubatch-size 4096` took
+  prompt reading from 428 to 1536 tokens a second; 32k context 57 tokens a
+  second, 64k about 40, 128k about 32, so 32k is the default and the others are
+  a choice with their cost in words. `--parallel 2` made reading slower, so one
+  conversation at a time; Jarvis waits his turn behind a chat answer.
+  `--no-mmap` loaded in 22 s instead of 6 for nothing, so it is not used.
+- It unloads after its idle minutes (10 by default; AGENTS.md's "a few"),
+  checked every minute, never while a request is open or a slot is processing,
+  and loads again on demand. A fresh key on every start keeps web pages and
+  other programs from using it. Its settings (which model file, memory size)
+  belong to this computer and are kept out of sync.
+- Mac and Windows engine folders are guessed from LM Studio's naming and are
+  unverified.
+- Gemma's file and Bionic stay installed; nothing is deleted. Bionic is no longer
+  needed for Jarvis or Qwen. Switchboard itself was what started Bionic at each
+  login: asking `lms ls` for LM Studio's model list wakes its background service.
+  It is now asked only while LM Studio or Bionic already runs, and its last
+  answer is kept in the data folder (lms-models.json).
+- Jarvis waits through a Switchboard restart (up to 45 s, "One moment:
+  Switchboard is restarting…") and asks again when an answer was cut off before
+  he said anything, instead of failing on the first try (Brett: "this needs to
+  work 100% of the time").
+
+## Forms keep what is typed when a page redraws (Nov 13 2026)
+
+A pasted eBay key vanished when the board refreshed under the Flips page (the
+page is rebuilt from scratch on every refresh), and the "paste both" check
+wiped the first key too. `keepEdits` (public/js/core.js) wraps a page's redraw:
+every field whose value differs from the drawn one is put back, with focus and
+cursor, unless the page just saved (then the saved values show). Flips and Flip
+log use it; any page that rebuilds a form should.
+
+## Long text to a Claude session is typed in, not pasted (Nov 13 2026)
+
+Brett: "show text and not this crap". Claude Code folds a paste of more than
+two lines, or any burst over about 800 characters, into "[Pasted text #1 +22
+lines]". Queued messages (lib/terminals.js typedPieces) and text pasted into a
+Claude terminal on the page (public/js/sessions.js typeSlowly) go in as pieces
+of at most 400 characters, 30 ms apart, lines joined by Ctrl+J, tabs as
+spaces, with a closing space so a last @file is not completed. Text starting
+with / ! or ? stays a paste, since typed it opens Claude's menus. Other agents
+keep the paste: Ctrl+J may send in them. Ctrl+V in a Claude terminal is the
+browser's paste, not the ^V key: ^V had Claude Code read the clipboard itself
+and fold the text. A clipboard holding only a picture still sends ^V.

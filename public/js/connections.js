@@ -154,6 +154,21 @@ function renderLocalAI() {
     wide += `<div class="lai-get"><span class="muted small">Loaded now, in the graphics card and memory:</span>${loaded.map((m) => `<div class="lai-row"><span><b title="${esc(m.path || m.id)}">${esc(m.name)}</b>${m.vram ? ` <span class="muted small">${(m.vram / 1e9).toFixed(1)} GB card · ${((m.ram || 0) / 1e9).toFixed(1)} GB memory</span>` : size(m.size)} <span class="muted small">${esc(state(m))} · ${m.held ? `held by ${esc(m.held)}` : m.auto ? 'unloads itself' : 'loaded by you'}</span>${m.nudge ? ` <span class="small">Nothing has used it for ${m.idleMin} minutes; unload it to free the card.</span>` : ''}</span><button class="btn" type="button" data-lai-unload="${esc(m.id)}">${laiArmed === m.id ? 'Unload? Yes' : 'Unload'}</button></div>`).join('')}`
       + `<div class="lai-row"><span class="small" data-lai-msg>${esc(laiMsg)}</span>${loaded.length > 1 ? `<button class="btn btn--quiet" type="button" data-lai-unload="*">${laiArmed === '*' ? 'Unload all? Yes' : 'Unload all'}</button>` : ''}</div></div>`;
   } else if (laiMsg) wide += `<div class="lai-get"><span class="small">${esc(laiMsg)}</span></div>`;
+  // Switchboard's own model (lib/engine.js): the one Jarvis and Local AI sessions use.
+  const E = L.engine;
+  if (E?.model) {
+    const MEM = { 16384: '16k: fastest', 32768: '32k: fast (best)', 65536: '64k: about a third slower', 131072: '128k: about half the speed' };
+    const c = E.card, others = (c?.others || []).filter((o) => o.mb >= 512);
+    const state = E.running ? `Loaded${E.idleFor == null ? ', answering' : E.idleFor < 1 ? '' : `, idle ${E.idleFor} min`}` : E.status === 'loading' ? 'Loading…' : 'Not loaded: it loads with the next question';
+    wide = `<div class="lai-get lai-engine"><span class="muted small">Switchboard's model, for Jarvis and Local AI sessions (New session, Agent: Local AI (Switchboard)):</span>
+      <div class="lai-row"><span><b title="${esc(E.model.path)}">${esc(E.running?.name || E.model.name)}</b> <span class="muted small">${esc(state)}${c ? ` · card ${(c.usedMb / 1024).toFixed(1)} of ${(c.totalMb / 1024).toFixed(0)} GB` : ''}</span>${others.length ? ` <span class="small warn-text" title="${esc(others.map((o) => `${o.name}: ${(o.mb / 1024).toFixed(1)} GB`).join('\n'))}">${esc(others[0].name.split(' (')[0])} is on the card too: slower</span>` : ''}</span>
+        <button class="btn" type="button" data-engine-act="${E.running ? 'stop' : 'start'}">${E.running ? 'Unload' : 'Load now'}</button></div>
+      <div class="lai-row lai-engine-set">
+        <label><span class="muted small">Model</span> <select data-engine-set="model">${E.models.map((m) => `<option value="${esc(m.path)}"${m.path === E.model.path ? ' selected' : ''}>${esc(m.name)} · ${(m.size / 1e9).toFixed(1)} GB${m.vision ? ' · sees pictures' : ''}</option>`).join('')}</select></label>
+        <label><span class="muted small">Memory</span> <select data-engine-set="ctx">${E.contexts.map((n) => `<option value="${n}"${n === E.ctx ? ' selected' : ''}>${esc(MEM[n] || n)}</option>`).join('')}</select></label>
+        <label><span class="muted small">Unload after</span> <select data-engine-set="idleMin">${[5, 10, 15, 30, 60].map((n) => `<option value="${n}"${n === E.idleMin ? ' selected' : ''}>${n} idle min</option>`).join('')}</select></label>
+      </div>${E.status === 'error' && E.error ? `<div class="small bad-text">${esc(E.error)}</div>` : ''}</div>` + wide;
+  }
   const rest = others.filter((s) => !(lm && s.id === 'lmstudio'));
   if (rest.length) wide += `<div class="lai-list">${rest.map((s) => `<span>${esc(s.name)}: ${s.models.length} model${s.models.length === 1 ? '' : 's'} running</span>`).join('')}</div>`;
   el.innerHTML = `<div class="acct-main"><b>Local AI models</b><span class="acct-line">${line}</span></div>
@@ -174,6 +189,20 @@ document.addEventListener('click', async (e) => {
     const r = await api('/api/localai/unload', id === '*' ? { all: true } : { id });
     SET.localAI = { ...SET.localAI, loaded: r.loaded || [] }; laiMsg = r.message || 'Unloaded.';
   } catch (err) { laiMsg = err.message; }
+  renderLocalAI();
+});
+// Switchboard's model: Load now / Unload, and its settings (a running model loads again with a new one).
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-engine-act]'); if (!b) return;
+  b.disabled = true; b.textContent = b.dataset.engineAct === 'start' ? 'Loading…' : 'Unloading…';
+  try { SET.localAI = { ...SET.localAI, engine: await api('/api/ai/' + b.dataset.engineAct, {}) }; } catch (err) { toast(err.message, { kind: 'error' }); }
+  renderLocalAI();
+});
+document.addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-engine-set]'); if (!sel) return;
+  const k = sel.dataset.engineSet;
+  sel.disabled = true;
+  try { SET.localAI = { ...SET.localAI, engine: await api('/api/ai/settings', { [k]: k === 'model' ? sel.value : Number(sel.value) }) }; toast('Saved.'); } catch (err) { toast(err.message, { kind: 'error' }); }
   renderLocalAI();
 });
 document.addEventListener('click', async (e) => {

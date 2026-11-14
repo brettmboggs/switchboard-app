@@ -19,7 +19,7 @@ const chatModes = store.get('chatModes', {});   // session key -> 'chat' | 'term
 let cv = null;                    // the open chat: { key, id, file, start, end, items, first, tools, ids, ... }
 
 // Agents besides Claude whose conversation Switchboard can read (lib/chatview.js).
-const CHAT_AGENTS = new Set(['localai', 'lmstudio', 'codex']);
+const CHAT_AGENTS = new Set(['engine', 'localai', 'lmstudio', 'codex']);
 // Why a session cannot show as a chat (null when it can).
 function chatBlocked(t) {
   if (!t) return 'No session.';
@@ -28,9 +28,11 @@ function chatBlocked(t) {
   if (t.agent !== 'claude' && !t.claude_id && !CHAT_AGENTS.has(t.agent)) return `Chat view reads the conversation an agent keeps. ${t.agentName} keeps none Switchboard can read yet, so it shows its terminal.`;
   return null;
 }
+// A Local AI (Switchboard) session is a chat first: it opens as one whatever the default for
+// coding agents is (Settings, General), and Terminal stays a click away (Nov 13 2026).
 function chatOn(key) {
   const t = termByKey(key);
-  return !!(t && !chatBlocked(t) && (chatModes[key] || defaultView()) === 'chat');
+  return !!(t && !chatBlocked(t) && (chatModes[key] || (t.agent === 'engine' ? 'chat' : defaultView())) === 'chat');
 }
 const defaultView = () => (S?.prefs?.sessionView === 'term' ? 'term' : 'chat');
 // A new default from Settings or the first-time note: every session follows it.

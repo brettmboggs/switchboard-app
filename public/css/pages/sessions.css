@@ -391,3 +391,18 @@ body[data-page="sessions"] .chat-host { flex: 1 1 auto; }
 .ses-msgs .bring-acts { display: flex; gap: var(--sp-1); padding: 0 var(--sp-2) var(--sp-2); }
 .ses-msgs .bring-more { opacity: 1; margin: 0; }
 .ses-msgs .bring-item.unread .bi-who::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: var(--sp-2); vertical-align: middle; }
+/* A Local AI (Switchboard) session (lib/engine.js): Think first in the message bar, and
+   the model's state with Unload in the session bar. Never orange: nothing needs you. */
+.q-think { gap: var(--sp-2); font-size: var(--fs-sm); color: var(--con-fg-dim); white-space: nowrap; margin-right: var(--sp-2); cursor: pointer; }
+.tb-engine { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
+/* Past Local AI chats (public/js/sessions.js pastChats): under the session list while a
+   Local AI chat is open. A title cut with "…", how long ago, Delete; never orange. */
+.lc-past { display: grid; gap: var(--sp-1); margin-top: var(--sp-3); }
+.lc-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.lc-list { display: grid; gap: var(--sp-1); max-height: 22rem; overflow-y: auto; }
+.lc-row { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; border-radius: var(--r-sm); }
+.lc-row:hover { background: var(--bg-hover); }
+.lc-open { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); background: none; border: 0; color: var(--fg); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.lc-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lc-ago { flex: none; font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.lc-del { flex: none; min-height: 0; padding: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); white-space: nowrap; }

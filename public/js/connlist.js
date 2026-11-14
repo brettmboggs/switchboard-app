@@ -21,7 +21,7 @@ const CONN_CATALOG = [
   { key: 'claude', cat: 'coding', name: 'Claude Code', what: 'Run Claude sessions inside Switchboard and see which need you.', on: (S) => !!S.status.hooks },
   { key: 'codex', cat: 'coding', name: 'ChatGPT (Codex)', what: 'OpenAI\'s coding agent, signed in with your ChatGPT plan.', on: (S) => agentReady(S, 'codex') },
   { key: 'gemini', cat: 'coding', name: 'Gemini', what: 'Google\'s coding agent, signed in with your Google account.', on: (S) => agentReady(S, 'gemini') },
-  { key: 'localai', cat: 'coding', name: 'Local AI models', what: 'Ollama or LM Studio: private, free models that run on this computer.', on: (S) => (S.agents || []).some((a) => (a.id === 'localai' || a.id === 'lmstudio') && a.installed) },
+  { key: 'localai', cat: 'coding', name: 'Local AI models', what: 'Switchboard\'s own model, Ollama or LM Studio: private, free models that run on this computer.', on: (S) => (S.agents || []).some((a) => (a.id === 'engine' || a.id === 'localai' || a.id === 'lmstudio') && a.installed) },
   { key: 'tasks', cat: 'automation', name: 'Todoist', what: 'Tasks due today on Now; Done ticks them off in Todoist.', on: (S) => !!S.taskStatus?.todoist?.connected },
   { key: 'trello', cat: 'automation', name: 'Trello', what: 'Cards with a due date on Now when due; Done marks them complete.', on: (S) => !!S.taskStatus?.trello?.connected },
   { key: 'asana', cat: 'automation', name: 'Asana', what: 'Tasks assigned to you, due today, on Now; Done completes them.', on: (S) => !!S.taskStatus?.asana?.connected },

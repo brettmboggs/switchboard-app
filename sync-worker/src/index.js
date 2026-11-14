@@ -45,7 +45,7 @@ const MAX_DOC = 900 * 1024;
 
 // Push to the phone. The text is fixed here on purpose: a computer only says what
 // kind of thing happened, never what it was.
-const PUSH_TEXT = { waiting: 'A session needs you.', builds: 'A build failed.', chat: 'A teammate wrote to you.' };
+const PUSH_TEXT = { waiting: 'A session needs you.', builds: 'A build failed.', chat: 'A teammate wrote to you.', flips: 'A new flip turned up.' };
 const PUSH_GAP = 60e3;          // at most one push per kind per minute per account
 const PUSH_TOKEN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,80}\]$/;
 const MAX_PHONES = 10;

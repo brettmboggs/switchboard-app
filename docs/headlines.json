@@ -1,5 +1,5 @@
 {
-  "reviewed": "2026-11-05",
+  "reviewed": "2026-11-13",
   "oneLine": "One screen for everything that wants your attention: your AI coding agents, builds, email, Teams, calendar, bills and packages.",
   "pitch": "Anything that needs you turns orange, and you can answer it right there without opening the other app. It runs on your own computer: your passwords and mail never pass through anyone else's server, and nothing is ever sent without your click.",
   "headlines": [
@@ -58,6 +58,15 @@
         "Answer its question from the laptop; the desktop session carries on."
       ],
       "ids": ["everywhere", "other-computer-session", "account"]
+    },
+    {
+      "title": "An AI that lives on your computer",
+      "cool": "Hold Ctrl+Space and talk: Jarvis answers out loud and does it, from opening a session to setting a reminder. Or start a Local AI session in Sessions and chat with the same model in writing, pictures too. It runs on your own graphics card, so it is free and nothing you say leaves the computer, and Switchboard loads and unloads it so it never sits on the card unused.",
+      "show": [
+        "Hold Ctrl+Space and say \"what needs me\"; he answers out loud.",
+        "New session, Agent: Local AI (Switchboard); add a photo with the paperclip and ask what it is."
+      ],
+      "ids": ["jarvis", "engine"]
     },
     {
       "title": "Private, light and yours",

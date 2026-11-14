@@ -32,7 +32,7 @@ test('only phone-worthy kinds are pushed', () => {
   const calls = spyFetch();
   for (const k of ['finished', 'email', 'teams', 'reminders', 'nonsense']) pushPhone(k);
   assert.equal(calls.length, 0);
-  assert.deepEqual([...PUSH_KINDS].sort(), ['builds', 'chat', 'waiting']);
+  assert.deepEqual([...PUSH_KINDS].sort(), ['builds', 'chat', 'flips', 'waiting']);
 });
 
 test('a teammate writing to you pushes "chat" and nothing of what they wrote (lib/chat.js)', () => {

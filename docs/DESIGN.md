@@ -430,6 +430,18 @@ chips over a grid of `.conn-tile`s, each a name, one line and an Add button;
 Coming soon tiles are dashed with no button, since a button only appears once
 it does something.
 
+**Ending apps** (System monitor, `pages/system.css`). Each app row ends in a
+`.pill.lvl` label: `.lvl--safe` green ("Safe to end"), `.lvl--ask` amber ("Ask
+first"), `.lvl--keep` grey ("Keep"), never orange. A row is clickable (and
+Enter opens it) when the computer can end apps; its details replace the list
+inside the Apps card (All apps goes back): an `.app-head` with the name, label,
+why in a sentence and totals, then the processes in a `.procs-box` that scrolls
+on its own, each with what it is, its pid and ports, its session or folder, how
+long it has been open, its numbers and End. End is `.btn--quiet`; an "ask
+first" one turns `.btn--danger` with "Sure? End it" for 5 s, and one that would
+not close turns into Force end. A big idle app is named once in `.mon-hog`
+under the verdict, with End it and Details.
+
 **Chart** (`chart.css`). Live numbers drawn as pictures, used by the System
 monitor (`pages/system.css`, `public/js/sysmon.js`). `.chart` is an SVG that
 stretches to its box: a smooth line over a soft fill of its own colour
@@ -442,6 +454,30 @@ one verdict line that says something is straining, the same "needs you" rule as
 everywhere. The page builds its skeleton once and updates it in place, so a
 refresh never interrupts a hover, a scroll or typing. `prefers-reduced-motion`
 turns the transitions and the live dot's pulse off.
+
+**Flips** (`flips.css`, `public/js/flips.js`). A tab of Money that fits one
+screen. On top the price check, "Is it a good buy?": one row of what it is,
+price, where and Check (More opens shipping, premium, a typed sold price and the
+search words), then the answer: a light in display type on its tint (Good deal
+--ok, Thin --warn, Bad deal --bad, "Pay up to" --hud) beside label-over-figure
+pairs (sells for, you keep, costs you, profit, the most to pay) and the Sold
+prices, Watch for this and I bought it buttons. The Check in Flips bookmark sits
+in the title's aside as a dashed --hud pill. Below, two columns: Deals and
+Surplus auctions nearby as two tab buttons on one card (rows: a small photo, the
+name cut with "…" and its title, a line with a --hud chip for misspelled,
+auction or open box, and on the right the price over "sells ~" and the profit
+in --ok or "bid up to"); on the right the Your buy box form, which scrolls in
+its own box when the window is short. A third tab, Radar, lists every source as a
+row: its name (a link to the site to save a search), what it watches, and on the
+right "on" in --ok or what it needs in muted text, over its last look. A hot
+deal carries a bold "Hot" chip in --ok before its source chip. Never orange: a deal does not need you.
+
+**Flip log** (`fliplog.css`, `public/js/fliplog.js`). A tab of Money: four
+stat tiles on top (profit this month, in all, money in what is unsold, usual
+days to sell; profit in --ok), then one card with an add row and the log as
+grid rows: what it is (cut with "…") over where, when and days held, what it
+cost, a status select, the sale numbers as small fields, the profit (--ok up,
+--bad down) and Remove (with Undo). The list scrolls in its own box.
 
 **Network test** (`speedtest.css`, `public/js/speedtest.js`). A large window
 like the System monitor. On top a 270° gauge (a slide-rule scale, 0, 5, 10, 25,
@@ -605,6 +641,13 @@ listens, spins a ring while it thinks and ripples while it speaks; reduced
 motion turns all of that off. The panel shows the conversation (your words
 right and muted, its answers left with a cyan rule), a message box with the mic,
 the model in use and a mute switch.
+
+### Past Local AI chats (pages/sessions.css, .lc-*)
+Under the Sessions list, only while a Local AI chat is open: a "Past chats"
+heading, then one quiet row per chat (its first message cut with "…", how long
+ago in the list's own short form, Delete which asks "Delete? Yes"), Delete all
+when there are two or more, and a muted line saying how long they are kept. The
+list scrolls in its own box. Never orange.
 
 ### AI plans (components/usage.css)
 Each plan limit (Claude's 5-hour and weekly, Codex's when used) is a small chart

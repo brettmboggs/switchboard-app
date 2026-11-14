@@ -136,10 +136,12 @@ function jvAct(a) {
   if (a.go === 'monitor') { openMonitor(); return; }
   if (a.go === 'network') { stOpen(); return; }
   if (a.window === 'speedtest') { stOpen({ announce: !!a.announce }); return; }
+  if (a.window === 'monitor') { if (!$('sys-scrim').classList.contains('open')) openMonitor(); return; }
   if (a.book) { bkOpenBook(a.book, { read: !!a.read }); return; }
   if (a.readStop) { bvStop(); return; }
   if (a.bookmark) { if (bkOn()) bkToggleBookmark(); else toast('Open a book first: Inbox, Reading.'); return; }
   if (a.reading) { inboxTab = 'reading'; store.set('inboxTab', inboxTab); BK.what = 'books'; }
+  if (a.flipCheck) { flAsk(a.flipCheck); if (page !== 'flips') location.hash = '#flips'; return; }
   if (a.go) { location.hash = '#' + a.go; return; }
   if (a.open) { currentTerm = a.open; store.set('term', currentTerm); if (location.hash !== '#sessions') location.hash = '#sessions'; else render(); }
 }
@@ -165,21 +167,41 @@ async function jvAsk(text) {
   const draw = () => { if (Date.now() - drew > 80) { drew = Date.now(); jvRender(); } };
   jvSayStart();
   try {
-    let res;
-    try { res = await fetch('/api/jarvis/stream', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Switchboard': '1' }, body: JSON.stringify({ text, history: jv.history, page, session: t ? termLabel(t) : '', model: jv.model || null }), signal: ac.signal }); }
-    catch (e) { if (ac.signal.aborted) throw e; throw new Error('Switchboard\'s server is not answering. It may be restarting after an update: wait a few seconds and try again.'); }
-    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Jarvis could not answer just now. Try again.'); }
-    const dec = new TextDecoder(); let buf = '', end = null;
-    for await (const chunk of res.body) {
-      buf += dec.decode(chunk, { stream: true });
-      let i;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i); buf = buf.slice(i + 1);
-        let o; try { o = JSON.parse(line); } catch { continue; }
-        if (o.act) jvAct(o.act);
-        else if (o.done) end = o;
-        else if (o.say) { if (!me.text) jv.log.push(me); me.text += o.say; jvFeed(o.say); draw(); }
-      }
+    // Switchboard restarting (an update, a change) takes a few seconds: Jarvis waits for it and asks
+    // again, up to 45 seconds, also when the answer was cut off before he said anything, rather than
+    // giving up on the first try (Nov 13 2026: "this needs to work 100% of the time").
+    const body = JSON.stringify({ text, history: jv.history, page, session: t ? termLabel(t) : '', model: jv.model || null });
+    const until = Date.now() + 45e3;
+    let end = null;
+    const wait = async () => {
+      if (Date.now() > until) throw new Error('Switchboard\'s server has not answered for 45 seconds. Restart Switchboard from its app or tray, then ask again.');
+      if (!me.waiting) { me.waiting = true; if (!me.text) { me.text = 'One moment: Switchboard is restarting…'; if (!jv.log.includes(me)) jv.log.push(me); jvRender(); } }
+      await new Promise((r) => setTimeout(r, 1000));
+    };
+    for (;;) {
+      let res = null;
+      try { res = await fetch('/api/jarvis/stream', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Switchboard': '1' }, body, signal: ac.signal }); }
+      catch (e) { if (ac.signal.aborted) throw e; }
+      if (!res || res.status >= 502) { await wait(); continue; }
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Jarvis could not answer just now. Try again.'); }
+      if (me.waiting) { me.waiting = false; me.text = ''; jvRender(); }
+      let said = false;
+      try {
+        const dec = new TextDecoder(); let buf = '';
+        for await (const chunk of res.body) {
+          buf += dec.decode(chunk, { stream: true });
+          let i;
+          while ((i = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, i); buf = buf.slice(i + 1);
+            let o; try { o = JSON.parse(line); } catch { continue; }
+            if (o.act) jvAct(o.act);
+            else if (o.done) end = o;
+            else if (o.say) { said = true; if (!jv.log.includes(me)) jv.log.push(me); me.text += o.say; jvFeed(o.say); draw(); }
+          }
+        }
+      } catch (e) { if (ac.signal.aborted) throw e; }
+      if (end || said) break;   // finished, or cut off part way through what he was saying: not asked twice
+      await wait();
     }
     if (!end) throw new Error('Jarvis stopped before finishing. Try again.');
     if (end.model) jv.brain = modelName(end.model);

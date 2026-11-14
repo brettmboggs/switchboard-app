@@ -1,0 +1,83 @@
+/* Flips (public/js/flips.js), a tab of Money: one screen. The price check on
+   top ("Is it a good buy?"), then deals on the left and the watch settings and
+   nearby surplus auctions on the right; each list scrolls in its own box.
+   The light: good is --ok, thin is --warn, bad is --bad, a "pay up to" answer
+   is --hud; never orange (a deal does not need you). Names cut with "…" and
+   their title; numbers and labels never wrap. */
+.fl-page { display: flex; flex-direction: column; gap: var(--sp-4); height: calc((100vh - var(--ring-h) - var(--sp-8)) / var(--zoom, 1) - var(--sp-8) * 2 - var(--sp-4) - var(--sp-3)); min-height: 30rem; }
+.fl-grid { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(26em, 1fr); gap: var(--sp-4); }
+.fl-side { display: flex; flex-direction: column; gap: var(--sp-4); min-height: 0; }
+.fl-col { display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
+.fl-list { flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-1); }
+.fl-asof { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+
+/* The price check. */
+.fl-check { flex: none; }
+.fl-cform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.fl-what { flex: 1 1 22em; }
+.fl-num { width: 8em; }
+.fl-site { width: auto; }
+.fl-more > summary { cursor: pointer; color: var(--fg-muted); font-size: var(--fs-sm); white-space: nowrap; padding: var(--sp-1) var(--sp-2); }
+.fl-more[open] { flex-basis: 100%; }
+.fl-morebox { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-2); }
+.fl-morebox .fl-lab { width: auto; }
+.fl-morebox .fl-lab:last-child { flex: 1 1 18em; }
+.fl-res { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-5); margin-top: var(--sp-3); }
+.fl-light { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; white-space: nowrap; padding: var(--sp-2) var(--sp-4); border: 1px solid currentColor; border-radius: var(--r-md); }
+.fl-light--good { color: var(--ok); background: var(--ok-tint); }
+.fl-light--thin { color: var(--warn); background: var(--warn-tint); }
+.fl-light--bad { color: var(--bad); background: var(--bad-tint); }
+.fl-light--max { color: var(--hud); background: var(--bg-raised); }
+.fl-light--none { color: var(--fg-muted); background: var(--bg-raised); font-size: var(--fs-md); }
+.fl-figs { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); margin: 0; }
+.fl-figs div { display: grid; gap: 0; }
+.fl-figs dt { font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.fl-figs dd { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fl-figs small { font-size: var(--fs-xs); color: var(--fg-muted); }
+.fl-p--good { color: var(--ok); } .fl-p--thin { color: var(--warn); } .fl-p--bad { color: var(--bad); }
+.fl-why, .fl-hint { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--fg-muted); }
+.fl-err { color: var(--bad); font-size: var(--fs-sm); }
+.fl-bm { display: inline-block; white-space: nowrap; color: var(--hud); border: 1px dashed var(--hud); border-radius: var(--r-pill); padding: 0 var(--sp-2); text-decoration: none; cursor: grab; }
+
+/* Deals and surplus lots. */
+.fl-deal, .fl-lot { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-faint); border-radius: var(--r-md); color: var(--fg); text-decoration: none; min-width: 0; }
+.fl-deal:hover, .fl-lot:hover { background: var(--bg-hover); border-color: var(--hud-ring); }
+.fl-img { flex: none; width: var(--sp-8); height: var(--sp-8); border-radius: var(--r-sm); object-fit: cover; background: var(--bg-raised); }
+.fl-mid { flex: 1; min-width: 0; display: grid; gap: var(--sp-1); }
+.fl-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.fl-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-xs); color: var(--fg-muted); }
+.fl-hot { color: var(--ok); background: var(--ok-tint); border: 1px solid var(--ok); border-radius: var(--r-sm); padding: 0 var(--sp-1); margin-right: var(--sp-1); font-weight: 700; white-space: nowrap; }
+.fl-src { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-faint); border-radius: var(--r-md); min-width: 0; }
+.fl-src a { color: var(--fg); }
+.fl-src-off { color: var(--fg-muted); font-size: var(--fs-sm); white-space: nowrap; }
+.fl-src-bad { color: var(--bad); font-size: var(--fs-sm); white-space: nowrap; }
+.fl-cats { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.fl-cat { min-height: 0; padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); white-space: nowrap; }
+.fl-lab:has(.fl-starter) { display: flex; align-items: baseline; }
+.fl-starter { margin-left: var(--sp-2); font-size: var(--fs-xs); }
+.fl-how { color: var(--hud); border: 1px solid var(--hud-ring); border-radius: var(--r-sm); padding: 0 var(--sp-1); margin-right: var(--sp-1); white-space: nowrap; }
+.fl-nums { flex: none; display: grid; justify-items: end; gap: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fl-nums b { font-family: var(--font-display); font-size: var(--fs-lg); }
+.fl-usual { font-size: var(--fs-xs); color: var(--fg-muted); }
+.fl-gap { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ok); }
+
+.fl-notes { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin-bottom: var(--sp-2); }
+.fl-note { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.fl-note--warn { color: var(--warn); }
+
+/* What Flips watches for. */
+.fl-setup { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.fl-tabs { gap: var(--sp-2); }
+.fl-tab { white-space: nowrap; }
+.fl-form { display: grid; gap: var(--sp-2); }
+.fl-lab { display: grid; gap: var(--sp-1); min-width: 0; font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.fl-lab .field { width: 100%; font-size: var(--fs-base); }
+.fl-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+.fl-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: var(--sp-2); }
+.fl-keys .field { width: 100%; }
+.fl-help { margin: 0; font-size: var(--fs-xs); color: var(--fg-muted); }
+.fl-ok { color: var(--ok); white-space: nowrap; }
+.fl-actions { display: flex; align-items: center; gap: var(--sp-3); }
+.fl-msg { font-size: var(--fs-sm); color: var(--fg-muted); }
+
+@media (max-width: 1100px) { .fl-page { height: auto; } .fl-grid { grid-template-columns: 1fr; } .fl-list { max-height: 60vh; } }

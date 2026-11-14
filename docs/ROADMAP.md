@@ -146,6 +146,11 @@ connection has no entry. Remaining: more empty states as pages grow.
   not yet a real model). Codex in the Chat view done Nov 5 (its rollout log;
   approvals still answered in Terminal). Next: Claude Code or Codex pointed
   at a local model. Mac and Windows install commands unverified.
+  Done Nov 13: Switchboard runs the model itself (lib/engine.js, llama-server
+  from LM Studio's engines, sized to the card) and owns the card; Jarvis and
+  Local AI sessions (Sessions, New session) share it, and Bionic is no longer needed. Next: download
+  a model from the page (today LM Studio or Bionic downloads it); Mac and
+  Windows engine folders unverified.
 - Outlook.com and Hotmail: parked (Nov 4). Outlook.com mail has no app
   passwords since 2024, so it needs Microsoft sign-in with personal accounts
   allowed on the Switchboard app (a setting in Microsoft Entra, Brett's), and

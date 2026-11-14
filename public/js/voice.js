@@ -229,7 +229,8 @@ async function queueAct(kind, btn) {
     else {
       await dictated;
       const imgs = images['term:' + t.key] || [];
-      const text = [$('q-text').value.trim(), ...imgs.map((x) => x.path)].filter(Boolean).join('\n');
+      let text = [$('q-text').value.trim(), ...imgs.map((x) => x.path)].filter(Boolean).join('\n');
+      if (text && t.agent === 'engine' && $('q-think').checked) text = '/think\n' + text;   // bin/localchat.mjs: think first
       if (!text) { toast('Write something first.'); return; }
       // "Type something" was picked on the agent's question: this message is the answer.
       if (kind !== 'hold' && chatOn(t.key) && cv?.menu && cv.typeOwn != null) {
@@ -297,7 +298,7 @@ document.addEventListener('click', (e) => {
   const ba = e.target.closest('[data-bring-add]');
   if (ba) {
     // On Terminal there is no message bar: the message is typed in at the cursor.
-    if (document.body.classList.contains('term-only') && tv.term) { bringText(ba.dataset.bringAdd).then((txt) => { if (txt) { tv.term.paste(txt); tv.term.focus(); } }); return; }
+    if (document.body.classList.contains('term-only') && tv.term) { bringText(ba.dataset.bringAdd).then((txt) => { if (txt) { pasteIntoTerm(tv.term, txt); tv.term.focus(); } }); return; }
     addToComposer(bringText(ba.dataset.bringAdd)); return;
   }
   const bm = e.target.closest('[data-bring-more]');

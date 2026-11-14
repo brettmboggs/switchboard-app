@@ -4,7 +4,7 @@
 // ---------- routing
 // The page the address names; a project's own page is #project/<id> (project.js), its dashboard #project/<id>/dashboard (dashboard.js).
 function pageFromHash() {
-  const h = location.hash.replace('#', '');
+  const h = location.hash.replace('#', '').split('?')[0];   // #flips?what=… carries a price check (flips.js)
   const pm = h.match(/^project\/([a-z0-9-]{1,60})(\/dashboard)?$/);
   if (pm) { if (openProject !== pm[1]) projEdit = false; openProject = pm[1]; page = 'project'; projView = pm[2] ? 'dashboard' : 'overview'; }
   else page = PAGES.some(([id]) => id === h) ? h : 'deck';   // the Deck is home (deck.js)
@@ -20,7 +20,7 @@ function rememberPage() {
   try { sessionStorage.setItem('sb.pages', JSON.stringify(pageMemory)); } catch {}
 }
 function route() {
-  const h = location.hash.replace('#', '');
+  const h = location.hash.replace('#', '').split('?')[0];
   if (PAGE_MOVED[h]) { location.replace('#' + PAGE_MOVED[h]); return; }
   rememberPage();
   const prev = page;

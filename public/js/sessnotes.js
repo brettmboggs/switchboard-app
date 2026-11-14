@@ -34,7 +34,7 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-note-add]');
   if (a) {
     const p = noteForSession(a.dataset.noteAdd).catch((err) => { toast(err.message, { kind: 'error' }); return ''; });
-    if (document.body.classList.contains('term-only') && tv.term) { p.then((txt) => { if (txt) { tv.term.paste(txt); tv.term.focus(); } }); return; }
+    if (document.body.classList.contains('term-only') && tv.term) { p.then((txt) => { if (txt) { pasteIntoTerm(tv.term, txt); tv.term.focus(); } }); return; }
     addToComposer(p); return;
   }
   const o = e.target.closest('[data-note-open]');

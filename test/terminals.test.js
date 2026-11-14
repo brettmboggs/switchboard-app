@@ -57,3 +57,17 @@ test('folders: an agent\'s git worktree is marked as a copy of its repo', async 
   const mine = folders().filter((f) => f.path.startsWith(root));
   assert.deepEqual(Object.fromEntries(mine.map((f) => [f.name, f.copyOf || null])), { shop: null, 'shop-fix': 'shop', notes: null });
 });
+
+test('a long message to Claude is typed in, not folded into "[Pasted text #1 +22 lines]"', async () => {
+  const { typedPieces, TYPE_PIECE } = await import('../lib/terminals.js');
+  assert.equal(typedPieces('one line'), null);
+  assert.equal(typedPieces('a\nb\nc'), null);                       // up to two breaks Claude shows as text
+  assert.equal(typedPieces('/compact\n1\n2\n3'), null);              // a command stays a paste
+  const long = Array.from({ length: 22 }, (_, i) => 'row ' + i + '\t' + 'x'.repeat(900)).join('\n');
+  const p = typedPieces(long);
+  assert.ok(p.every((x) => x.length <= TYPE_PIECE));
+  assert.equal(p.filter((x) => x === '\n').length, 21);
+  assert.ok(!p.join('').includes('\t'));
+  assert.equal(p.at(-1), ' ');
+  assert.equal(p.join('').trim(), long.replace(/\t/g, '    '));
+});
